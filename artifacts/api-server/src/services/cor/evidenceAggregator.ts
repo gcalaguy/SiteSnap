@@ -108,6 +108,11 @@ function getElementMapping(elementId: string): ElementMapping {
   return ELEMENT_MAPPINGS.find((m) => m.element === elementId) ?? ELEMENT_MAPPINGS[1]!; // default element_2
 }
 
+/** Classify freeform hazard/inspection text into an IHSA element, falling back to `fallbackElementId` (default: element_2, Hazard ID/PPE) when no keyword matches. Exported so callers outside this module (e.g. a manual CAPA-creation route) can classify the same text consistently with how the audit trail bucketed it. */
+export function classifyForElement(text: string, fallbackElementId = "element_2"): ElementMapping {
+  return classifyText(text) ?? getElementMapping(fallbackElementId);
+}
+
 // PSI hazard categories are fixed and well-understood, so they're mapped to an
 // IHSA element explicitly rather than run through keyword classification.
 const PSI_CATEGORY_TO_ELEMENT: Record<PsiHazardCategoryKey, string> = {
@@ -128,7 +133,7 @@ interface AuditEntry {
   companyId: number;
   projectId: number;
   submittedByUserId: number | null;
-  sourceType: "form_submission" | "inspection" | "safety_signoff" | "daily_log" | "psi_checklist";
+  sourceType: "form_submission" | "inspection" | "safety_signoff" | "daily_log" | "psi_checklist" | "voice_inspection" | "safety_scan";
   sourceRecordId: number;
   element: ElementMapping;
   findingType: "pass" | "fail";
@@ -433,5 +438,156 @@ export async function processPsiChecklist(
     await writeAuditEntries(entries);
   } catch (err) {
     logger.error({ err, psiId: psi.id }, "COR evidence aggregation failed (psi checklist)");
+  }
+}
+
+interface VoiceInspectionForEvidence {
+  id: number;
+  projectId: number;
+  submittedByUserId: number | null;
+  equipmentOrArea: string | null;
+  inspectionType: string | null;
+  locationDetails: string | null;
+  hazardSummary: string | null;
+  passStatus: "pass" | "fail" | "conditional" | null;
+  severityLevel: "low" | "medium" | "high" | "critical" | null;
+}
+
+// Shared severity → compliance-score bridge for AI features whose output is a
+// low/medium/high/critical risk level rather than a native 0-100 score.
+const RISK_SEVERITY_SCORE: Record<string, number> = {
+  critical: 10,
+  high: 35,
+  medium: 65,
+  low: 90,
+};
+
+// A voice inspection already has its own dedicated hazard→CAPA bridge
+// (createCapaFromVoiceInspection, triggered by severity + immediate_action_required),
+// so — unlike the other processors — this calls upsertCorAuditEntry directly
+// instead of writeAuditEntries, to avoid a second, undeduped CAPA ticket being
+// auto-created from the generic "fail" finding path.
+export async function processVoiceInspection(
+  inspection: VoiceInspectionForEvidence,
+  companyId: number,
+): Promise<{ element: string } | null> {
+  try {
+    const classifyInput = [
+      inspection.equipmentOrArea,
+      inspection.inspectionType,
+      inspection.locationDetails,
+      inspection.hazardSummary,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const mapping = classifyText(classifyInput) ?? getElementMapping("element_4");
+
+    const findingType: "pass" | "fail" = inspection.passStatus === "pass" ? "pass" : "fail";
+    const score = RISK_SEVERITY_SCORE[inspection.severityLevel ?? "low"] ?? 90;
+
+    await upsertCorAuditEntry({
+      companyId,
+      projectId: inspection.projectId,
+      submittedByUserId: inspection.submittedByUserId,
+      sourceType: "voice_inspection",
+      sourceRecordId: inspection.id,
+      ihsaElement: mapping.element as any,
+      ihsaElementName: mapping.name,
+      findingType,
+      findingDescription:
+        inspection.hazardSummary ??
+        `Voice inspection of ${inspection.equipmentOrArea ?? "site"}: ${inspection.passStatus ?? "conditional"}`,
+      complianceScore: score,
+      evidenceSnapshot: {
+        equipmentOrArea: inspection.equipmentOrArea,
+        inspectionType: inspection.inspectionType,
+        passStatus: inspection.passStatus,
+        severityLevel: inspection.severityLevel,
+      },
+    });
+
+    return { element: mapping.element };
+  } catch (err) {
+    logger.error({ err, inspectionId: inspection.id }, "COR evidence aggregation failed (voice inspection)");
+    return null;
+  }
+}
+
+interface SafetyScanForEvidence {
+  id: number;
+  projectId: number;
+  submittedByUserId: number | null;
+  summary: string | null;
+  complianceScore: number | null;
+  riskLevel: "low" | "medium" | "high" | "critical" | null;
+}
+
+interface SafetyScanHazardForEvidence {
+  id: number;
+  title: string;
+  description: string;
+  severity: "low" | "medium" | "high" | "critical";
+}
+
+// Like processVoiceInspection, this calls upsertCorAuditEntry directly rather
+// than writeAuditEntries — Safety Scanner hazards already have their own
+// per-hazard "Create Corrective Action" button (createCapaFromScanHazard),
+// so letting the generic "fail" finding path auto-create a second, undeduped
+// CAPA per element bucket would double up on that existing flow.
+export async function processSafetyScan(
+  scan: SafetyScanForEvidence,
+  hazards: SafetyScanHazardForEvidence[],
+  companyId: number,
+): Promise<void> {
+  try {
+    if (hazards.length === 0) {
+      const mapping = classifyForElement(scan.summary ?? "");
+      await upsertCorAuditEntry({
+        companyId,
+        projectId: scan.projectId,
+        submittedByUserId: scan.submittedByUserId,
+        sourceType: "safety_scan",
+        sourceRecordId: scan.id,
+        ihsaElement: mapping.element as any,
+        ihsaElementName: mapping.name,
+        findingType: "pass",
+        findingDescription:
+          scan.summary ?? `AI Safety Scan: no hazards identified (compliance score ${scan.complianceScore ?? 100}%)`,
+        complianceScore: scan.complianceScore ?? 100,
+        evidenceSnapshot: { riskLevel: scan.riskLevel, hazardCount: 0 },
+      });
+      return;
+    }
+
+    const byElement = new Map<string, { mapping: ElementMapping; hazards: SafetyScanHazardForEvidence[] }>();
+    for (const hazard of hazards) {
+      const mapping = classifyForElement(`${hazard.title} ${hazard.description}`);
+      if (!byElement.has(mapping.element)) byElement.set(mapping.element, { mapping, hazards: [] });
+      byElement.get(mapping.element)!.hazards.push(hazard);
+    }
+
+    for (const [, group] of byElement) {
+      const avgScore = Math.round(
+        group.hazards.reduce((s, h) => s + (RISK_SEVERITY_SCORE[h.severity] ?? 50), 0) / group.hazards.length,
+      );
+      await upsertCorAuditEntry({
+        companyId,
+        projectId: scan.projectId,
+        submittedByUserId: scan.submittedByUserId,
+        sourceType: "safety_scan",
+        sourceRecordId: scan.id,
+        ihsaElement: group.mapping.element as any,
+        ihsaElementName: group.mapping.name,
+        findingType: "fail",
+        findingDescription: `AI Safety Scan identified ${group.hazards.length} hazard(s): ${group.hazards.map((h) => h.title).join(", ")}`,
+        complianceScore: avgScore,
+        evidenceSnapshot: {
+          hazardTitles: group.hazards.map((h) => h.title),
+          severities: group.hazards.map((h) => h.severity),
+        },
+      });
+    }
+  } catch (err) {
+    logger.error({ err, scanId: scan.id }, "COR evidence aggregation failed (safety scan)");
   }
 }

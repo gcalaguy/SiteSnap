@@ -16,6 +16,9 @@ import {
   psiChecklistsTable,
   psiSignaturesTable,
   psiApprovalsTable,
+  voiceInspectionsTable,
+  safetyScansTable,
+  scanHazardsTable,
   projectsTable,
   type PolicyDocument,
   type PolicySignoff,
@@ -28,6 +31,9 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, desc, asc, ne, gte, lte, or, inArray, gt } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { ObjectStorageService } from "../../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
 
 // ── Policy Documents ──────────────────────────────────────────────────────────
 
@@ -632,11 +638,51 @@ export interface AuditorElementData {
   voiceLogs: AuditorVoiceLogRow[];
 }
 
+export interface AuditorVoiceInspectionRow {
+  id: number;
+  projectName: string | null;
+  submittedBy: string | null;
+  equipmentOrArea: string | null;
+  inspectionType: string | null;
+  passStatus: string | null;
+  severityLevel: string | null;
+  hazardSummary: string | null;
+  locationDetails: string | null;
+  immediateActionRequired: boolean;
+  recommendedActions: unknown;
+  transcript: string;
+  audioUrl: string | null;
+  createdAt: Date;
+}
+
+export interface AuditorScanHazardRow {
+  id: number;
+  title: string;
+  severity: string;
+  description: string;
+  remediation: string | null;
+}
+
+export interface AuditorSafetyScanRow {
+  id: number;
+  projectName: string | null;
+  submittedBy: string | null;
+  siteAddress: string | null;
+  summary: string | null;
+  complianceScore: number | null;
+  riskLevel: string | null;
+  hazards: AuditorScanHazardRow[];
+  reportUrl: string | null;
+  createdAt: Date;
+}
+
 export interface AuditorPortalData {
   companyName: string;
   elements: AuditorElementData[];
   recentInspections: AuditorInspectionRow[];
   recentPsiChecklists: AuditorPsiRow[];
+  recentVoiceInspections: AuditorVoiceInspectionRow[];
+  recentSafetyScans: AuditorSafetyScanRow[];
   expiringCredentialCount: number;
   flaggedSubcontractorCount: number;
   totalWorkerCount: number;
@@ -667,6 +713,9 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
       allPsiChecklists,
       allPsiSignatures,
       allPsiApprovals,
+      allVoiceInspections,
+      allSafetyScans,
+      allScanHazards,
       credRow,
       subRow,
       workerCountRow,
@@ -772,6 +821,63 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
         .from(psiApprovalsTable)
         .leftJoin(usersTable, eq(usersTable.id, psiApprovalsTable.userId))
         .where(eq(psiApprovalsTable.companyId, companyId)),
+
+      tx
+        .select({
+          id: voiceInspectionsTable.id,
+          projectName: projectsTable.name,
+          submittedByFirst: usersTable.firstName,
+          submittedByLast: usersTable.lastName,
+          equipmentOrArea: voiceInspectionsTable.equipmentOrArea,
+          inspectionType: voiceInspectionsTable.inspectionType,
+          passStatus: voiceInspectionsTable.passStatus,
+          severityLevel: voiceInspectionsTable.severityLevel,
+          hazardSummary: voiceInspectionsTable.hazardSummary,
+          locationDetails: voiceInspectionsTable.locationDetails,
+          immediateActionRequired: voiceInspectionsTable.immediateActionRequired,
+          recommendedActions: voiceInspectionsTable.recommendedActions,
+          transcript: voiceInspectionsTable.transcript,
+          audioObjectPath: voiceInspectionsTable.audioObjectPath,
+          createdAt: voiceInspectionsTable.createdAt,
+        })
+        .from(voiceInspectionsTable)
+        .leftJoin(projectsTable, eq(projectsTable.id, voiceInspectionsTable.projectId))
+        .leftJoin(usersTable, eq(usersTable.id, voiceInspectionsTable.submittedByUserId))
+        .where(and(eq(voiceInspectionsTable.companyId, companyId), gte(voiceInspectionsTable.createdAt, since)))
+        .orderBy(desc(voiceInspectionsTable.createdAt))
+        .limit(200),
+
+      tx
+        .select({
+          id: safetyScansTable.id,
+          projectName: projectsTable.name,
+          submittedByFirst: usersTable.firstName,
+          submittedByLast: usersTable.lastName,
+          siteAddress: safetyScansTable.siteAddress,
+          summary: safetyScansTable.summary,
+          complianceScore: safetyScansTable.complianceScore,
+          riskLevel: safetyScansTable.riskLevel,
+          reportObjectPath: safetyScansTable.reportObjectPath,
+          createdAt: safetyScansTable.createdAt,
+        })
+        .from(safetyScansTable)
+        .leftJoin(projectsTable, eq(projectsTable.id, safetyScansTable.projectId))
+        .leftJoin(usersTable, eq(usersTable.id, safetyScansTable.submittedByUserId))
+        .where(and(eq(safetyScansTable.companyId, companyId), gte(safetyScansTable.createdAt, since)))
+        .orderBy(desc(safetyScansTable.createdAt))
+        .limit(200),
+
+      tx
+        .select({
+          scanId: scanHazardsTable.scanId,
+          id: scanHazardsTable.id,
+          title: scanHazardsTable.title,
+          severity: scanHazardsTable.severity,
+          description: scanHazardsTable.description,
+          remediation: scanHazardsTable.remediation,
+        })
+        .from(scanHazardsTable)
+        .where(and(eq(scanHazardsTable.companyId, companyId), gte(scanHazardsTable.createdAt, since))),
 
       tx
         .select({ count: sql<number>`COUNT(*)::int` })
@@ -892,6 +998,42 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
           approvalCount: approvals.length,
         };
       }),
+      recentSafetyScans: await Promise.all(
+        allSafetyScans.map(async (s) => ({
+          id: s.id,
+          projectName: s.projectName,
+          submittedBy: s.submittedByFirst ? `${s.submittedByFirst} ${s.submittedByLast}` : null,
+          siteAddress: s.siteAddress,
+          summary: s.summary,
+          complianceScore: s.complianceScore,
+          riskLevel: s.riskLevel,
+          hazards: allScanHazards
+            .filter((h) => h.scanId === s.id)
+            .map((h) => ({ id: h.id, title: h.title, severity: h.severity, description: h.description, remediation: h.remediation })),
+          reportUrl: s.reportObjectPath
+            ? await objectStorageService.getObjectEntityReadURL(s.reportObjectPath, 900).catch(() => null)
+            : null,
+          createdAt: s.createdAt,
+        })),
+      ),
+      recentVoiceInspections: await Promise.all(
+        allVoiceInspections.map(async (v) => ({
+          id: v.id,
+          projectName: v.projectName,
+          submittedBy: v.submittedByFirst ? `${v.submittedByFirst} ${v.submittedByLast}` : null,
+          equipmentOrArea: v.equipmentOrArea,
+          inspectionType: v.inspectionType,
+          passStatus: v.passStatus,
+          severityLevel: v.severityLevel,
+          hazardSummary: v.hazardSummary,
+          locationDetails: v.locationDetails,
+          immediateActionRequired: v.immediateActionRequired,
+          recommendedActions: v.recommendedActions,
+          transcript: v.transcript,
+          audioUrl: await objectStorageService.getObjectEntityReadURL(v.audioObjectPath, 900).catch(() => null),
+          createdAt: v.createdAt,
+        })),
+      ),
       expiringCredentialCount: credRow[0]?.count ?? 0,
       flaggedSubcontractorCount: subRow[0]?.count ?? 0,
       totalWorkerCount: totalWorkers,

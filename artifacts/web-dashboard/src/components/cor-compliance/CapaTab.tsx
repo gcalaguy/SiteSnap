@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  ChevronDown, ChevronRight, FileCheck, Loader2, Lock, Pencil, Plus, Trash2, UserCheck, Wrench,
+  BadgeCheck, ChevronDown, ChevronRight, FileCheck, Loader2, Lock, Pencil, Plus, Trash2, UserCheck, Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { GOLD, BLACK, IHSA_ELEMENTS, CAPA_PRIORITY_CFG, CapaPriorityBadge, CapaS
 import type { CapaPriority, CapaTicket } from "./shared";
 import {
   useCapaList, useCapaSummary, useCreateCapa, useUpdateCapa, useCloseCapa, useVoidCapa,
+  useResolveCapa, useVerifyCapa,
 } from "@/hooks/cor-compliance/useCapa";
 import { useCompanyMembers } from "@/hooks/cor-compliance/useCompanyMembers";
 
@@ -30,6 +31,8 @@ export function CapaTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [editTicket, setEditTicket] = useState<CapaTicket | null>(null);
   const [closeTicket, setCloseTicket] = useState<CapaTicket | null>(null);
+  const [resolveTicket, setResolveTicket] = useState<CapaTicket | null>(null);
+  const [resolutionPhotoUrl, setResolutionPhotoUrl] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [capaForm, setCapaForm] = useState({ ...EMPTY_CAPA_FORM });
   const [closeForm, setCloseForm] = useState({ ...EMPTY_CLOSE_FORM });
@@ -46,6 +49,8 @@ export function CapaTab() {
     onDone: () => { setCloseTicket(null); setCloseForm({ ...EMPTY_CLOSE_FORM }); },
   });
   const voidMutation = useVoidCapa();
+  const resolveMutation = useResolveCapa(() => { setResolveTicket(null); setResolutionPhotoUrl(""); });
+  const verifyMutation = useVerifyCapa();
 
   const summary = summaryQuery.data;
   const today = new Date().toISOString().split("T")[0]!;
@@ -82,6 +87,8 @@ export function CapaTab() {
             <SelectItem value="all"            style={{ color: "#e5e5e5" }}>All Tickets</SelectItem>
             <SelectItem value="open"           style={{ color: "#e5e5e5" }}>Open</SelectItem>
             <SelectItem value="in_progress"    style={{ color: "#e5e5e5" }}>In Progress</SelectItem>
+            <SelectItem value="resolved"       style={{ color: "#e5e5e5" }}>Resolved</SelectItem>
+            <SelectItem value="verified"       style={{ color: "#e5e5e5" }}>Verified</SelectItem>
             <SelectItem value="pending_review" style={{ color: "#e5e5e5" }}>Pending Review</SelectItem>
             <SelectItem value="closed"         style={{ color: "#e5e5e5" }}>Closed</SelectItem>
             <SelectItem value="void"           style={{ color: "#e5e5e5" }}>Void</SelectItem>
@@ -96,6 +103,7 @@ export function CapaTab() {
             <SelectItem value="all"         style={{ color: "#e5e5e5" }}>All Sources</SelectItem>
             <SelectItem value="inspection"  style={{ color: "#e5e5e5" }}>Inspections</SelectItem>
             <SelectItem value="audit_trail" style={{ color: "#e5e5e5" }}>Audit Trail</SelectItem>
+            <SelectItem value="safety_scan" style={{ color: "#e5e5e5" }}>AI Safety Scanner</SelectItem>
             <SelectItem value="manual"      style={{ color: "#e5e5e5" }}>Manual</SelectItem>
           </SelectContent>
         </Select>
@@ -147,6 +155,9 @@ export function CapaTab() {
                         {ticket.sourceType === "audit_trail" && (
                           <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#71717a" }}>Auto-generated</span>
                         )}
+                        {ticket.sourceType === "safety_scan" && (
+                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#4c1d9544", color: "#c4b5fd" }}>AI Safety Scan</span>
+                        )}
                         {isOverdue && (
                           <span className="text-xs font-bold text-red-400">● OVERDUE</span>
                         )}
@@ -187,6 +198,21 @@ export function CapaTab() {
                             }}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          {(ticket.status === "open" || ticket.status === "in_progress") && (
+                            <Button size="sm" variant="ghost" className="h-7 px-2"
+                              style={{ color: "#818cf8", fontSize: 11, fontWeight: 700 }}
+                              onClick={() => { setResolveTicket(ticket); setResolutionPhotoUrl(""); }}>
+                              Resolve
+                            </Button>
+                          )}
+                          {ticket.status === "resolved" && (
+                            <Button size="sm" variant="ghost" className="h-7 px-2"
+                              style={{ color: "#22d3ee", fontSize: 11, fontWeight: 700 }}
+                              disabled={verifyMutation.isPending}
+                              onClick={() => verifyMutation.mutate(ticket.id)}>
+                              <BadgeCheck className="h-3.5 w-3.5 mr-1" />Verify
+                            </Button>
+                          )}
                           {ticket.status !== "void" && ticket.status !== "closed" && (
                             <Button size="sm" variant="ghost" className="h-7 px-2"
                               style={{ color: "#22c55e", fontSize: 11, fontWeight: 700 }}
@@ -353,6 +379,40 @@ export function CapaTab() {
               {(createMutation.isPending || updateMutation.isPending)
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : editTicket ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resolve dialog */}
+      <Dialog open={!!resolveTicket} onOpenChange={(open) => !open && setResolveTicket(null)}>
+        <DialogContent style={{ background: "#0f0f0f", border: "1px solid #2a2a2a", maxWidth: 480 }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "#e5e5e5" }} className="flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5" style={{ color: "#818cf8" }} />
+              Mark Resolved
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-zinc-400">
+              A resolution photo is required before this corrective action can be closed.
+            </p>
+            <div>
+              <Label className="text-xs text-zinc-400 mb-1 block">Resolution Photo URL *</Label>
+              <Input value={resolutionPhotoUrl} onChange={(e) => setResolutionPhotoUrl(e.target.value)}
+                placeholder="https://…"
+                style={{ background: "#1a1a1a", border: "1px solid #333", color: "#e5e5e5" }} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="text-zinc-400" onClick={() => setResolveTicket(null)}>Cancel</Button>
+            <Button style={{ background: "#818cf8", color: "#0f0f0f" }}
+              disabled={!resolutionPhotoUrl.trim() || resolveMutation.isPending}
+              onClick={() => {
+                if (!resolveTicket) return;
+                resolveMutation.mutate({ id: resolveTicket.id, resolutionPhotoUrl });
+              }}>
+              {resolveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark Resolved"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -324,10 +324,17 @@ export async function updateCapaTicket(
   return row ?? null;
 }
 
-export async function closeCapaTicket(
+/**
+ * Marks a CAPA as resolved with a required resolution photo. This is a
+ * distinct step from `closeCapaTicket` — resolution records that the fix was
+ * made and photographed; a subsequent owner/foreman verification (or direct
+ * close) confirms it. Required before `closeCapaTicket` will accept a
+ * safety_scan-sourced ticket (see gate below).
+ */
+export async function resolveCapaTicket(
   companyId: number,
   id: number,
-  opts: { closedByUserId: number; closureNotes: string; evidencePhotoUrl?: string },
+  opts: { resolvedByUserId: number; resolutionPhotoUrl: string },
 ): Promise<CapaTicket | null> {
   const [existing] = await db
     .select({ isLocked: capaTicketsTable.isLocked })
@@ -335,6 +342,72 @@ export async function closeCapaTicket(
     .where(and(eq(capaTicketsTable.companyId, companyId), eq(capaTicketsTable.id, id)));
 
   if (!existing || existing.isLocked) return null;
+
+  const [row] = await db
+    .update(capaTicketsTable)
+    .set({
+      status: "resolved",
+      resolvedAt: new Date(),
+      resolvedByUserId: opts.resolvedByUserId,
+      resolutionPhotoUrl: opts.resolutionPhotoUrl,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(capaTicketsTable.companyId, companyId), eq(capaTicketsTable.id, id)))
+    .returning();
+  return row ?? null;
+}
+
+/** Owner/foreman confirmation that a resolved CAPA's fix is acceptable. */
+export async function verifyCapaTicket(
+  companyId: number,
+  id: number,
+  opts: { verifiedByUserId: number },
+): Promise<CapaTicket | null> {
+  const [existing] = await db
+    .select({ isLocked: capaTicketsTable.isLocked, status: capaTicketsTable.status })
+    .from(capaTicketsTable)
+    .where(and(eq(capaTicketsTable.companyId, companyId), eq(capaTicketsTable.id, id)));
+
+  if (!existing || existing.isLocked || existing.status !== "resolved") return null;
+
+  const [row] = await db
+    .update(capaTicketsTable)
+    .set({
+      status: "verified",
+      verifiedAt: new Date(),
+      verifiedByUserId: opts.verifiedByUserId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(capaTicketsTable.companyId, companyId), eq(capaTicketsTable.id, id)))
+    .returning();
+  return row ?? null;
+}
+
+/** Thrown by closeCapaTicket when a safety-scan-sourced ticket is closed without resolution evidence. */
+export class CapaResolutionRequiredError extends Error {
+  constructor() {
+    super("A resolution photo is required before closing a safety-scan corrective action");
+    this.name = "CapaResolutionRequiredError";
+    Object.setPrototypeOf(this, CapaResolutionRequiredError.prototype);
+  }
+}
+
+export async function closeCapaTicket(
+  companyId: number,
+  id: number,
+  opts: { closedByUserId: number; closureNotes: string; evidencePhotoUrl?: string },
+): Promise<CapaTicket | null> {
+  const [existing] = await db
+    .select({ isLocked: capaTicketsTable.isLocked, sourceType: capaTicketsTable.sourceType, resolutionPhotoUrl: capaTicketsTable.resolutionPhotoUrl })
+    .from(capaTicketsTable)
+    .where(and(eq(capaTicketsTable.companyId, companyId), eq(capaTicketsTable.id, id)));
+
+  if (!existing || existing.isLocked) return null;
+
+  // Scanner-sourced hazards require photographic proof of the fix before close.
+  if (existing.sourceType === "safety_scan" && !existing.resolutionPhotoUrl && !opts.evidencePhotoUrl) {
+    throw new CapaResolutionRequiredError();
+  }
 
   const [row] = await db
     .update(capaTicketsTable)

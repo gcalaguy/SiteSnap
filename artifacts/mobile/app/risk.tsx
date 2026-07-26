@@ -47,6 +47,23 @@ type RiskDashboard = {
     avgRiskScore: number | null;
   };
   trend: Array<{ day: string; avgScore: number; count: number }>;
+  actionItems: Array<{
+    id: number;
+    title: string;
+    priority: string;
+    status: string;
+    dueDate: string | null;
+    assignedToName: string | null;
+    overdue: boolean;
+    sourceType: string;
+  }>;
+};
+
+const ACTION_PRIORITY_COLOR: Record<string, string> = {
+  critical: "#DC2626",
+  high: "#D97706",
+  medium: "#CA8A04",
+  low: "#16A34A",
 };
 
 // GET /api/inspection-alerts returns nested objects:
@@ -298,6 +315,8 @@ export default function RiskScreen() {
   const health = dashData?.health;
   const trend = Array.isArray(dashData?.trend) ? dashData!.trend : [];
   const topRisk = Array.isArray(dashData?.topRisk) ? dashData!.topRisk : [];
+  const actionItems = Array.isArray(dashData?.actionItems) ? dashData!.actionItems : [];
+  const overdueActionCount = actionItems.filter((a) => a.overdue).length;
   const alertCounts = dashData?.alerts ?? { critical: 0, high: 0, medium: 0, total: 0 };
   const alertsList: AlertItem[] = Array.isArray(alertsRaw) ? alertsRaw : [];
 
@@ -437,6 +456,55 @@ export default function RiskScreen() {
             )}
           </View>
 
+          {/* ── Corrective actions (incl. AI Safety Scanner hazards) ── */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Corrective Actions</Text>
+              {overdueActionCount > 0 ? (
+                <View style={[styles.countBadge, { backgroundColor: "#fee2e2" }]}>
+                  <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "Inter_700Bold" }}>
+                    {overdueActionCount} overdue
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {actionItems.length === 0 ? (
+              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Feather name="check-circle" size={28} color="#16a34a" />
+                <Text style={[styles.emptyText, { color: colors.foreground }]}>No open corrective actions</Text>
+              </View>
+            ) : (
+              actionItems.map((item) => {
+                const pColor = ACTION_PRIORITY_COLOR[item.priority] ?? colors.mutedForeground;
+                return (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.actionRow,
+                      { backgroundColor: colors.card, borderColor: item.overdue ? "#dc2626" : colors.border },
+                    ]}
+                  >
+                    <View style={[styles.priorityDot, { backgroundColor: pColor }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.actionTitle, { color: colors.foreground }]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.actionMeta, { color: colors.mutedForeground }]}>
+                        {item.assignedToName ?? "Unassigned"}
+                        {item.dueDate ? ` · Due ${item.dueDate}` : ""}
+                        {item.sourceType === "safety_scan" ? " · AI Scan" : ""}
+                      </Text>
+                    </View>
+                    {item.overdue ? (
+                      <Feather name="alert-triangle" size={14} color="#dc2626" />
+                    ) : null}
+                  </View>
+                );
+              })
+            )}
+          </View>
+
           {/* ── Alerts feed ── */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -502,6 +570,18 @@ export default function RiskScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 8,
+  },
+  priorityDot: { width: 8, height: 8, borderRadius: 4 },
+  actionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  actionMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 16,

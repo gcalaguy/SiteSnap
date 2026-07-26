@@ -82,6 +82,35 @@ export function useCloseCapa(opts?: { title?: string; description?: string; onDo
   });
 }
 
+export function useResolveCapa(onDone?: () => void) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, resolutionPhotoUrl }: { id: number; resolutionPhotoUrl: string }) =>
+      customFetch(`/api/cor/capa/${id}/resolve`, { method: "POST", body: JSON.stringify({ resolutionPhotoUrl }) }),
+    onSuccess: () => {
+      toast({ title: "CAPA marked resolved" });
+      invalidateCapaQueries(queryClient);
+      onDone?.();
+    },
+    onError: () => toast({ title: "Resolve failed", variant: "destructive" }),
+  });
+}
+
+export function useVerifyCapa(onDone?: () => void) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => customFetch(`/api/cor/capa/${id}/verify`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "CAPA verified" });
+      invalidateCapaQueries(queryClient);
+      onDone?.();
+    },
+    onError: () => toast({ title: "Verify failed", variant: "destructive" }),
+  });
+}
+
 export function useVoidCapa() {
   const { toast } = useToast();
   const queryClient = useQueryClient();

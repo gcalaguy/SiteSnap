@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useSearch } from "wouter";
-import { ClipboardList, ShieldAlert, BadgeCheck, Bot } from "lucide-react";
+import { ClipboardList, ShieldAlert, BadgeCheck, Bot, ScanEye, Headphones } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 import { useCompanyFeatures, FeatureGuard } from "@/components/FeatureGuard";
 import InspectionsPage from "@/pages/inspections";
 import SafetyPage from "@/pages/safety";
 import CorCompliancePage from "@/pages/cor-compliance";
 import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
+import SafetyScannerPage from "@/pages/safety-scanner";
+import VoiceInspectionPage from "@/pages/voice-inspection";
 
-type Tab = "ai-compliance" | "inspections" | "safety" | "cor";
+type Tab = "ai-compliance" | "inspections" | "safety" | "cor" | "scanner" | "voice-inspection";
 
 export default function SafetyCompliancePage() {
   const { data: me } = useGetMe();
@@ -27,6 +29,13 @@ export default function SafetyCompliancePage() {
   const canViewInspections = hasPerm("viewInspectTab");
   const canViewCor =
     me?.systemRole === "super_admin" || (featureData?.features?.includes("COR_MODULE") ?? false);
+  const canViewScanner =
+    hasPerm("viewSafetyTab") &&
+    (me?.systemRole === "super_admin" || (featureData?.features?.includes("SAFETY_SCANNER") ?? false));
+  const canViewVoiceInspection =
+    isOwnerOrForeman &&
+    hasPerm("viewSafetyTab") &&
+    (me?.systemRole === "super_admin" || (featureData?.features?.includes("VOICE_INSPECTION") ?? false));
 
   const requestedTab = new URLSearchParams(search).get("tab");
   const [tab, setTab] = useState<Tab>(() => {
@@ -34,6 +43,8 @@ export default function SafetyCompliancePage() {
     if (requestedTab === "inspections" && canViewInspections) return "inspections";
     if (requestedTab === "safety") return "safety";
     if (requestedTab === "cor" && canViewCor) return "cor";
+    if (requestedTab === "scanner" && canViewScanner) return "scanner";
+    if (requestedTab === "voice-inspection" && canViewVoiceInspection) return "voice-inspection";
     return canViewAiCompliance ? "ai-compliance" : canViewInspections ? "inspections" : "safety";
   });
 
@@ -92,6 +103,32 @@ export default function SafetyCompliancePage() {
               COR Compliance
             </button>
           )}
+          {canViewScanner && (
+            <button
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                tab === "scanner"
+                  ? "border-[#D4AF37] text-[#D4AF37]"
+                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+              }`}
+              onClick={() => setTab("scanner")}
+            >
+              <ScanEye className="h-4 w-4" />
+              AI Safety Scanner
+            </button>
+          )}
+          {canViewVoiceInspection && (
+            <button
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                tab === "voice-inspection"
+                  ? "border-[#D4AF37] text-[#D4AF37]"
+                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+              }`}
+              onClick={() => setTab("voice-inspection")}
+            >
+              <Headphones className="h-4 w-4" />
+              Voice Notes & Inspections
+            </button>
+          )}
         </div>
       </div>
 
@@ -111,6 +148,16 @@ export default function SafetyCompliancePage() {
         {tab === "cor" && canViewCor && (
           <FeatureGuard feature="COR_MODULE">
             <CorCompliancePage />
+          </FeatureGuard>
+        )}
+        {tab === "scanner" && canViewScanner && (
+          <FeatureGuard feature="SAFETY_SCANNER">
+            <SafetyScannerPage />
+          </FeatureGuard>
+        )}
+        {tab === "voice-inspection" && canViewVoiceInspection && (
+          <FeatureGuard feature="VOICE_INSPECTION">
+            <VoiceInspectionPage />
           </FeatureGuard>
         )}
       </div>

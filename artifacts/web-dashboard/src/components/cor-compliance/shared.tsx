@@ -116,12 +116,14 @@ export const ALL_SUB_DOC_TYPES: SubDocType[] = [
 
 // ── CAPA constants ─────────────────────────────────────────────────────────────
 
-export type CapaStatus = "open" | "in_progress" | "pending_review" | "closed" | "void";
+export type CapaStatus = "open" | "in_progress" | "resolved" | "verified" | "pending_review" | "closed" | "void";
 export type CapaPriority = "critical" | "high" | "medium" | "low";
 
 export const CAPA_STATUS_CFG: Record<CapaStatus, { label: string; bg: string; text: string }> = {
   open:           { label: "Open",           bg: "#fee2e2", text: "#991b1b" },
   in_progress:    { label: "In Progress",    bg: "#dbeafe", text: "#1e40af" },
+  resolved:       { label: "Resolved",       bg: "#e0e7ff", text: "#3730a3" },
+  verified:       { label: "Verified",       bg: "#cffafe", text: "#155e75" },
   pending_review: { label: "Pending Review", bg: "#fef9c3", text: "#854d0e" },
   closed:         { label: "Closed",         bg: "#dcfce7", text: "#166534" },
   void:           { label: "Void",           bg: "#f4f4f5", text: "#71717a" },
@@ -211,6 +213,9 @@ export interface CapaTicket {
   assignedToName: string | null;
   createdByName: string | null;
   dueDate: string | null;
+  resolvedAt: string | null;
+  resolutionPhotoUrl: string | null;
+  verifiedAt: string | null;
   closedAt: string | null;
   closureNotes: string | null;
   evidencePhotoUrl: string | null;

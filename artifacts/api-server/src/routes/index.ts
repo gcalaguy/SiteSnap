@@ -62,6 +62,8 @@ import permitsRouter from "./permits";
 import inventoryRouter from "./inventory";
 import corRouter from "./cor";
 import psiRouter from "./psi";
+import safetyScanRouter from "./safetyScan";
+import voiceInspectionRouter from "./voiceInspection";
 
 const router: IRouter = Router();
 
@@ -141,5 +143,7 @@ router.use(permitsRouter);
 router.use(inventoryRouter);
 router.use(corRouter);
 router.use(psiRouter);
+router.use(safetyScanRouter);
+router.use(voiceInspectionRouter);
 
 export default router;

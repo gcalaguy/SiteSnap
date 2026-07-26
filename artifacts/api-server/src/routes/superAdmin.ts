@@ -904,6 +904,8 @@ router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
     { name: "Inspections",             key: "INSPECTIONS",        description: "Site inspection management" },
     { name: "Worker Documents",        key: "WORKER_DOCUMENTS",   description: "Enterprise worker document management and compliance" },
     { name: "RFI & Submittal",         key: "RFI_SUBMITTAL",      description: "RFI and submittal workflow tracking" },
+    { name: "AI Safety Scanner",       key: "SAFETY_SCANNER",     description: "AI hazard/PPE photo scanning with GPS-tagged, audit-ready safety reports" },
+    { name: "AI Voice Inspection Assistant", key: "VOICE_INSPECTION", description: "Voice-to-structured inspection reports with auto CAPA escalation for critical hazards" },
   ]).onConflictDoNothing();
 
   const plans = await db.select().from(plansTable);
@@ -930,7 +932,7 @@ router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
     const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
       "SITE_VISION_AI", "TRADEHUB", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
       "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
-      "RISK_DASHBOARD", "AI_COMPLIANCE", "RFI_SUBMITTAL"];
+      "RISK_DASHBOARD", "AI_COMPLIANCE", "RFI_SUBMITTAL", "SAFETY_SCANNER", "VOICE_INSPECTION"];
     if (pro) {
       const vals = proKeys.map((k) => get(k)).filter(Boolean);
       if (vals.length > 0) {

@@ -17,6 +17,9 @@ import {
   psiChecklistsTable,
   psiSignaturesTable,
   psiApprovalsTable,
+  voiceInspectionsTable,
+  safetyScansTable,
+  scanHazardsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, inArray, desc } from "drizzle-orm";
 import { logger } from "../../lib/logger";
@@ -449,6 +452,82 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       psiApprovalsByPsi.get(row.psiId)!.push(row);
     }
 
+    // ── 7c. Fetch AI Voice Inspections ────────────────────────────────────
+    const voiceInspectionConditions = [eq(voiceInspectionsTable.companyId, companyId)];
+    if (periodStart) voiceInspectionConditions.push(gte(voiceInspectionsTable.createdAt, new Date(periodStart)));
+    if (periodEnd)   voiceInspectionConditions.push(lte(voiceInspectionsTable.createdAt, new Date(periodEnd)));
+    if (projectIds?.length) voiceInspectionConditions.push(inArray(voiceInspectionsTable.projectId, projectIds));
+
+    const voiceInspections = await db
+      .select({
+        id: voiceInspectionsTable.id,
+        projectName: projectsTable.name,
+        submitterFirst: usersTable.firstName,
+        submitterLast: usersTable.lastName,
+        equipmentOrArea: voiceInspectionsTable.equipmentOrArea,
+        inspectionType: voiceInspectionsTable.inspectionType,
+        passStatus: voiceInspectionsTable.passStatus,
+        severityLevel: voiceInspectionsTable.severityLevel,
+        hazardSummary: voiceInspectionsTable.hazardSummary,
+        locationDetails: voiceInspectionsTable.locationDetails,
+        immediateActionRequired: voiceInspectionsTable.immediateActionRequired,
+        recommendedActions: voiceInspectionsTable.recommendedActions,
+        transcript: voiceInspectionsTable.transcript,
+        audioObjectPath: voiceInspectionsTable.audioObjectPath,
+        capaTicketId: voiceInspectionsTable.capaTicketId,
+        createdAt: voiceInspectionsTable.createdAt,
+      })
+      .from(voiceInspectionsTable)
+      .leftJoin(projectsTable, eq(projectsTable.id, voiceInspectionsTable.projectId))
+      .leftJoin(usersTable, eq(usersTable.id, voiceInspectionsTable.submittedByUserId))
+      .where(and(...voiceInspectionConditions))
+      .orderBy(desc(voiceInspectionsTable.createdAt));
+
+    // ── 7e. Fetch AI Safety Scans ──────────────────────────────────────────
+    const safetyScanConditions = [eq(safetyScansTable.companyId, companyId)];
+    if (periodStart) safetyScanConditions.push(gte(safetyScansTable.createdAt, new Date(periodStart)));
+    if (periodEnd)   safetyScanConditions.push(lte(safetyScansTable.createdAt, new Date(periodEnd)));
+    if (projectIds?.length) safetyScanConditions.push(inArray(safetyScansTable.projectId, projectIds));
+
+    const safetyScans = await db
+      .select({
+        id: safetyScansTable.id,
+        projectName: projectsTable.name,
+        submitterFirst: usersTable.firstName,
+        submitterLast: usersTable.lastName,
+        siteAddress: safetyScansTable.siteAddress,
+        summary: safetyScansTable.summary,
+        complianceScore: safetyScansTable.complianceScore,
+        riskLevel: safetyScansTable.riskLevel,
+        reportObjectPath: safetyScansTable.reportObjectPath,
+        createdAt: safetyScansTable.createdAt,
+      })
+      .from(safetyScansTable)
+      .leftJoin(projectsTable, eq(projectsTable.id, safetyScansTable.projectId))
+      .leftJoin(usersTable, eq(usersTable.id, safetyScansTable.submittedByUserId))
+      .where(and(...safetyScanConditions))
+      .orderBy(desc(safetyScansTable.createdAt));
+
+    const safetyScanIds = safetyScans.map((s) => s.id);
+    const scanHazards = safetyScanIds.length
+      ? await db
+          .select({
+            scanId: scanHazardsTable.scanId,
+            title: scanHazardsTable.title,
+            severity: scanHazardsTable.severity,
+            description: scanHazardsTable.description,
+            remediation: scanHazardsTable.remediation,
+          })
+          .from(scanHazardsTable)
+          .where(inArray(scanHazardsTable.scanId, safetyScanIds))
+      : [];
+
+    const hazardsByScan = new Map<number, typeof scanHazards>();
+    for (const h of scanHazards) {
+      if (!hazardsByScan.has(h.scanId)) hazardsByScan.set(h.scanId, []);
+      hazardsByScan.get(h.scanId)!.push(h);
+    }
+
     // ── 8. Fetch training matrix ─────────────────────────────────────────
     const { rows: credRows } = await pool.query<{
       user_id: number; first_name: string; last_name: string; email: string;
@@ -533,6 +612,8 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       totalAuditEntries: auditEntries.length,
       totalInspections: allInspections.length,
       totalPsiChecklists: psiChecklists.length,
+      totalVoiceInspections: voiceInspections.length,
+      totalSafetyScans: safetyScans.length,
       totalWorkers: workerSet.size,
       ihsaElementsCovered: elementSummary.filter((e) => e.totalEntries > 0).length,
       disclaimer: "This package is generated by SiteSnap and is intended for internal COR audit preparation. The chain hash log provides tamper-evidence for external auditor verification.",
@@ -755,6 +836,86 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
         "No submitted pre-inspection checklists recorded for this period.\n");
     }
 
+    // ── 7d. AI Voice Inspections folder ──
+    const voiceInspectionFolder = root.folder("VOICE_INSPECTIONS")!;
+    if (voiceInspections.length > 0) {
+      const viCsvRows = voiceInspections.map((v) => ({
+        Inspection_ID: v.id,
+        Date: formatDate(v.createdAt as Date),
+        Project: v.projectName ?? "",
+        Submitted_By: v.submitterFirst ? `${v.submitterFirst} ${v.submitterLast}` : "",
+        Equipment_Or_Area: v.equipmentOrArea ?? "",
+        Inspection_Type: v.inspectionType ?? "",
+        Pass_Status: v.passStatus ?? "",
+        Severity_Level: v.severityLevel ?? "",
+        Location: v.locationDetails ?? "",
+        Immediate_Action_Required: v.immediateActionRequired ? "Yes" : "No",
+        Hazard_Summary: v.hazardSummary ?? "",
+        CAPA_Ticket_ID: v.capaTicketId ?? "",
+      }));
+      addFile(voiceInspectionFolder, "voice_inspections.csv", toCsv(viCsvRows));
+
+      const viFullJson = voiceInspections.map((v) => ({
+        id: v.id,
+        project: v.projectName,
+        submittedBy: v.submitterFirst ? `${v.submitterFirst} ${v.submitterLast}` : "",
+        equipmentOrArea: v.equipmentOrArea,
+        inspectionType: v.inspectionType,
+        passStatus: v.passStatus,
+        severityLevel: v.severityLevel,
+        locationDetails: v.locationDetails,
+        immediateActionRequired: v.immediateActionRequired,
+        hazardSummary: v.hazardSummary,
+        recommendedActions: v.recommendedActions,
+        transcript: v.transcript,
+        audioObjectPath: v.audioObjectPath,
+        capaTicketId: v.capaTicketId,
+        createdAt: formatDate(v.createdAt as Date),
+      }));
+      addFile(voiceInspectionFolder, "voice_inspections_full.json", JSON.stringify(viFullJson, null, 2));
+    } else {
+      addFile(voiceInspectionFolder, "NO_VOICE_INSPECTIONS.txt",
+        "No AI voice inspections recorded for this period.\n");
+    }
+
+    // ── 7f. AI Safety Scans folder ──
+    const safetyScanFolder = root.folder("AI_SAFETY_SCANS")!;
+    if (safetyScans.length > 0) {
+      const scanCsvRows = safetyScans.map((s) => {
+        const hazards = hazardsByScan.get(s.id) ?? [];
+        return {
+          Scan_ID: s.id,
+          Date: formatDate(s.createdAt as Date),
+          Project: s.projectName ?? "",
+          Site_Address: s.siteAddress ?? "",
+          Submitted_By: s.submitterFirst ? `${s.submitterFirst} ${s.submitterLast}` : "",
+          Compliance_Score: s.complianceScore,
+          Risk_Level: s.riskLevel ?? "",
+          Hazard_Count: hazards.length,
+          Hazard_Titles: hazards.map((h) => h.title).join("; "),
+          Report_PDF: s.reportObjectPath ?? "",
+        };
+      });
+      addFile(safetyScanFolder, "ai_safety_scans.csv", toCsv(scanCsvRows));
+
+      const scanFullJson = safetyScans.map((s) => ({
+        id: s.id,
+        project: s.projectName,
+        submittedBy: s.submitterFirst ? `${s.submitterFirst} ${s.submitterLast}` : "",
+        siteAddress: s.siteAddress,
+        summary: s.summary,
+        complianceScore: s.complianceScore,
+        riskLevel: s.riskLevel,
+        hazards: hazardsByScan.get(s.id) ?? [],
+        reportObjectPath: s.reportObjectPath,
+        createdAt: formatDate(s.createdAt as Date),
+      }));
+      addFile(safetyScanFolder, "ai_safety_scans_full.json", JSON.stringify(scanFullJson, null, 2));
+    } else {
+      addFile(safetyScanFolder, "NO_AI_SAFETY_SCANS.txt",
+        "No AI safety scans recorded for this period.\n");
+    }
+
     // ── 8c. Training Matrix folder ──
     const trainingFolder = root.folder("TRAINING_MATRIX")!;
 
@@ -953,6 +1114,8 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       { type: "INSPECTIONS_COMPILED",       meta: { count: allInspections.length } },
       { type: "PSI_CHECKLISTS_COMPILED",    meta: { count: psiChecklists.length } },
       { type: "VOICE_LOGS_COMPILED",        meta: { count: voiceLogs.length } },
+      { type: "VOICE_INSPECTIONS_COMPILED", meta: { count: voiceInspections.length } },
+      { type: "AI_SAFETY_SCANS_COMPILED",   meta: { count: safetyScans.length } },
       { type: "CAPA_TICKETS_COMPILED",      meta: { count: capaTickets.length } },
       { type: "POLICY_SIGNOFFS_COMPILED",   meta: { documentCount: policyDocs.length, signoffCount: policySignoffs.length } },
       { type: "SUBCONTRACTORS_COMPILED",    meta: { count: subcontractors.length, docCount: subDocs.length } },
@@ -1025,6 +1188,8 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
         totalEntries: auditEntries.length,
         totalInspections: allInspections.length,
         totalPsiChecklists: psiChecklists.length,
+        totalVoiceInspections: voiceInspections.length,
+        totalSafetyScans: safetyScans.length,
         totalWorkers: workerSet.size,
         checksum: packageChecksum,
         fileSizeBytes: zipBuffer.length,

@@ -63,6 +63,8 @@ export const corSourceTypeEnum = pgEnum("cor_source_type", [
   "safety_signoff",
   "daily_log",
   "psi_checklist",
+  "voice_inspection",
+  "safety_scan",
 ]);
 
 export const corRiskLevelEnum = pgEnum("cor_risk_level", [
@@ -440,7 +442,7 @@ export type CorVoiceActionLog = typeof corVoiceActionLogsTable.$inferSelect;
 // ── CAPA (Corrective & Preventive Actions) ────────────────────────────────────
 
 export const capaStatusEnum = pgEnum("capa_status", [
-  "open", "in_progress", "pending_review", "closed", "void",
+  "open", "in_progress", "resolved", "verified", "pending_review", "closed", "void",
 ]);
 
 export const capaPriorityEnum = pgEnum("capa_priority", [
@@ -448,7 +450,7 @@ export const capaPriorityEnum = pgEnum("capa_priority", [
 ]);
 
 export const capaSourceTypeEnum = pgEnum("capa_source_type", [
-  "audit_trail", "inspection", "manual", "voice_log",
+  "audit_trail", "inspection", "manual", "voice_log", "safety_scan", "voice_inspection",
 ]);
 
 export const capaTicketsTable = pgTable(
@@ -467,6 +469,11 @@ export const capaTicketsTable = pgTable(
     status: capaStatusEnum("status").notNull().default("open"),
     assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: text("due_date"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedByUserId: integer("resolved_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    resolutionPhotoUrl: text("resolution_photo_url"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedByUserId: integer("verified_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     closedByUserId: integer("closed_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     closureNotes: text("closure_notes"),

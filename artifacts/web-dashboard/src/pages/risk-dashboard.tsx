@@ -48,11 +48,28 @@ type AlertRow = {
   inspection: { id: number; inspectionType: string; date: string } | null;
 };
 
+type ActionItem = {
+  id: number;
+  title: string;
+  priority: string;
+  status: string;
+  dueDate: string | null;
+  assignedToName: string | null;
+  projectId: number | null;
+  overdue: boolean;
+  sourceType: string;
+};
+
 type RiskDashData = {
   topRisk: InspectionRow[];
   alerts: { critical: number; high: number; medium: number; total: number };
   health: { critical: number; high: number; medium: number; low: number; avgRiskScore: number | null };
   trend: TrendPoint[];
+  actionItems: ActionItem[];
+};
+
+const ACTION_PRIORITY_COLOR: Record<string, string> = {
+  critical: "#dc2626", high: "#ea580c", medium: "#ca8a04", low: "#16a34a",
 };
 
 type ComplianceDashRow = {
@@ -195,6 +212,55 @@ function RiskTrendChart({ trend }: { trend: TrendPoint[] }) {
 }
 
 // ── Top Risk Items ─────────────────────────────────────────────────────────────
+
+function ActionItemsSection({ items }: { items: ActionItem[] }) {
+  if (items.length === 0) return null;
+  const overdueCount = items.filter((i) => i.overdue).length;
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+          Active & Overdue Corrective Actions
+        </h2>
+        {overdueCount > 0 && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "#7f1d1d44", color: "#f87171" }}>
+            {overdueCount} overdue
+          </span>
+        )}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.slice(0, 9).map((item) => {
+          const color = ACTION_PRIORITY_COLOR[item.priority] ?? "#71717a";
+          return (
+            <Link href="/safety-compliance?tab=cor" key={item.id}>
+              <div
+                className="rounded-lg border p-3 cursor-pointer hover:brightness-110 transition-all"
+                style={{ background: "#111111", borderColor: item.overdue ? "#7f1d1d" : "#2a2a2a" }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{item.priority}</span>
+                  {item.sourceType === "safety_scan" && (
+                    <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "#4c1d9544", color: "#c4b5fd" }}>AI Scan</span>
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-zinc-200 truncate">{item.title}</p>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="text-[10px] text-zinc-500">{item.assignedToName ?? "Unassigned"}</span>
+                  {item.dueDate && (
+                    <span className="text-[10px]" style={{ color: item.overdue ? "#f87171" : "#71717a" }}>
+                      Due {item.dueDate}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function TopRiskSection({ rows }: { rows: InspectionRow[] }) {
   if (rows.length === 0) return null;
@@ -730,6 +796,11 @@ function RiskDashboardInner() {
           {/* Top risk items */}
           {data?.topRisk && data.topRisk.length > 0 && (
             <TopRiskSection rows={data.topRisk} />
+          )}
+
+          {/* Active/overdue corrective actions (incl. AI Safety Scanner hazards) */}
+          {data?.actionItems && data.actionItems.length > 0 && (
+            <ActionItemsSection items={data.actionItems} />
           )}
 
           {/* AI Compliance Monitor */}

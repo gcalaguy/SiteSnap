@@ -40,6 +40,9 @@ import {
   createCapaTicket,
   updateCapaTicket,
   closeCapaTicket,
+  CapaResolutionRequiredError,
+  resolveCapaTicket,
+  verifyCapaTicket,
   voidCapaTicket,
   getCapaSummary,
   getActionRequiredCapas,
@@ -983,6 +986,10 @@ const CloseCapaBody = z.object({
   evidencePhotoUrl: z.preprocess(emptyToUndefined, z.string().url().optional()),
 });
 
+const ResolveCapaBody = z.object({
+  resolutionPhotoUrl: z.string().min(1),
+});
+
 // GET /cor/members — company member list for CAPA assignment picker
 router.get(
   "/cor/members",
@@ -1164,13 +1171,59 @@ router.post(
     if (!parsed.success) {
       throw new BadRequestError(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    const ticket = await closeCapaTicket(req.companyId!, id, {
-      closedByUserId: req.userId!,
-      closureNotes: parsed.data.closureNotes,
-      evidencePhotoUrl: parsed.data.evidencePhotoUrl,
-    });
+    let ticket;
+    try {
+      ticket = await closeCapaTicket(req.companyId!, id, {
+        closedByUserId: req.userId!,
+        closureNotes: parsed.data.closureNotes,
+        evidencePhotoUrl: parsed.data.evidencePhotoUrl,
+      });
+    } catch (err) {
+      if (err instanceof CapaResolutionRequiredError) throw new BadRequestError(err.message);
+      throw err;
+    }
     if (!ticket) throw new NotFoundError("CAPA ticket not found or already locked");
     await logAuditEventFromRequest(req, "CAPA_CLOSED", `CAPA ticket #${id} closed with evidence`);
+    res.json(ticket);
+  }),
+);
+
+// POST /cor/capa/:id/resolve — worker uploads a resolution photo before close
+router.post(
+  "/cor/capa/:id/resolve",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) throw new BadRequestError("Invalid CAPA ID");
+    const parsed = ResolveCapaBody.safeParse(req.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.issues.map((i) => i.message).join("; "));
+    }
+    const ticket = await resolveCapaTicket(req.companyId!, id, {
+      resolvedByUserId: req.userId!,
+      resolutionPhotoUrl: parsed.data.resolutionPhotoUrl,
+    });
+    if (!ticket) throw new NotFoundError("CAPA ticket not found or already locked");
+    await logAuditEventFromRequest(req, "CAPA_RESOLVED", `CAPA ticket #${id} marked resolved with photo evidence`);
+    res.json(ticket);
+  }),
+);
+
+// POST /cor/capa/:id/verify — owner/foreman confirms a resolved fix
+router.post(
+  "/cor/capa/:id/verify",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) throw new BadRequestError("Invalid CAPA ID");
+    const ticket = await verifyCapaTicket(req.companyId!, id, { verifiedByUserId: req.userId! });
+    if (!ticket) throw new NotFoundError("CAPA ticket not found, not resolved, or already locked");
+    await logAuditEventFromRequest(req, "CAPA_VERIFIED", `CAPA ticket #${id} verified`);
     res.json(ticket);
   }),
 );

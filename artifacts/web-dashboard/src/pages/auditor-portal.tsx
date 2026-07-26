@@ -88,6 +88,44 @@ interface PsiChecklistRow {
   approvalCount: number;
 }
 
+interface ScanHazardRow {
+  id: number;
+  title: string;
+  severity: string;
+  description: string;
+  remediation: string | null;
+}
+
+interface SafetyScanRow {
+  id: number;
+  projectName: string | null;
+  submittedBy: string | null;
+  siteAddress: string | null;
+  summary: string | null;
+  complianceScore: number | null;
+  riskLevel: string | null;
+  hazards: ScanHazardRow[];
+  reportUrl: string | null;
+  createdAt: string;
+}
+
+interface VoiceInspectionRow {
+  id: number;
+  projectName: string | null;
+  submittedBy: string | null;
+  equipmentOrArea: string | null;
+  inspectionType: string | null;
+  passStatus: string | null;
+  severityLevel: string | null;
+  hazardSummary: string | null;
+  locationDetails: string | null;
+  immediateActionRequired: boolean;
+  recommendedActions: string[];
+  transcript: string;
+  audioUrl: string | null;
+  createdAt: string;
+}
+
 interface ElementData {
   key: string;
   entryCount: number;
@@ -106,6 +144,8 @@ interface PortalData {
   elements: ElementData[];
   recentInspections: Inspection[];
   recentPsiChecklists: PsiChecklistRow[];
+  recentVoiceInspections: VoiceInspectionRow[];
+  recentSafetyScans: SafetyScanRow[];
   expiringCredentialCount: number;
   flaggedSubcontractorCount: number;
   totalWorkerCount: number;
@@ -528,6 +568,170 @@ function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
   );
 }
 
+// ── AI Voice Inspection card (expandable to full detail) ──────────────────────
+
+const VI_SEVERITY_COLOR: Record<string, string> = {
+  critical: "#f87171", high: "#fb923c", medium: "#facc15", low: "#4ade80",
+};
+const VI_PASS_COLOR: Record<string, string> = {
+  pass: "#4ade80", conditional: "#fb923c", fail: "#f87171",
+};
+
+function VoiceInspectionCard({ vi }: { vi: VoiceInspectionRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const severityColor = VI_SEVERITY_COLOR[vi.severityLevel ?? "low"];
+  const passColor = VI_PASS_COLOR[vi.passStatus ?? "conditional"];
+
+  return (
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
+      >
+        <span style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{fmtDate(vi.createdAt)}</span>
+        <span style={{ flex: 1, fontSize: 13, color: "#e5e7eb", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {vi.equipmentOrArea ?? vi.projectName ?? "Voice inspection"}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: passColor, whiteSpace: "nowrap" }}>{(vi.passStatus ?? "conditional").toUpperCase()}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: severityColor, whiteSpace: "nowrap" }}>{(vi.severityLevel ?? "low").toUpperCase()}</span>
+        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+      </button>
+
+      {expanded && (
+        <div style={{ borderTop: "1px solid #2a2a2a", padding: "14px 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Project", value: vi.projectName ?? "Unknown" },
+              { label: "Submitted By", value: vi.submittedBy ?? "Unknown" },
+              { label: "Inspection Type", value: vi.inspectionType || "—" },
+              { label: "Location", value: vi.locationDetails || "—" },
+            ].map((f) => (
+              <div key={f.label}>
+                <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.label}</div>
+                <div style={{ fontSize: 12, color: "#d1d5db", marginTop: 2 }}>{f.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {vi.immediateActionRequired && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 16, background: "#7c2d1244", border: "1px solid #f8717144", borderRadius: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#f87171" }}>⚠ Immediate action required</span>
+            </div>
+          )}
+
+          {vi.hazardSummary && (
+            <Section title="Hazard Summary">
+              <p style={{ fontSize: 12, color: "#d1d5db", margin: 0, lineHeight: 1.6 }}>{vi.hazardSummary}</p>
+            </Section>
+          )}
+
+          {vi.recommendedActions?.length > 0 && (
+            <Section title="Recommended Actions">
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {vi.recommendedActions.map((a, i) => (
+                  <div key={i} style={{ fontSize: 12, color: "#d1d5db" }}>• {a}</div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {vi.audioUrl && (
+            <Section title="Audio Recording">
+              <audio controls src={vi.audioUrl} style={{ width: "100%", height: 32 }} />
+            </Section>
+          )}
+
+          <Section title="Raw Transcript">
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{vi.transcript}</p>
+          </Section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AI Safety Scan card (expandable to full detail) ────────────────────────────
+
+function SafetyScanCard({ scan }: { scan: SafetyScanRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const riskColor = VI_SEVERITY_COLOR[scan.riskLevel ?? "low"];
+
+  return (
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
+      >
+        <span style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{fmtDate(scan.createdAt)}</span>
+        <span style={{ flex: 1, fontSize: 13, color: "#e5e7eb", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {scan.siteAddress ?? scan.projectName ?? "AI Safety Scan"}
+        </span>
+        <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{scan.hazards.length} hazard{scan.hazards.length === 1 ? "" : "s"}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: riskColor, whiteSpace: "nowrap", fontFamily: "monospace" }}>{scan.complianceScore ?? 0}%</span>
+        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+      </button>
+
+      {expanded && (
+        <div style={{ borderTop: "1px solid #2a2a2a", padding: "14px 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Project", value: scan.projectName ?? "Unknown" },
+              { label: "Submitted By", value: scan.submittedBy ?? "Unknown" },
+              { label: "Risk Level", value: (scan.riskLevel ?? "low").toUpperCase() },
+            ].map((f) => (
+              <div key={f.label}>
+                <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.label}</div>
+                <div style={{ fontSize: 12, color: "#d1d5db", marginTop: 2 }}>{f.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {scan.summary && (
+            <Section title="AI Summary">
+              <p style={{ fontSize: 12, color: "#d1d5db", margin: 0, lineHeight: 1.6 }}>{scan.summary}</p>
+            </Section>
+          )}
+
+          {scan.hazards.length > 0 && (
+            <Section title={`Hazards (${scan.hazards.length})`}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {scan.hazards.map((h) => {
+                  const hColor = VI_SEVERITY_COLOR[h.severity] ?? "#9ca3af";
+                  return (
+                    <div key={h.id} style={{ padding: "8px 12px", background: "#111111", borderRadius: 6, border: "1px solid #2a2a2a" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: hColor }}>{h.severity.toUpperCase()}</span>
+                        <span style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 500 }}>{h.title}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>{h.description}</p>
+                      {h.remediation && (
+                        <p style={{ fontSize: 12, color: "#d1d5db", margin: "4px 0 0" }}>
+                          <span style={{ fontWeight: 600 }}>Remediation: </span>{h.remediation}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {scan.reportUrl && (
+            <a
+              href={scan.reportUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#C9A84C", textDecoration: "none" }}
+            >
+              ⬇ View PDF Report
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main portal page ──────────────────────────────────────────────────────────
 
 export default function AuditorPortalPage() {
@@ -535,6 +739,8 @@ export default function AuditorPortalPage() {
   const [search, setSearch] = useState("");
   const [showInspections, setShowInspections] = useState(false);
   const [showPsi, setShowPsi] = useState(false);
+  const [showVoiceInspections, setShowVoiceInspections] = useState(false);
+  const [showSafetyScans, setShowSafetyScans] = useState(false);
 
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ["auditor-portal", token],
@@ -626,6 +832,8 @@ export default function AuditorPortalPage() {
                 { label: "Flagged Subcontractors", value: data.flaggedSubcontractorCount, warn: data.flaggedSubcontractorCount > 0 },
                 { label: "Recent Inspections", value: data.recentInspections.length },
                 { label: "Pre-Inspection Checklists", value: data.recentPsiChecklists.length },
+                { label: "Voice Inspections", value: data.recentVoiceInspections.length },
+                { label: "AI Safety Scans", value: data.recentSafetyScans.length },
                 { label: "Generated", value: fmtDate(data.token.createdAt) },
               ].map((stat) => (
                 <div key={stat.label} style={{ background: "#1a1a1a", borderRadius: 8, padding: "10px 14px", border: `1px solid ${stat.warn ? "#7c2d1244" : "#2a2a2a"}` }}>
@@ -723,6 +931,48 @@ export default function AuditorPortalPage() {
                 <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 12px" }}>Click a checklist to view full detail.</p>
                 {data.recentPsiChecklists.map((p) => (
                   <PsiChecklistCard key={p.id} psi={p} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Voice Inspections (collapsible global section) */}
+        {data.recentVoiceInspections.length > 0 && (
+          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+            <button
+              onClick={() => setShowVoiceInspections((v) => !v)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600 }}>AI Voice Inspections ({data.recentVoiceInspections.length})</span>
+              <span style={{ color: "#4b5563", transform: showVoiceInspections ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+            </button>
+            {showVoiceInspections && (
+              <div style={{ borderTop: "1px solid #1f1f1f", padding: "16px 20px 20px" }}>
+                <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 12px" }}>Click an inspection to view the full transcript, audio, and hazard findings.</p>
+                {data.recentVoiceInspections.map((vi) => (
+                  <VoiceInspectionCard key={vi.id} vi={vi} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Safety Scans (collapsible global section) */}
+        {data.recentSafetyScans.length > 0 && (
+          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+            <button
+              onClick={() => setShowSafetyScans((v) => !v)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600 }}>AI Safety Scans ({data.recentSafetyScans.length})</span>
+              <span style={{ color: "#4b5563", transform: showSafetyScans ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+            </button>
+            {showSafetyScans && (
+              <div style={{ borderTop: "1px solid #1f1f1f", padding: "16px 20px 20px" }}>
+                <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 12px" }}>Click a scan to view hazards and the branded PDF report.</p>
+                {data.recentSafetyScans.map((s) => (
+                  <SafetyScanCard key={s.id} scan={s} />
                 ))}
               </div>
             )}

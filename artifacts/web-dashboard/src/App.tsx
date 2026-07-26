@@ -49,6 +49,8 @@ import SafetyDetailPage from "@/pages/safety-detail";
 import PsiSubmitPage from "@/pages/psi-submit";
 import PsiDetailPage from "@/pages/psi-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
+import SafetyScanDetailPage from "@/pages/safety-scan-detail";
+import VoiceInspectionDetailPage from "@/pages/voice-inspection-detail";
 import SafetyPrintPage from "@/pages/safety-print";
 import WorkerDocumentsPage from "@/pages/vault";
 import MyVaultPage from "@/pages/my-vault";
@@ -351,6 +353,8 @@ function AuthApp() {
           </Route>
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance"><PermissionGuard permissionKey="viewSafetyTab"><SafetyCompliancePage /></PermissionGuard></Route>
+          <Route path="/safety-scan/:id"><PermissionGuard permissionKey="viewSafetyTab"><SafetyScanDetailPage /></PermissionGuard></Route>
+          <Route path="/voice-inspection/:id"><PermissionGuard permissionKey="viewSafetyTab"><VoiceInspectionDetailPage /></PermissionGuard></Route>
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />
           <Route path="/worker-documents"><PermissionGuard permissionKey="viewVault"><WorkerDocumentsPage /></PermissionGuard></Route>
           <Route path="/my-vault"><PermissionGuard permissionKey="viewVault"><MyVaultPage /></PermissionGuard></Route>

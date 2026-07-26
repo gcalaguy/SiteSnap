@@ -82,6 +82,22 @@ export default function CaptureScreen() {
       onPress: () => go("/safety?initTab=new", "capture:safety"),
     },
     {
+      key: "safety-scan",
+      label: "AI Safety Scan",
+      sublabel: "GPS-tagged PPE & hazard photo scan",
+      icon: "shield-off",
+      color: colors.destructive,
+      onPress: () => go("/(tabs)/(home)/safety-scan", "capture:safety-scan"),
+    },
+    {
+      key: "voice-inspection",
+      label: "Voice Inspection",
+      sublabel: "Speak a report — AI structures it",
+      icon: "headphones",
+      color: colors.warning,
+      onPress: () => go("/(tabs)/(home)/voice-inspection", "capture:voice-inspection"),
+    },
+    {
       key: "log",
       label: "Daily Log",
       sublabel: "Crew, weather, notes & photos",

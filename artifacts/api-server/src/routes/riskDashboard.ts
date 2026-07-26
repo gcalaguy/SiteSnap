@@ -11,6 +11,7 @@ import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
+import { getActiveCorrectiveActions } from "../repositories/safetyScan";
 
 const router = Router();
 
@@ -24,9 +25,12 @@ router.get(
     const companyId = req.companyId!;
     const projectIds = await getAccessibleProjectIds(companyId, req.userId!, req.userRole ?? "worker");
     if (projectIds.length === 0) {
-      res.json({ topRisk: [], alerts: { critical: 0, high: 0, medium: 0, total: 0 }, health: { critical: 0, high: 0, medium: 0, low: 0, avgRiskScore: null }, trend: [] });
+      res.json({ topRisk: [], alerts: { critical: 0, high: 0, medium: 0, total: 0 }, health: { critical: 0, high: 0, medium: 0, low: 0, avgRiskScore: null }, trend: [], actionItems: [] });
       return;
     }
+
+    // Active/overdue corrective actions (incl. AI Safety Scanner hazards), scoped to accessible projects
+    const actionItems = await getActiveCorrectiveActions(companyId, projectIds);
 
     // Top high/critical risk inspections (last 30 days), scoped to accessible projects
     const topRisk = await db
@@ -146,6 +150,7 @@ router.get(
         avgRiskScore: avgResult?.avg ?? null,
       },
       trend,
+      actionItems,
     });
   }),
 );
