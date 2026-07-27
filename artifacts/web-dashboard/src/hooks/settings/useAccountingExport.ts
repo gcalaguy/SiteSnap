@@ -7,7 +7,6 @@ import {
   getAccountingExportData,
 } from "@workspace/api-client-react";
 import { useCompanyFeatures } from "@/components/FeatureGuard";
-import { mirrorBlob } from "@/lib/driveSyncPipeline";
 
 export function useAccountingExport(collapsed: boolean) {
   const { data: user } = useGetMe();
@@ -38,8 +37,6 @@ export function useAccountingExport(collapsed: boolean) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      await mirrorBlob(filename, blob);
     } finally {
       setExporting(false);
     }

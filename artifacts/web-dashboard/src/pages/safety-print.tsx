@@ -265,9 +265,6 @@ export default function SafetyPrintPage() {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
-            await mirrorToLocalDrive(fileName, blob);
           }}
         >
           Download PDF

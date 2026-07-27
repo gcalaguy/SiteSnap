@@ -3,25 +3,6 @@
  * complete TypeScript definitions out-of-the-box.
  */
 
-// ── File System Access API ────────────────────────────────────────────────
-// MDN: https://developer.mozilla.org/en-US/docs/Web/API/FileSystemHandle
-interface FileSystemHandle {
-  queryPermission(
-    descriptor?: { mode?: "read" | "readwrite" },
-  ): Promise<PermissionState>;
-  requestPermission(
-    descriptor?: { mode?: "read" | "readwrite" },
-  ): Promise<PermissionState>;
-}
-
-interface Window {
-  showDirectoryPicker(options?: {
-    id?: string;
-    mode?: "read" | "readwrite";
-    startIn?: string | FileSystemHandle;
-  }): Promise<FileSystemDirectoryHandle>;
-}
-
 // ── Contact Picker API ────────────────────────────────────────────────────
 // MDN: https://developer.mozilla.org/en-US/docs/Web/API/Contact_Picker_API
 interface ContactAddress {

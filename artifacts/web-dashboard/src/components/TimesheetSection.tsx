@@ -209,9 +209,6 @@ async function exportPDF(ts: Timesheet, province?: string | null, companyName?: 
   const name = workerName(ts.user);
   const filename = `timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.pdf`;
   doc.save(filename);
-
-  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-  await mirrorArrayBuffer(filename, doc.output("arraybuffer"), "application/pdf");
 }
 
 function generatePDFBase64(ts: Timesheet, province?: string | null, companyName?: string | null): { base64: string; filename: string } {
@@ -275,10 +272,6 @@ async function exportExcel(ts: Timesheet, province?: string | null, companyName?
   XLSX.utils.book_append_sheet(wb, ws, "Timesheet");
   const xlsxFilename = `timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.xlsx`;
   XLSX.writeFile(wb, xlsxFilename);
-
-  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-  const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 // ── Export ALL timesheets to Excel ────────────────────────────────────────────
@@ -328,10 +321,6 @@ async function exportAllExcel(timesheets: Timesheet[], province?: string | null)
   XLSX.utils.book_append_sheet(wb, ws, "Timesheets");
   const allFilename = `timesheets_export_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
   XLSX.writeFile(wb, allFilename);
-
-  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-  const allBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  await mirrorArrayBuffer(allFilename, allBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 // ── Tax breakdown card ────────────────────────────────────────────────────────

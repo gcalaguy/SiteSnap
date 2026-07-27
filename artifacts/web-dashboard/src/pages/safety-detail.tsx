@@ -476,9 +476,6 @@ export default function SafetyDetailPage() {
     const pdfFilename = `${submission.template?.name ?? "safety-form"}-${id}.pdf`;
     doc.save(pdfFilename);
     toast({ title: "PDF exported" });
-
-    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-    await mirrorArrayBuffer(pdfFilename, doc.output("arraybuffer"), "application/pdf");
   };
 
   const exportDOCX = async () => {
@@ -526,9 +523,6 @@ export default function SafetyDetailPage() {
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: "DOCX exported" });
-
-      const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
-      await mirrorToLocalDrive(docxFilename, blob);
     } catch {
       toast({ title: "Error", description: "Failed to export DOCX.", variant: "destructive" });
     }

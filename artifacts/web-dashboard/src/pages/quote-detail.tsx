@@ -395,10 +395,6 @@ async function downloadQuoteXLSX(quote: QuoteForExport) {
   XLSX.utils.book_append_sheet(wb, ws, "Quote");
   const xlsxFilename = `${quote.quoteNumber}.xlsx`;
   XLSX.writeFile(wb, xlsxFilename);
-
-  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-  const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 export default function QuoteDetail() {
@@ -705,9 +701,6 @@ export default function QuoteDetail() {
             const pdfFilename = `${quote.quoteNumber}.pdf`;
             pdf.save(pdfFilename);
             toast({ title: "PDF downloaded" });
-
-            const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-            await mirrorArrayBuffer(pdfFilename, pdf.output("arraybuffer"), "application/pdf");
           }}>
             <Download className="h-4 w-4 mr-2" />
             PDF

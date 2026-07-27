@@ -64,13 +64,15 @@ const SECTION_LABELS: Record<(typeof SECTION_ORDER)[number], string> = {
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "sitesnap-sidebar-collapsed-sections";
 
 function readCollapsedSections(): string[] {
-  if (typeof window === "undefined") return [];
+  const allCollapsed = [...SECTION_ORDER];
+  if (typeof window === "undefined") return allCollapsed;
   try {
     const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!stored) return allCollapsed;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : allCollapsed;
   } catch {
-    return [];
+    return allCollapsed;
   }
 }
 

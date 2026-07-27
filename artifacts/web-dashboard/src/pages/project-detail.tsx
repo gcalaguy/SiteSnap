@@ -1048,9 +1048,6 @@ export default function ProjectDetail() {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-
-                const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
-                await mirrorToLocalDrive(pdfFileName, blob);
               }}
             >
               Download PDF

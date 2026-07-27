@@ -251,9 +251,6 @@ export default function HoursPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    const { mirrorBlob } = await import("@/lib/driveSyncPipeline");
-    await mirrorBlob(filename, blob);
   }
 
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours), 0);

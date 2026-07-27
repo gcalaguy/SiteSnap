@@ -177,9 +177,6 @@ export default function WorkerPortalDetailPage() {
     const pdfFilename = `${submission.template?.name ?? "safety"}-${id}.pdf`;
     doc.save(pdfFilename);
     toast({ title: "PDF saved" });
-
-    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-    await mirrorArrayBuffer(pdfFilename, doc.output("arraybuffer"), "application/pdf");
   };
 
   if (isLoading) {

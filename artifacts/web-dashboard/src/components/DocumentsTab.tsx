@@ -559,9 +559,6 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
         const doc = await registerDoc(projectId, { filename: file.name, fileType: file.type, objectPath, fileSize: file.size });
         queryClient.invalidateQueries({ queryKey });
 
-        const { mirrorUploadedFile } = await import("@/lib/driveSyncPipeline");
-        await mirrorUploadedFile(file);
-
         // Auto-analyze images on upload
         if (IMAGE_TYPES.includes(file.type.toLowerCase())) {
           setAnalyzingIds(prev => new Set(prev).add(doc.id));

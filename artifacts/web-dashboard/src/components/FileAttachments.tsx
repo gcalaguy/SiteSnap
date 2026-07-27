@@ -140,9 +140,6 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
       setFiles((prev) => [record, ...prev]);
       setUploadProgress(100);
       toast({ title: "File uploaded", description: file.name });
-
-      const { mirrorUploadedFile } = await import("@/lib/driveSyncPipeline");
-      await mirrorUploadedFile(file);
     } catch (err) {
       toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again", variant: "destructive" });
     } finally {

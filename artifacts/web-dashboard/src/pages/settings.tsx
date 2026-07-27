@@ -4,12 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { FeaturesTab } from "@/components/settings/FeaturesTab";
 import { PermissionsTab } from "@/components/settings/PermissionsTab";
-import { BrandingTab } from "@/components/settings/BrandingTab";
-import { CustomDocumentTemplatesTab } from "@/components/settings/CustomDocumentTemplatesTab";
+import { BrandingTemplatesTab } from "@/components/settings/BrandingTemplatesTab";
 import { PricingTab } from "@/components/settings/PricingTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { AccountingTab } from "@/components/settings/AccountingTab";
-import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
 import { BackupTab } from "@/components/settings/BackupTab";
 
 export default function Settings() {
@@ -32,12 +30,10 @@ export default function Settings() {
           <TabsTrigger value="company">Company</TabsTrigger>
           {isOwner && company && <TabsTrigger value="features">Features</TabsTrigger>}
           {isOwner && company && <TabsTrigger value="permissions">Permissions</TabsTrigger>}
-          {company && <TabsTrigger value="branding">Branding & Documents</TabsTrigger>}
-          {company && <TabsTrigger value="document-templates">Document Templates</TabsTrigger>}
+          {company && <TabsTrigger value="branding-templates">Branding & Templates</TabsTrigger>}
           {isOwner && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="accounting">Accounting</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
           {isOwner && company && <TabsTrigger value="backup">Backups</TabsTrigger>}
         </TabsList>
 
@@ -58,14 +54,8 @@ export default function Settings() {
         )}
 
         {company && (
-          <TabsContent value="branding">
-            <BrandingTab company={company} isOwner={!!isOwner} />
-          </TabsContent>
-        )}
-
-        {company && (
-          <TabsContent value="document-templates">
-            <CustomDocumentTemplatesTab isOwner={!!isOwner} />
+          <TabsContent value="branding-templates">
+            <BrandingTemplatesTab company={company} isOwner={!!isOwner} />
           </TabsContent>
         )}
 
@@ -81,10 +71,6 @@ export default function Settings() {
 
         <TabsContent value="accounting">
           <AccountingTab />
-        </TabsContent>
-
-        <TabsContent value="integrations">
-          <IntegrationsTab />
         </TabsContent>
 
         {isOwner && company && (

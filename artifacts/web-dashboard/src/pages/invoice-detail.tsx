@@ -358,9 +358,6 @@ async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], compa
   const doc = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl, defaultNotes);
   const filename = `${invoice.invoiceNumber}.pdf`;
   doc.save(filename);
-
-  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-  await mirrorArrayBuffer(filename, doc.output("arraybuffer"), "application/pdf");
 }
 
 async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string, defaultNotes?: string | null): Promise<string> {
@@ -550,10 +547,6 @@ export default function InvoiceDetail() {
     const xlsxFilename = `${invoice.invoiceNumber}.xlsx`;
     XLSX.writeFile(wb, xlsxFilename);
     toast({ title: "Excel downloaded" });
-
-    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
-    const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   }
 
   function handleSendReminder() {
