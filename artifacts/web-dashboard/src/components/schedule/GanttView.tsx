@@ -3,7 +3,6 @@ import {
   format, addDays, parseISO, startOfDay, eachDayOfInterval, eachWeekOfInterval, isSameDay, isWeekend,
 } from "date-fns";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Building2, Loader2, Plus, X } from "lucide-react";
 import {
@@ -167,7 +166,7 @@ export function GanttView({ data, isLoading, zoom, ganttNav, onOpenAssignDialog,
       ) : (
         <div className="flex overflow-hidden">
           {/* ── Left label panel (fixed) ── */}
-          <div className="shrink-0 border-r bg-muted/20" style={{ width: LABEL_W }}>
+          <div className="shrink-0 border-r bg-muted/10" style={{ width: LABEL_W }}>
             {/* Header spacer */}
             <div className="border-b bg-muted/40 flex items-end pb-1 px-3" style={{ height: 56 }}>
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Project</span>
@@ -177,17 +176,22 @@ export function GanttView({ data, isLoading, zoom, ganttNav, onOpenAssignDialog,
               return (
                 <div
                   key={project.id}
-                  className="border-b flex flex-col justify-center px-3 gap-1 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="flex items-center"
                   style={{ height: rowH, contentVisibility: "auto", containIntrinsicSize: `0 ${rowH}px` }}
-                  onClick={() => onOpenAssignDialog(String(project.id))}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: getProjectBg(project.id) }} />
-                    <span className="text-sm font-semibold truncate leading-snug">{project.name}</span>
+                  <div
+                    className="mx-1.5 w-full flex flex-col justify-center px-2.5 py-1.5 gap-1 rounded-lg border border-transparent cursor-pointer hover:bg-muted/40 hover:border-border/60 hover:shadow-sm transition-all"
+                    onClick={() => onOpenAssignDialog(String(project.id))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: getProjectBg(project.id) }} />
+                      <span className="text-sm font-semibold truncate leading-snug">{project.name}</span>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 self-start text-[11px] font-medium ${st.text}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${st.dot}`} aria-hidden />
+                      {st.label}
+                    </span>
                   </div>
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 self-start ${st.cls}`}>
-                    {st.label}
-                  </Badge>
                 </div>
               );
             })}
@@ -240,7 +244,7 @@ export function GanttView({ data, isLoading, zoom, ganttNav, onOpenAssignDialog,
                   : null;
 
                 return (
-                  <div key={project.id} className="border-b relative" style={{ height: rowH, contentVisibility: "auto", containIntrinsicSize: `0 ${rowH}px` }}>
+                  <div key={project.id} className="border-b relative group/row" style={{ height: rowH, contentVisibility: "auto", containIntrinsicSize: `0 ${rowH}px` }}>
                     {/* Column bg stripes */}
                     <div className="absolute inset-0 flex pointer-events-none">
                       {columns.map(col => (
@@ -369,10 +373,10 @@ export function GanttView({ data, isLoading, zoom, ganttNav, onOpenAssignDialog,
                       );
                     })}
 
-                    {/* Click to add button overlay */}
+                    {/* Click to add button overlay — appears on row hover only */}
                     {bars.length === 0 && (
                       <button
-                        className="absolute inset-x-2 inset-y-1 flex items-center justify-center rounded-md border border-dashed border-border/40 text-muted-foreground/40 hover:border-primary/50 hover:text-primary/60 hover:bg-primary/5 transition-all text-xs gap-1 z-20"
+                        className="absolute inset-x-2 inset-y-1 flex items-center justify-center rounded-md border border-dashed border-primary/40 text-primary/70 bg-primary/5 opacity-0 group-hover/row:opacity-100 hover:bg-primary/10 transition-all text-xs gap-1 z-20"
                         onClick={() => onOpenAssignDialog(String(project.id))}
                       >
                         <Plus className="h-3 w-3" /> Assign worker

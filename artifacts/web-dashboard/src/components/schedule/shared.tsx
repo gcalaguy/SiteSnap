@@ -66,11 +66,11 @@ export const BAR_GAP = 4;
 export const ROW_PAD = 10;
 export const LABEL_W = 224;
 
-export const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  planning:    { label: "Active",      cls: "bg-green-100 text-green-700 border-green-200" },
-  in_progress: { label: "In Progress", cls: "bg-orange-100 text-orange-700 border-orange-200" },
-  completed:   { label: "Completed",   cls: "bg-green-100 text-green-700 border-green-200" },
-  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200" },
+export const STATUS_CONFIG: Record<string, { label: string; cls: string; dot: string; text: string }> = {
+  planning:    { label: "Active",      cls: "bg-green-100 text-green-700 border-green-200", dot: "bg-green-500",  text: "text-green-700" },
+  in_progress: { label: "In Progress", cls: "bg-orange-100 text-orange-700 border-orange-200", dot: "bg-orange-500", text: "text-orange-700" },
+  completed:   { label: "Completed",   cls: "bg-green-100 text-green-700 border-green-200", dot: "bg-green-500",  text: "text-green-700" },
+  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200", dot: "bg-amber-500",  text: "text-amber-700" },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

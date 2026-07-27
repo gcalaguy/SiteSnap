@@ -4,6 +4,7 @@ import {
   format, addDays, startOfWeek, parseISO,
 } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus,
@@ -149,61 +150,64 @@ export default function Schedule() {
           )}
         </div>
 
-        {/* ── Compact summary strip ── */}
-        <div className="flex items-center gap-5">
-          {summaryStats.map(({ label, value, icon: Icon, targetView }, i) => {
+        {/* ── KPI summary cards ── */}
+        <div className="grid grid-cols-3 gap-3">
+          {summaryStats.map(({ label, value, icon: Icon, targetView }) => {
             const isActive = view === targetView;
             return (
-              <button
+              <Card
                 key={label}
                 onClick={() => setView(targetView)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-1.5 py-1 -mx-1.5 text-sm transition-colors",
-                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "flex items-center gap-3 px-4 py-3 border-border/60 shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-border",
+                  isActive && "ring-1 ring-primary/30 border-primary/30",
                 )}
               >
-                <Icon className={cn("h-3.5 w-3.5", isActive && "text-primary")} />
-                <span className="font-semibold text-foreground">{value}</span>
-                <span>{label}</span>
-                {i < summaryStats.length - 1 && <span className="ml-3.5 h-3.5 w-px bg-border" aria-hidden />}
-              </button>
+                <div className={cn(
+                  "flex items-center justify-center h-9 w-9 rounded-lg shrink-0",
+                  isActive ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                )}>
+                  <Icon className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-bold leading-tight text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground truncate">{label}</p>
+                </div>
+              </Card>
             );
           })}
         </div>
 
-        {/* ── View tabs + nav controls ── */}
-        <div className="flex items-center justify-between gap-4 flex-wrap border-b border-border">
-          {/* Lightweight view tabs */}
-          <div className="flex items-center gap-1">
+        {/* ── Consolidated filter bar: view switcher + date controls ── */}
+        <div className="flex items-center justify-between gap-3 flex-wrap rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
+          {/* Segmented view switcher */}
+          <div className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setView(id)}
                 className={cn(
-                  "relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors",
-                  view === id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-colors",
+                  view === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" /> {label}
-                {view === id && (
-                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" aria-hidden />
-                )}
               </button>
             ))}
           </div>
 
           {/* Navigation (only for time-based views) */}
           {(view === "gantt" || view === "team" || view === "events") && (
-            <div className="flex items-center gap-2 pb-2">
+            <div className="flex items-center gap-2">
               {view === "gantt" && (
-                <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 mr-1">
+                <div className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5 mr-1">
                   {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
                     <button
                       key={z}
                       onClick={() => { setZoom(z); ganttToday(); }}
                       className={cn(
-                        "px-2 py-1 rounded text-xs font-semibold transition-colors",
-                        zoom === z ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                        "px-2 py-1.5 rounded text-xs font-semibold transition-colors",
+                        zoom === z ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
