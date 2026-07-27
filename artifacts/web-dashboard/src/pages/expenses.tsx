@@ -115,14 +115,13 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
-            <Receipt className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+            <Receipt className="h-6 w-6 text-primary" />
             Expenses
           </h1>
-          <p className="text-sm text-[#121212]/60 font-medium">Submit and track project expenses with receipts.</p>
+          <p className="text-sm text-foreground/60 font-medium">Submit and track project expenses with receipts.</p>
         </div>
         <Button
-          className="bg-[#D4AF37] text-white hover:bg-[#b5922e]"
           onClick={() => setOpen(true)}
           disabled={!activeProjectId}
         >
@@ -132,9 +131,9 @@ export default function ExpensesPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Label className="text-xs text-[#121212]/60 font-medium">Project</Label>
+        <Label className="text-xs text-foreground/60 font-medium">Project</Label>
         <Select value={activeProjectId !== undefined ? String(activeProjectId) : undefined} onValueChange={(v) => setProjectId(Number(v))}>
-          <SelectTrigger className="w-[220px] border-[#D4AF37]/20 focus:ring-[#D4AF37]">
+          <SelectTrigger className="w-[220px] border-primary/20 focus:ring-primary">
             <SelectValue placeholder="Select a project" />
           </SelectTrigger>
           <SelectContent>
@@ -146,49 +145,49 @@ export default function ExpensesPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-[#121212]/60 animate-pulse font-medium">Loading expenses…</div>
+        <div className="py-16 text-center text-foreground/60 animate-pulse font-medium">Loading expenses…</div>
       ) : !activeProjectId ? (
-        <Card className="border-[#D4AF37]/20">
+        <Card className="border-primary/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-            <Receipt className="h-10 w-10 text-[#D4AF37]/40" />
-            <p className="text-[#121212]/60 font-medium">No assigned projects to submit expenses for.</p>
+            <Receipt className="h-10 w-10 text-primary/40" />
+            <p className="text-foreground/60 font-medium">No assigned projects to submit expenses for.</p>
           </CardContent>
         </Card>
       ) : expenses.length === 0 ? (
-        <Card className="border-[#D4AF37]/20">
+        <Card className="border-primary/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-            <Receipt className="h-10 w-10 text-[#D4AF37]/40" />
-            <p className="text-[#121212]/60 font-medium">No expenses submitted for this project yet.</p>
+            <Receipt className="h-10 w-10 text-primary/40" />
+            <p className="text-foreground/60 font-medium">No expenses submitted for this project yet.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm font-bold text-[#121212]">Total: {formatCurrency(total)}</p>
+          <p className="text-sm font-bold text-foreground">Total: {formatCurrency(total)}</p>
           {expenses.map((expense) => (
-            <Card key={expense.id} className="border-[#D4AF37]/20">
+            <Card key={expense.id} className="border-primary/20">
               <CardContent className="py-4 px-5 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <p className="font-extrabold text-sm text-[#121212]">
+                    <p className="font-extrabold text-sm text-foreground">
                       {formatCurrency(parseFloat(expense.amount))}
                     </p>
-                    <span className="flex items-center gap-1 text-xs text-[#121212]/60 font-medium">
-                      <User className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
+                    <span className="flex items-center gap-1 text-xs text-foreground/60 font-medium">
+                      <User className="h-3.5 w-3.5 text-primary" />
                       {expense.submittedByName}
                     </span>
                     {expense.receiptObjectPath && (
                       <ReceiptLink objectPath={expense.receiptObjectPath} />
                     )}
                   </div>
-                  <p className="text-sm text-[#121212]/80">{expense.description}</p>
-                  <p className="text-xs text-[#121212]/60 mt-1 font-medium">
+                  <p className="text-sm text-foreground/80">{expense.description}</p>
+                  <p className="text-xs text-foreground/60 mt-1 font-medium">
                     Submitted {format(new Date(expense.createdAt), "MMM d 'at' h:mm a")}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => deleteExpense.mutate(expense.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -206,22 +205,21 @@ export default function ExpensesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label className="text-xs text-[#121212]/60 font-medium">Amount</Label>
+              <Label className="text-xs text-foreground/60 font-medium">Amount</Label>
               <Input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <Label className="text-xs text-[#121212]/60 font-medium">Description</Label>
+              <Label className="text-xs text-foreground/60 font-medium">Description</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="What was this expense for?" />
             </div>
             <div>
-              <Label className="text-xs text-[#121212]/60 font-medium">Receipt (optional)</Label>
+              <Label className="text-xs text-foreground/60 font-medium">Receipt (optional)</Label>
               <Input type="file" accept="image/*,application/pdf" onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
-              className="bg-[#D4AF37] text-white hover:bg-[#b5922e]"
               onClick={() => createExpense.mutate()}
               disabled={createExpense.isPending || uploading || !amount || !description.trim()}
             >
@@ -242,7 +240,7 @@ function ReceiptLink({ objectPath }: { objectPath: string }) {
       type="button"
       onClick={() => open((message) => toast({ title: message, variant: "destructive" }))}
       disabled={isFetching}
-      className="flex items-center gap-1 text-xs text-[#D4AF37] font-medium hover:underline disabled:opacity-50"
+      className="flex items-center gap-1 text-xs text-primary font-medium hover:underline disabled:opacity-50"
     >
       {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
       View receipt
