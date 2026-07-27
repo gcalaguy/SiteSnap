@@ -254,3 +254,63 @@ describe("POST /companies/:companyId/backups/run-now (network_drive)", () => {
     expect((downloadRes.body as Buffer).subarray(0, 2).toString("hex")).toBe("504b");
   }, 45_000);
 });
+
+describe("GET /companies/:companyId/backup-mounts/:mountKey/browse", () => {
+  it("lists sub-directories at the mount root", async () => {
+    activeClerkId = CLERK_ID_OWNER;
+    // The network_drive run-now test above already wrote into <mountDir>/company-backups.
+    const res = await request(testApp).get(`/companies/${companyId}/backup-mounts/test-mount/browse`);
+    expect(res.status).toBe(200);
+    expect(res.body.exists).toBe(true);
+    expect(res.body.subpath).toBe("");
+    expect(res.body.entries).toEqual(
+      expect.arrayContaining([{ name: "company-backups", subpath: "company-backups" }]),
+    );
+  });
+
+  it("lists an existing leaf directory as empty (it only contains files, no sub-folders)", async () => {
+    activeClerkId = CLERK_ID_OWNER;
+    const res = await request(testApp)
+      .get(`/companies/${companyId}/backup-mounts/test-mount/browse`)
+      .query({ subpath: "company-backups" });
+    expect(res.status).toBe(200);
+    expect(res.body.exists).toBe(true);
+    expect(res.body.entries).toEqual([]);
+  });
+
+  it("reports a not-yet-created subpath as not existing, without erroring", async () => {
+    activeClerkId = CLERK_ID_OWNER;
+    const res = await request(testApp)
+      .get(`/companies/${companyId}/backup-mounts/test-mount/browse`)
+      .query({ subpath: "never-created-yet" });
+    expect(res.status).toBe(200);
+    expect(res.body.exists).toBe(false);
+    expect(res.body.entries).toEqual([]);
+  });
+
+  it("rejects an unknown mount key with 404", async () => {
+    activeClerkId = CLERK_ID_OWNER;
+    const res = await request(testApp).get(`/companies/${companyId}/backup-mounts/not-a-real-mount/browse`);
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects a path-traversal subpath with 400", async () => {
+    activeClerkId = CLERK_ID_OWNER;
+    const res = await request(testApp)
+      .get(`/companies/${companyId}/backup-mounts/test-mount/browse`)
+      .query({ subpath: "../../etc" });
+    expect(res.status).toBe(400);
+  });
+
+  it("blocks a non-owner (worker) with 403", async () => {
+    activeClerkId = CLERK_ID_WORKER;
+    const res = await request(testApp).get(`/companies/${companyId}/backup-mounts/test-mount/browse`);
+    expect(res.status).toBe(403);
+  });
+
+  it("blocks cross-tenant access with 403", async () => {
+    activeClerkId = CLERK_ID_OTHER_OWNER;
+    const res = await request(testApp).get(`/companies/${companyId}/backup-mounts/test-mount/browse`);
+    expect(res.status).toBe(403);
+  });
+});

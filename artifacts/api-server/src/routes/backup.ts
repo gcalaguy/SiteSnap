@@ -7,7 +7,12 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod";
 import { encryptBackupConfig } from "../lib/backupConfigCrypto";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { startBackupRun, getAvailableBackupMounts, downloadCustomCloudBackup } from "../services/backupEngine";
+import {
+  startBackupRun,
+  getAvailableBackupMounts,
+  downloadCustomCloudBackup,
+  listMountDirectory,
+} from "../services/backupEngine";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -155,6 +160,36 @@ router.patch(
       destinationSubpath: updated.destinationSubpath,
       hasCustomCloudConfig: Boolean(updated.customCloudConfig),
     });
+  }),
+);
+
+// GET /companies/:companyId/backup-mounts/:mountKey/browse?subpath=...
+router.get(
+  "/companies/:companyId/backup-mounts/:mountKey/browse",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    const companyId = parseInt(req.params.companyId as string);
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const mountKey = req.params.mountKey as string;
+    if (!getAvailableBackupMounts().includes(mountKey)) {
+      res.status(404).json({ error: "Unknown backup mount" });
+      return;
+    }
+
+    const subpath = typeof req.query.subpath === "string" ? req.query.subpath : "";
+    try {
+      const listing = await listMountDirectory(mountKey, subpath);
+      res.json(listing);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Invalid path" });
+    }
   }),
 );
 

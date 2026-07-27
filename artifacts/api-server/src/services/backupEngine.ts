@@ -54,7 +54,7 @@ function sanitizeSubpath(subpath: string | null | undefined): string {
   return trimmed.replace(/^[/\\]+/, "");
 }
 
-function resolveNetworkDrivePath(mountKey: string, subpath: string | null, filename: string): string {
+function resolveMountDir(mountKey: string, subpath: string | null | undefined): string {
   const base = getMountAllowlist()[mountKey];
   if (!base) {
     throw new Error(`Unknown backup mount key: ${mountKey}`);
@@ -64,7 +64,60 @@ function resolveNetworkDrivePath(mountKey: string, subpath: string | null, filen
   if (resolvedDir !== resolvedBase && !resolvedDir.startsWith(resolvedBase + path.sep)) {
     throw new Error("Resolved backup destination escapes the allowed mount");
   }
-  return path.join(resolvedDir, filename);
+  return resolvedDir;
+}
+
+function resolveNetworkDrivePath(mountKey: string, subpath: string | null, filename: string): string {
+  return path.join(resolveMountDir(mountKey, subpath), filename);
+}
+
+export interface MountDirEntry {
+  name: string;
+  subpath: string;
+}
+
+export interface MountDirListing {
+  subpath: string;
+  entries: MountDirEntry[];
+  exists: boolean;
+  error?: string;
+}
+
+/**
+ * Lists sub-directories under an allowlisted mount, for the "browse to pick a
+ * folder" UI. Confined to the same mountKey + subpath sandboxing as actual
+ * backup writes — never accepts an arbitrary server path (see the allowlist
+ * rationale above).
+ */
+export async function listMountDirectory(
+  mountKey: string,
+  subpath: string | null | undefined,
+): Promise<MountDirListing> {
+  const resolvedDir = resolveMountDir(mountKey, subpath);
+  const cleanSubpath = sanitizeSubpath(subpath);
+
+  try {
+    const dirents = await fs.readdir(resolvedDir, { withFileTypes: true });
+    const entries = dirents
+      .filter((d) => d.isDirectory())
+      .map((d) => ({
+        name: d.name,
+        subpath: cleanSubpath ? `${cleanSubpath}/${d.name}` : d.name,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { subpath: cleanSubpath, entries, exists: true };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") {
+      return { subpath: cleanSubpath, entries: [], exists: false };
+    }
+    return {
+      subpath: cleanSubpath,
+      entries: [],
+      exists: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 function backupFilename(companyId: number): string {

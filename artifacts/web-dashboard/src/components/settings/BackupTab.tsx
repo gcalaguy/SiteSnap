@@ -27,6 +27,7 @@ import {
   type BackupLog,
   type BackupStatus,
 } from "@/hooks/settings/useBackup";
+import { MountFolderPicker } from "@/components/settings/MountFolderPicker";
 
 const RETENTION_OPTIONS = [30, 60, 90, 365] as const;
 
@@ -73,7 +74,7 @@ function StatusBadge({ status }: { status: BackupStatus }) {
 
 export function BackupTab({ companyId }: { companyId: number }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { schedule, availableMounts, logs, isLoading, saving, running, saveSchedule, runNow, downloadHref } =
+  const { schedule, availableMounts, logs, isLoading, saving, running, saveSchedule, runNow, downloadHref, browseMount } =
     useBackup(companyId);
 
   const [frequency, setFrequency] = useState<BackupFrequency>(schedule?.frequency ?? "weekly");
@@ -266,7 +267,13 @@ export function BackupTab({ companyId }: { companyId: number }) {
                   <div className="grid gap-3 pl-6 pt-1">
                     <div className="space-y-1.5">
                       <Label>Mount</Label>
-                      <Select value={mountKey} onValueChange={setMountKey}>
+                      <Select
+                        value={mountKey}
+                        onValueChange={(v) => {
+                          setMountKey(v);
+                          setSubpath("");
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a configured mount" />
                         </SelectTrigger>
@@ -279,15 +286,20 @@ export function BackupTab({ companyId }: { companyId: number }) {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="subpath">Subdirectory (optional)</Label>
-                      <Input
-                        id="subpath"
-                        placeholder="company-backups"
-                        value={subpath}
-                        onChange={(e) => setSubpath(e.target.value)}
-                      />
-                    </div>
+                    {mountKey && (
+                      <div className="space-y-1.5">
+                        <Label>Backup Folder</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Browse to the folder on this mount where backups should be written.
+                        </p>
+                        <MountFolderPicker
+                          mountKey={mountKey}
+                          value={subpath}
+                          onChange={setSubpath}
+                          browseMount={browseMount}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

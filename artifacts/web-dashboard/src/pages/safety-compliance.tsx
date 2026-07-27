@@ -10,7 +10,21 @@ import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
 import SafetyScannerPage from "@/pages/safety-scanner";
 import VoiceInspectionPage from "@/pages/voice-inspection";
 
-type Tab = "ai-compliance" | "inspections" | "safety" | "cor" | "scanner" | "voice-inspection";
+type Tab = "ai-compliance" | "safety-forms" | "cor" | "ai-scanners";
+type SafetyFormsSubTab = "inspections" | "forms";
+type ScannerSubTab = "scanner" | "voice";
+
+// Legacy tab query values are kept working by mapping them onto the consolidated tabs below.
+function resolveTab(
+  requestedTab: string | null,
+  perms: { canViewAiCompliance: boolean; canViewCor: boolean; canViewScanners: boolean },
+): Tab {
+  if (requestedTab === "ai-compliance" && perms.canViewAiCompliance) return "ai-compliance";
+  if ((requestedTab === "inspections" || requestedTab === "safety")) return "safety-forms";
+  if (requestedTab === "cor" && perms.canViewCor) return "cor";
+  if ((requestedTab === "scanner" || requestedTab === "voice-inspection") && perms.canViewScanners) return "ai-scanners";
+  return perms.canViewAiCompliance ? "ai-compliance" : "safety-forms";
+}
 
 export default function SafetyCompliancePage() {
   const { data: me } = useGetMe();
@@ -36,26 +50,40 @@ export default function SafetyCompliancePage() {
     isOwnerOrForeman &&
     hasPerm("viewSafetyTab") &&
     (me?.systemRole === "super_admin" || (featureData?.features?.includes("VOICE_INSPECTION") ?? false));
+  const canViewScanners = canViewScanner || canViewVoiceInspection;
 
-  const requestedTab = new URLSearchParams(search).get("tab");
-  const [tab, setTab] = useState<Tab>(() => {
-    if (requestedTab === "ai-compliance" && canViewAiCompliance) return "ai-compliance";
+  const params = new URLSearchParams(search);
+  const requestedTab = params.get("tab");
+  const requestedSub = params.get("sub");
+
+  const [tab, setTab] = useState<Tab>(() =>
+    resolveTab(requestedTab, { canViewAiCompliance, canViewCor, canViewScanners }),
+  );
+
+  const [safetyFormsSub, setSafetyFormsSub] = useState<SafetyFormsSubTab>(() => {
     if (requestedTab === "inspections" && canViewInspections) return "inspections";
-    if (requestedTab === "safety") return "safety";
-    if (requestedTab === "cor" && canViewCor) return "cor";
+    if (requestedTab === "safety") return "forms";
+    if (requestedSub === "inspections" && canViewInspections) return "inspections";
+    if (requestedSub === "forms") return "forms";
+    return canViewInspections ? "inspections" : "forms";
+  });
+
+  const [scannerSub, setScannerSub] = useState<ScannerSubTab>(() => {
+    if (requestedTab === "voice-inspection" && canViewVoiceInspection) return "voice";
     if (requestedTab === "scanner" && canViewScanner) return "scanner";
-    if (requestedTab === "voice-inspection" && canViewVoiceInspection) return "voice-inspection";
-    return canViewAiCompliance ? "ai-compliance" : canViewInspections ? "inspections" : "safety";
+    if (requestedSub === "voice" && canViewVoiceInspection) return "voice";
+    if (requestedSub === "scanner" && canViewScanner) return "scanner";
+    return canViewScanner ? "scanner" : "voice";
   });
 
   return (
     <div className="flex flex-col min-h-full">
-      {/* Underline tab bar */}
-      <div className="border-b border-[#D4AF37]/20 bg-white shrink-0 px-6">
-        <div className="flex gap-0 -mb-px">
+      {/* Top-level tab bar */}
+      <div className="border-b border-[#D4AF37]/20 bg-white shrink-0 px-6 overflow-x-auto">
+        <div className="flex gap-0 -mb-px flex-nowrap">
           {canViewAiCompliance && (
             <button
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                 tab === "ai-compliance"
                   ? "border-[#D4AF37] text-[#D4AF37] font-bold"
                   : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
@@ -66,33 +94,20 @@ export default function SafetyCompliancePage() {
               AI Compliance
             </button>
           )}
-          {canViewInspections && (
-            <button
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                tab === "inspections"
-                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
-                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
-              }`}
-              onClick={() => setTab("inspections")}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Inspections
-            </button>
-          )}
           <button
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
-              tab === "safety"
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+              tab === "safety-forms"
                 ? "border-[#D4AF37] text-[#D4AF37] font-bold"
                 : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
             }`}
-            onClick={() => setTab("safety")}
+            onClick={() => setTab("safety-forms")}
           >
             <ShieldAlert className="h-4 w-4" />
             Safety & Forms
           </button>
           {canViewCor && (
             <button
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                 tab === "cor"
                   ? "border-[#D4AF37] text-[#D4AF37] font-bold"
                   : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
@@ -103,30 +118,17 @@ export default function SafetyCompliancePage() {
               COR Compliance
             </button>
           )}
-          {canViewScanner && (
+          {canViewScanners && (
             <button
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                tab === "scanner"
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+                tab === "ai-scanners"
                   ? "border-[#D4AF37] text-[#D4AF37] font-bold"
                   : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
-              onClick={() => setTab("scanner")}
+              onClick={() => setTab("ai-scanners")}
             >
               <ScanEye className="h-4 w-4" />
-              AI Safety Scanner
-            </button>
-          )}
-          {canViewVoiceInspection && (
-            <button
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                tab === "voice-inspection"
-                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
-                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
-              }`}
-              onClick={() => setTab("voice-inspection")}
-            >
-              <Headphones className="h-4 w-4" />
-              Voice Notes & Inspections
+              AI & Voice Scanners
             </button>
           )}
         </div>
@@ -139,26 +141,98 @@ export default function SafetyCompliancePage() {
             <AIComplianceMonitorPage />
           </div>
         )}
-        {tab === "inspections" && canViewInspections && (
-          <div className="p-6">
-            <InspectionsPage />
+
+        {tab === "safety-forms" && (
+          <div className="flex flex-col min-h-full">
+            {canViewInspections && (
+              <div className="flex gap-1 px-6 pt-4">
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    safetyFormsSub === "inspections"
+                      ? "text-[#111111]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  style={{ background: safetyFormsSub === "inspections" ? "#D4AF37" : "transparent" }}
+                  onClick={() => setSafetyFormsSub("inspections")}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Inspections
+                </button>
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    safetyFormsSub === "forms"
+                      ? "text-[#111111]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  style={{ background: safetyFormsSub === "forms" ? "#D4AF37" : "transparent" }}
+                  onClick={() => setSafetyFormsSub("forms")}
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Forms, Hazards & Checklists
+                </button>
+              </div>
+            )}
+            <div className="flex-1">
+              {safetyFormsSub === "inspections" && canViewInspections ? (
+                <div className="p-6">
+                  <InspectionsPage />
+                </div>
+              ) : (
+                <SafetyPage />
+              )}
+            </div>
           </div>
         )}
-        {tab === "safety" && <SafetyPage />}
+
         {tab === "cor" && canViewCor && (
           <FeatureGuard feature="COR_MODULE">
             <CorCompliancePage />
           </FeatureGuard>
         )}
-        {tab === "scanner" && canViewScanner && (
-          <FeatureGuard feature="SAFETY_SCANNER">
-            <SafetyScannerPage />
-          </FeatureGuard>
-        )}
-        {tab === "voice-inspection" && canViewVoiceInspection && (
-          <FeatureGuard feature="VOICE_INSPECTION">
-            <VoiceInspectionPage />
-          </FeatureGuard>
+
+        {tab === "ai-scanners" && canViewScanners && (
+          <div className="flex flex-col min-h-full">
+            {canViewScanner && canViewVoiceInspection && (
+              <div className="flex gap-1 px-6 pt-4">
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    scannerSub === "scanner"
+                      ? "text-[#111111]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  style={{ background: scannerSub === "scanner" ? "#D4AF37" : "transparent" }}
+                  onClick={() => setScannerSub("scanner")}
+                >
+                  <ScanEye className="h-3.5 w-3.5" />
+                  AI Safety Scanner
+                </button>
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    scannerSub === "voice"
+                      ? "text-[#111111]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  style={{ background: scannerSub === "voice" ? "#D4AF37" : "transparent" }}
+                  onClick={() => setScannerSub("voice")}
+                >
+                  <Headphones className="h-3.5 w-3.5" />
+                  Voice Notes & Inspections
+                </button>
+              </div>
+            )}
+            <div className="flex-1">
+              {scannerSub === "scanner" && canViewScanner && (
+                <FeatureGuard feature="SAFETY_SCANNER">
+                  <SafetyScannerPage />
+                </FeatureGuard>
+              )}
+              {scannerSub === "voice" && canViewVoiceInspection && (
+                <FeatureGuard feature="VOICE_INSPECTION">
+                  <VoiceInspectionPage />
+                </FeatureGuard>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

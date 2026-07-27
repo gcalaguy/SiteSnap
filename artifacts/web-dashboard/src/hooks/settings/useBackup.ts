@@ -34,6 +34,18 @@ interface BackupScheduleResponse {
   logs: BackupLog[];
 }
 
+export interface MountDirEntry {
+  name: string;
+  subpath: string;
+}
+
+export interface MountDirListing {
+  subpath: string;
+  entries: MountDirEntry[];
+  exists: boolean;
+  error?: string;
+}
+
 export interface SaveBackupSchedulePayload {
   frequency: BackupFrequency;
   enabled: boolean;
@@ -105,6 +117,14 @@ export function useBackup(companyId: number | undefined) {
     return `/api/companies/${companyId}/backups/${logId}/download`;
   }
 
+  async function browseMount(mountKey: string, subpath: string): Promise<MountDirListing> {
+    if (!companyId) throw new Error("No active company");
+    const qs = subpath ? `?subpath=${encodeURIComponent(subpath)}` : "";
+    return customFetch(
+      `/api/companies/${companyId}/backup-mounts/${encodeURIComponent(mountKey)}/browse${qs}`,
+    );
+  }
+
   const hasRunInProgress = (data?.logs ?? []).some((l) => l.status === "in_progress");
 
   return {
@@ -117,5 +137,6 @@ export function useBackup(companyId: number | undefined) {
     saveSchedule,
     runNow,
     downloadHref,
+    browseMount,
   };
 }
