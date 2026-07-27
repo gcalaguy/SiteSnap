@@ -21,6 +21,8 @@ import { logAuditEventFromRequest } from "../utils/logger";
 import { sendPushNotification } from "../lib/push.js";
 import { buildQuotePdfBuffer } from "../lib/quotePdf.js";
 import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer.js";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildQuoteMergeData } from "../lib/documentTemplateLiveData";
 
 const LineItemSchema = z.object({
   description: z.string().max(500),
@@ -492,25 +494,32 @@ router.get("/:quoteId/pdf", requirePermission("viewQuotes"), asyncHandler(async 
     .where(eq(companiesTable.id, req.companyId!))
     .limit(1);
 
-  const pdfBuffer = await buildQuotePdfBuffer({
-    quoteNumber: quote.quoteNumber,
-    title: quote.title,
-    clientName: quote.clientName,
-    clientEmail: quote.clientEmail,
-    status: quote.status,
-    lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
-    subtotal: quote.subtotal,
-    taxRate: quote.taxRate,
-    taxAmount: quote.taxAmount,
-    total: quote.total,
-    notes: quote.notes,
-    validUntil: quote.validUntil,
-    createdAt: quote.createdAt.toISOString(),
-    companyName: company?.name ?? "Site Snap",
-    companyAddress: company?.address ?? null,
-    companyPhone: company?.phone ?? null,
-    signerName: quote.signerName,
-    signedAt: quote.signedAt,
+  const companyName = company?.name ?? "Site Snap";
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "quote",
+    mergeData: buildQuoteMergeData(quote, { name: companyName, address: company?.address, phone: company?.phone }),
+    defaultFallback: () =>
+      buildQuotePdfBuffer({
+        quoteNumber: quote.quoteNumber,
+        title: quote.title,
+        clientName: quote.clientName,
+        clientEmail: quote.clientEmail,
+        status: quote.status,
+        lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+        subtotal: quote.subtotal,
+        taxRate: quote.taxRate,
+        taxAmount: quote.taxAmount,
+        total: quote.total,
+        notes: quote.notes,
+        validUntil: quote.validUntil,
+        createdAt: quote.createdAt.toISOString(),
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        signerName: quote.signerName,
+        signedAt: quote.signedAt,
+      }),
   });
 
   res.setHeader("Content-Type", "application/pdf");
@@ -544,25 +553,31 @@ router.post("/:quoteId/send-email", requirePermission("manageQuotes"), asyncHand
     .limit(1);
   const companyName = company?.name ?? "Site Snap";
 
-  const pdfBuffer = await buildQuotePdfBuffer({
-    quoteNumber: quote.quoteNumber,
-    title: quote.title,
-    clientName: quote.clientName,
-    clientEmail: quote.clientEmail,
-    status: quote.status,
-    lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
-    subtotal: quote.subtotal,
-    taxRate: quote.taxRate,
-    taxAmount: quote.taxAmount,
-    total: quote.total,
-    notes: quote.notes,
-    validUntil: quote.validUntil,
-    createdAt: quote.createdAt.toISOString(),
-    companyName,
-    companyAddress: company?.address ?? null,
-    companyPhone: company?.phone ?? null,
-    signerName: quote.signerName,
-    signedAt: quote.signedAt,
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "quote",
+    mergeData: buildQuoteMergeData(quote, { name: companyName, address: company?.address, phone: company?.phone }),
+    defaultFallback: () =>
+      buildQuotePdfBuffer({
+        quoteNumber: quote.quoteNumber,
+        title: quote.title,
+        clientName: quote.clientName,
+        clientEmail: quote.clientEmail,
+        status: quote.status,
+        lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+        subtotal: quote.subtotal,
+        taxRate: quote.taxRate,
+        taxAmount: quote.taxAmount,
+        total: quote.total,
+        notes: quote.notes,
+        validUntil: quote.validUntil,
+        createdAt: quote.createdAt.toISOString(),
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        signerName: quote.signerName,
+        signedAt: quote.signedAt,
+      }),
   });
 
   const fmtCAD = (v: string | number) =>

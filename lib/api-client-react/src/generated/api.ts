@@ -109,6 +109,11 @@ import type {
   DeleteWorkerDocument200,
   DenyTimesheetBody,
   DisconnectQuickBooks200,
+  DocumentTemplateList,
+  DocumentTemplateMergeTagCatalog,
+  DocumentTemplatePreviewBody,
+  DocumentTemplateResetResponse,
+  DocumentTemplateType,
   EmailConfig,
   ErrorEnvelope,
   EstimateItemBody,
@@ -21426,3 +21431,334 @@ export function useExportComplianceAudit<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List the company's custom document templates, one entry per supported document type
+ */
+export const getListDocumentTemplatesUrl = () => {
+  return `/api/templates`;
+};
+
+export const listDocumentTemplates = async (
+  options?: RequestInit,
+): Promise<DocumentTemplateList> => {
+  return customFetch<DocumentTemplateList>(getListDocumentTemplatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDocumentTemplatesQueryKey = () => {
+  return [`/api/templates`] as const;
+};
+
+export const getListDocumentTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocumentTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDocumentTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDocumentTemplates>>
+  > = ({ signal }) => listDocumentTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocumentTemplates>>
+>;
+export type ListDocumentTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the company's custom document templates, one entry per supported document type
+ */
+
+export function useListDocumentTemplates<
+  TData = Awaited<ReturnType<typeof listDocumentTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Catalog of available {{merge_tag}} variables per document type, for the "Available Dynamic Variables" cheat sheet
+ */
+export const getListDocumentTemplateMergeTagsUrl = () => {
+  return `/api/templates/merge-tags`;
+};
+
+export const listDocumentTemplateMergeTags = async (
+  options?: RequestInit,
+): Promise<DocumentTemplateMergeTagCatalog> => {
+  return customFetch<DocumentTemplateMergeTagCatalog>(
+    getListDocumentTemplateMergeTagsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDocumentTemplateMergeTagsQueryKey = () => {
+  return [`/api/templates/merge-tags`] as const;
+};
+
+export const getListDocumentTemplateMergeTagsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDocumentTemplateMergeTagsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>
+  > = ({ signal }) =>
+    listDocumentTemplateMergeTags({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentTemplateMergeTagsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>
+>;
+export type ListDocumentTemplateMergeTagsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Catalog of available {{merge_tag}} variables per document type, for the "Available Dynamic Variables" cheat sheet
+ */
+
+export function useListDocumentTemplateMergeTags<
+  TData = Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentTemplateMergeTags>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentTemplateMergeTagsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Render a PDF preview with sample data, using the active custom template for a document type or the default theme if none is set
+ */
+export const getPreviewDocumentTemplateUrl = () => {
+  return `/api/templates/preview`;
+};
+
+export const previewDocumentTemplate = async (
+  documentTemplatePreviewBody: DocumentTemplatePreviewBody,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getPreviewDocumentTemplateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(documentTemplatePreviewBody),
+  });
+};
+
+export const getPreviewDocumentTemplateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewDocumentTemplate>>,
+    TError,
+    { data: BodyType<DocumentTemplatePreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewDocumentTemplate>>,
+  TError,
+  { data: BodyType<DocumentTemplatePreviewBody> },
+  TContext
+> => {
+  const mutationKey = ["previewDocumentTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewDocumentTemplate>>,
+    { data: BodyType<DocumentTemplatePreviewBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewDocumentTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewDocumentTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewDocumentTemplate>>
+>;
+export type PreviewDocumentTemplateMutationBody =
+  BodyType<DocumentTemplatePreviewBody>;
+export type PreviewDocumentTemplateMutationError = ErrorType<void>;
+
+/**
+ * @summary Render a PDF preview with sample data, using the active custom template for a document type or the default theme if none is set
+ */
+export const usePreviewDocumentTemplate = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewDocumentTemplate>>,
+    TError,
+    { data: BodyType<DocumentTemplatePreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewDocumentTemplate>>,
+  TError,
+  { data: BodyType<DocumentTemplatePreviewBody> },
+  TContext
+> => {
+  return useMutation(getPreviewDocumentTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Remove the company's custom template for a document type, reverting to the default theme
+ */
+export const getResetDocumentTemplateUrl = (
+  documentType: DocumentTemplateType,
+) => {
+  return `/api/templates/${documentType}`;
+};
+
+export const resetDocumentTemplate = async (
+  documentType: DocumentTemplateType,
+  options?: RequestInit,
+): Promise<DocumentTemplateResetResponse> => {
+  return customFetch<DocumentTemplateResetResponse>(
+    getResetDocumentTemplateUrl(documentType),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getResetDocumentTemplateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetDocumentTemplate>>,
+    TError,
+    { documentType: DocumentTemplateType },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetDocumentTemplate>>,
+  TError,
+  { documentType: DocumentTemplateType },
+  TContext
+> => {
+  const mutationKey = ["resetDocumentTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetDocumentTemplate>>,
+    { documentType: DocumentTemplateType }
+  > = (props) => {
+    const { documentType } = props ?? {};
+
+    return resetDocumentTemplate(documentType, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetDocumentTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetDocumentTemplate>>
+>;
+
+export type ResetDocumentTemplateMutationError = ErrorType<void>;
+
+/**
+ * @summary Remove the company's custom template for a document type, reverting to the default theme
+ */
+export const useResetDocumentTemplate = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetDocumentTemplate>>,
+    TError,
+    { documentType: DocumentTemplateType },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetDocumentTemplate>>,
+  TError,
+  { documentType: DocumentTemplateType },
+  TContext
+> => {
+  return useMutation(getResetDocumentTemplateMutationOptions(options));
+};

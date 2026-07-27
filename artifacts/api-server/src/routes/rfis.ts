@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
+import { db, rfisTable, usersTable, projectsTable, companiesTable } from "@workspace/db";
 import { eq, and, count, inArray, SQL, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { BadRequestError } from "../lib/errors";
@@ -9,6 +9,9 @@ import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
 import { asyncHandler } from "../lib/asyncHandler";
 import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildRfiMergeData } from "../lib/documentTemplateLiveData";
+import { buildGenericDocumentPdfBuffer } from "../lib/documentTemplateDefaultPdf";
 
 // GET /rfis — all RFIs across all projects for the authenticated company
 export const allRfisRouter = Router();
@@ -192,6 +195,57 @@ router.get("/:rfiId", requireAuth, requireCompany, requireTenantCtx, requirePerm
     .limit(1);
 
   res.json({ ...rfi, submittedBy: submittedBy ?? null });
+}))
+
+// GET /projects/:projectId/rfis/:rfiId/pdf — server-side branded PDF, custom-template aware
+router.get("/:rfiId/pdf", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const rfiId = parseInt(req.params.rfiId as string);
+
+  const [rfi] = await db
+    .select()
+    .from(rfisTable)
+    .where(and(eq(rfisTable.id, rfiId), eq(rfisTable.projectId, projectId)))
+    .limit(1);
+  if (!rfi) { res.status(404).json({ error: "RFI not found" }); return; }
+
+  const [project] = await db
+    .select({ name: projectsTable.name, address: projectsTable.address })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, projectId))
+    .limit(1);
+  const [company] = await db
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "Site Snap";
+
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "rfi",
+    mergeData: buildRfiMergeData(rfi, { name: companyName, address: company?.address, phone: company?.phone }, project ?? null),
+    defaultFallback: () =>
+      buildGenericDocumentPdfBuffer({
+        title: "Request for Information",
+        documentNumber: rfi.rfiNumber,
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        projectName: project?.name ?? null,
+        createdAt: rfi.createdAt,
+        fields: [
+          { label: "Subject", value: rfi.subject },
+          { label: "Question", value: rfi.description },
+          { label: "Response", value: rfi.response ?? "Awaiting response." },
+          ...(rfi.dueDate ? [{ label: "Due Date", value: rfi.dueDate }] : []),
+        ],
+      }),
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${rfi.rfiNumber}.pdf"`);
+  res.send(pdfBuffer);
 }))
 
 // PUT /projects/:projectId/rfis/:rfiId

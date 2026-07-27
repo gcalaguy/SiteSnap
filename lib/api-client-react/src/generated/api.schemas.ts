@@ -2884,6 +2884,69 @@ export interface CompanyDocumentSettingsUpdate {
   defaultInvoiceNotes?: string | null;
 }
 
+export type DocumentTemplateType =
+  (typeof DocumentTemplateType)[keyof typeof DocumentTemplateType];
+
+export const DocumentTemplateType = {
+  quote: "quote",
+  invoice: "invoice",
+  rfi: "rfi",
+  proposal: "proposal",
+  change_order: "change_order",
+} as const;
+
+export type DocumentTemplateFileType =
+  (typeof DocumentTemplateFileType)[keyof typeof DocumentTemplateFileType];
+
+export const DocumentTemplateFileType = {
+  docx: "docx",
+  html: "html",
+  pdf: "pdf",
+} as const;
+
+export interface DocumentTemplateRecord {
+  id: number;
+  originalFilename: string;
+  fileType: DocumentTemplateFileType;
+  mimeType: string;
+  fileSizeBytes: number;
+  detectedMergeTags: string[];
+  updatedAt: string;
+}
+
+export interface DocumentTemplateListItem {
+  documentType: DocumentTemplateType;
+  hasCustomTemplate: boolean;
+  template: DocumentTemplateRecord | null;
+}
+
+export interface DocumentTemplateList {
+  templates: DocumentTemplateListItem[];
+}
+
+export interface DocumentTemplateMergeTagDef {
+  tag: string;
+  label: string;
+  description: string;
+}
+
+export type DocumentTemplateMergeTagCatalogCatalog = {
+  [key: string]: DocumentTemplateMergeTagDef[];
+};
+
+export interface DocumentTemplateMergeTagCatalog {
+  catalog: DocumentTemplateMergeTagCatalogCatalog;
+}
+
+export interface DocumentTemplatePreviewBody {
+  documentType: DocumentTemplateType;
+}
+
+export interface DocumentTemplateResetResponse {
+  ok: boolean;
+  documentType: DocumentTemplateType;
+}
+
 export type ComplianceDirectiveTargetFormId =
   (typeof ComplianceDirectiveTargetFormId)[keyof typeof ComplianceDirectiveTargetFormId];
 

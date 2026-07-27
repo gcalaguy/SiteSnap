@@ -11,6 +11,8 @@ import { logAuditEventFromRequest } from "../utils/logger";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
 import { parsePagination } from "../lib/pagination";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildInvoiceMergeData } from "../lib/documentTemplateLiveData";
 import { format, parseISO } from "date-fns";
 import { z } from "zod";
 
@@ -337,26 +339,32 @@ router.post("/invoices/:invoiceId/send-email", requirePermission("manageFinancia
   const companyName = company?.name ?? "Site Snap";
 
   // Generate PDF server-side — eliminates the 15MB client-upload attack surface.
-  const pdfBuffer = await buildInvoicePdfBuffer({
-    invoiceNumber: invoice.invoiceNumber,
-    title: invoice.title,
-    clientName: invoice.clientName,
-    clientEmail: invoice.clientEmail,
-    status: invoice.status,
-    lineItems: (invoice.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
-    subtotal: invoice.subtotal,
-    taxRate: invoice.taxRate,
-    taxAmount: invoice.taxAmount,
-    total: invoice.total,
-    notes: invoice.notes,
-    dueDate: invoice.dueDate,
-    createdAt: invoice.createdAt.toISOString(),
-    companyName,
-    companyAddress: company?.address ?? null,
-    companyPhone: company?.phone ?? null,
-    signerName: invoice.signerName,
-    signedAt: invoice.signedAt,
-    defaultNotes: company?.defaultInvoiceNotes ?? null,
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "invoice",
+    mergeData: buildInvoiceMergeData(invoice, { name: companyName, address: company?.address, phone: company?.phone }),
+    defaultFallback: () =>
+      buildInvoicePdfBuffer({
+        invoiceNumber: invoice.invoiceNumber,
+        title: invoice.title,
+        clientName: invoice.clientName,
+        clientEmail: invoice.clientEmail,
+        status: invoice.status,
+        lineItems: (invoice.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+        subtotal: invoice.subtotal,
+        taxRate: invoice.taxRate,
+        taxAmount: invoice.taxAmount,
+        total: invoice.total,
+        notes: invoice.notes,
+        dueDate: invoice.dueDate,
+        createdAt: invoice.createdAt.toISOString(),
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        signerName: invoice.signerName,
+        signedAt: invoice.signedAt,
+        defaultNotes: company?.defaultInvoiceNotes ?? null,
+      }),
   });
 
   const fmtCAD = (v: string | number) =>

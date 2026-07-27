@@ -7,12 +7,16 @@ import {
   estimateTemplatesTable,
   estimateTemplateItemsTable,
   proposalsTable,
+  companiesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { BadRequestError } from "../lib/errors";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildProposalMergeData } from "../lib/documentTemplateLiveData";
+import { buildGenericDocumentPdfBuffer } from "../lib/documentTemplateDefaultPdf";
 
 import { z } from "zod";
 
@@ -373,6 +377,59 @@ router.get("/proposals/:id", requireAuth, requireCompany, requireTenantCtx, requ
 
   const estimate = await getEstimateWithItems(proposal.builderEstimateId, req.companyId!);
   res.json({ ...proposal, estimate });
+}))
+
+// GET /proposals/:id/pdf — server-side branded PDF, custom-template aware
+router.get("/proposals/:id/pdf", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [proposal] = await db
+    .select()
+    .from(proposalsTable)
+    .where(and(eq(proposalsTable.id, id), eq(proposalsTable.companyId, req.companyId!)));
+  if (!proposal) { res.status(404).json({ error: "Not found" }); return; }
+
+  const estimate = await getEstimateWithItems(proposal.builderEstimateId, req.companyId!);
+  if (!estimate) { res.status(404).json({ error: "Estimate not found" }); return; }
+
+  const [company] = await db
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "Site Snap";
+
+  const total = estimate.items.reduce((sum, item) => {
+    const unitPrice = Number(item.unitCost) * (1 + Number(item.margin) / 100);
+    return sum + unitPrice * Number(item.quantity);
+  }, 0);
+  const fmtUSD = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
+
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "proposal",
+    mergeData: buildProposalMergeData(proposal, estimate, { name: companyName, address: company?.address, phone: company?.phone }),
+    defaultFallback: () =>
+      buildGenericDocumentPdfBuffer({
+        title: "Proposal",
+        documentNumber: `P-${proposal.id}`,
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        clientName: proposal.clientName,
+        projectName: estimate.title,
+        createdAt: proposal.createdAt,
+        fields: [
+          { label: "Scope of Work", value: proposal.notes ?? "" },
+          { label: "Total Price", value: fmtUSD(total) },
+        ],
+      }),
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="Proposal-${proposal.id}.pdf"`);
+  res.send(pdfBuffer);
 }))
 
 // PATCH /proposals/:id

@@ -10,6 +10,7 @@ import {
   projectsTable,
   expensesTable,
   usersTable,
+  companiesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -18,6 +19,9 @@ import { requireFeature } from "../lib/featureGate";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { allocateInvoiceNumber } from "./invoices";
 import { parsePagination } from "../lib/pagination";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildChangeOrderMergeData } from "../lib/documentTemplateLiveData";
+import { buildGenericDocumentPdfBuffer } from "../lib/documentTemplateDefaultPdf";
 
 import { z } from "zod";
 
@@ -287,6 +291,56 @@ router.get("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, 
 
   if (!order) { res.status(404).json({ error: "Not found" }); return; }
   res.json(order);
+}))
+
+// GET /change-orders/:id/pdf — server-side branded PDF, custom-template aware
+router.get("/change-orders/:id/pdf", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [order] = await db
+    .select()
+    .from(changeOrdersTable)
+    .where(and(eq(changeOrdersTable.id, id), eq(changeOrdersTable.companyId, req.companyId!)));
+  if (!order) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [project] = await db
+    .select({ name: projectsTable.name, address: projectsTable.address })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, order.projectId))
+    .limit(1);
+  const [company] = await db
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "Site Snap";
+  const fmtUSD = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
+
+  const pdfBuffer = await renderDocumentWithTemplate({
+    companyId: req.companyId!,
+    documentType: "change_order",
+    mergeData: buildChangeOrderMergeData(order, { name: companyName, address: company?.address, phone: company?.phone }, project ?? null),
+    defaultFallback: () =>
+      buildGenericDocumentPdfBuffer({
+        title: "Change Order",
+        documentNumber: `CO-${order.id}`,
+        companyName,
+        companyAddress: company?.address ?? null,
+        companyPhone: company?.phone ?? null,
+        projectName: project?.name ?? null,
+        createdAt: order.createdAt,
+        fields: [
+          { label: "Reason", value: order.description ?? order.title },
+          { label: "Adjusted Total", value: fmtUSD(Number(order.amount)) },
+        ],
+        notes: order.notes,
+      }),
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="CO-${order.id}.pdf"`);
+  res.send(pdfBuffer);
 }))
 
 // POST /change-orders

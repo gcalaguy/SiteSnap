@@ -48,9 +48,10 @@ import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { PhotoThumbnail, PhotoLightbox, CategoryPill, type PhotoCategory } from "@/components/PhotoThumbnail";
-import { ListRow } from "@/components/ui";
+import { ListRow, BottomSheet } from "@/components/ui";
 import { safeNavigate } from "@/utils/safeNavigate";
 import { BulletList } from "@/components/BulletList";
+import { spacing } from "@/constants/theme";
 import type { PsiListRow } from "@/constants/psi";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -67,6 +68,18 @@ const STATUS_LABELS: Record<string, string> = {
 
 const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Permits", "Hours", "Timesheets", "Messages", "Safety"] as const;
 type Tab = (typeof TABS)[number];
+
+// Main tabs stay as top-level pills; everything else groups into a category
+// that opens a bottom sheet, so the bar never overflows or needs horizontal
+// scrolling regardless of how many tabs permissions leave visible.
+const MAIN_TABS: Tab[] = ["Overview", "Tasks", "Reports"];
+const TAB_LABELS: Partial<Record<Tab, string>> = { Reports: "Daily Reports" };
+type CategoryKey = "financials" | "docs" | "safety";
+const TAB_CATEGORIES: { key: CategoryKey; label: string; tabs: Tab[] }[] = [
+  { key: "financials", label: "Financials", tabs: ["Quotes", "Hours", "Timesheets"] },
+  { key: "docs", label: "Docs & Communication", tabs: ["RFIs", "Documents", "Messages", "Permits"] },
+  { key: "safety", label: "Safety & Team", tabs: ["Schedules", "Safety"] },
+];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   open: { label: "Open", color: "#F59E0B", bg: "#FEF3C7" },
@@ -540,8 +553,9 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
   statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 16 },
   tabRow: { marginBottom: 16 },
-  tabRowContent: { flexDirection: "row", paddingHorizontal: 20, gap: 6 },
+  tabRowContent: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 20, gap: 6 },
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  tabDropdown: { flexDirection: "row", alignItems: "center", gap: 4 },
   tabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { paddingHorizontal: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
@@ -1072,6 +1086,7 @@ export default function ProjectDetailScreen() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
+  const [openCategory, setOpenCategory] = useState<CategoryKey | null>(null);
   const [rfiStatusFilter, setRfiStatusFilter] = useState<"all" | "open" | "in_review" | "answered" | "closed">("all");
 
   const { data: me } = useGetMe();
@@ -1104,6 +1119,13 @@ export default function ProjectDetailScreen() {
       setActiveTab("Overview");
     }
   }, [visibleTabs, activeTab]);
+
+  const visibleMainTabs = MAIN_TABS.filter((tab) => visibleTabs.includes(tab));
+  const visibleCategories = TAB_CATEGORIES.map((cat) => ({
+    ...cat,
+    tabs: cat.tabs.filter((tab) => visibleTabs.includes(tab)),
+  })).filter((cat) => cat.tabs.length > 0);
+  const openCategoryData = visibleCategories.find((cat) => cat.key === openCategory) ?? null;
 
   const { data: project, isLoading, refetch: refetchProject } = useGetProject(projectId);
   const { data: summary, refetch: refetchSummary } = useGetProjectSummary(projectId);
@@ -1279,26 +1301,38 @@ export default function ProjectDetailScreen() {
         </View>
       )}
 
-      {/* Tabs — horizontal scroll so all 5 fit on any screen width */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabRow}
-        contentContainerStyle={styles.tabRowContent}
-      >
-        {visibleTabs.map(tab => {
-          const active = activeTab === tab;
-          return (
-            <Pressable
-              key={tab}
-              style={[styles.tab, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>{tab}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* Tabs — Main tabs stay flat; the rest group into dropdown-style
+          category pills (opened via bottom sheet) so the bar wraps instead
+          of ever needing horizontal scrolling. */}
+      <View style={styles.tabRow}>
+        <View style={styles.tabRowContent}>
+          {visibleMainTabs.map(tab => {
+            const active = activeTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[styles.tab, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>{TAB_LABELS[tab] ?? tab}</Text>
+              </Pressable>
+            );
+          })}
+          {visibleCategories.map(cat => {
+            const active = cat.tabs.includes(activeTab);
+            return (
+              <Pressable
+                key={cat.key}
+                style={[styles.tab, styles.tabDropdown, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+                onPress={() => setOpenCategory(cat.key)}
+              >
+                <Text style={[styles.tabText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>{cat.label}</Text>
+                <Feather name="chevron-down" size={12} color={active ? "#FFFFFF" : colors.mutedForeground} />
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Overview tab */}
       {activeTab === "Overview" && (
@@ -1846,6 +1880,24 @@ export default function ProjectDetailScreen() {
         projectId={projectId}
         projectName={project?.name}
       />
+
+      <BottomSheet
+        visible={openCategoryData !== null}
+        onClose={() => setOpenCategory(null)}
+        title={openCategoryData?.label}
+        scrollable={false}
+      >
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          {openCategoryData?.tabs.map(tab => (
+            <ListRow
+              key={tab}
+              title={TAB_LABELS[tab] ?? tab}
+              onPress={() => { setActiveTab(tab); setOpenCategory(null); }}
+              trailing={activeTab === tab ? <Feather name="check" size={18} color={colors.primary} /> : undefined}
+            />
+          ))}
+        </View>
+      </BottomSheet>
     </>
   );
 }

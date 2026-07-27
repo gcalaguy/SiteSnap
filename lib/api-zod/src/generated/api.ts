@@ -8020,3 +8020,85 @@ export const RunComplianceTestResponse = zod.object({
 export const ExportComplianceAuditParams = zod.object({
   projectId: zod.coerce.number(),
 });
+
+/**
+ * @summary List the company's custom document templates, one entry per supported document type
+ */
+export const ListDocumentTemplatesResponse = zod.object({
+  templates: zod.array(
+    zod.object({
+      documentType: zod.enum([
+        "quote",
+        "invoice",
+        "rfi",
+        "proposal",
+        "change_order",
+      ]),
+      hasCustomTemplate: zod.boolean(),
+      template: zod
+        .object({
+          id: zod.number(),
+          originalFilename: zod.string(),
+          fileType: zod.enum(["docx", "html", "pdf"]),
+          mimeType: zod.string(),
+          fileSizeBytes: zod.number(),
+          detectedMergeTags: zod.array(zod.string()),
+          updatedAt: zod.coerce.date(),
+        })
+        .nullable(),
+    }),
+  ),
+});
+
+/**
+ * @summary Catalog of available {{merge_tag}} variables per document type, for the "Available Dynamic Variables" cheat sheet
+ */
+export const ListDocumentTemplateMergeTagsResponse = zod.object({
+  catalog: zod.record(
+    zod.string(),
+    zod.array(
+      zod.object({
+        tag: zod.string(),
+        label: zod.string(),
+        description: zod.string(),
+      }),
+    ),
+  ),
+});
+
+/**
+ * @summary Render a PDF preview with sample data, using the active custom template for a document type or the default theme if none is set
+ */
+export const PreviewDocumentTemplateBody = zod.object({
+  documentType: zod.enum([
+    "quote",
+    "invoice",
+    "rfi",
+    "proposal",
+    "change_order",
+  ]),
+});
+
+/**
+ * @summary Remove the company's custom template for a document type, reverting to the default theme
+ */
+export const ResetDocumentTemplateParams = zod.object({
+  documentType: zod.enum([
+    "quote",
+    "invoice",
+    "rfi",
+    "proposal",
+    "change_order",
+  ]),
+});
+
+export const ResetDocumentTemplateResponse = zod.object({
+  ok: zod.boolean(),
+  documentType: zod.enum([
+    "quote",
+    "invoice",
+    "rfi",
+    "proposal",
+    "change_order",
+  ]),
+});

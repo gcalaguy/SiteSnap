@@ -4,6 +4,7 @@ import { startDailyCron } from "./cron";
 import { pool } from "@workspace/db";
 import { instrumentPool } from "./lib/slowQueryLogger";
 import { startPgListener, stopPgListener } from "./lib/pgListener";
+import { closeTemplateRendererBrowser } from "./lib/documentTemplateRenderer";
 
 const rawPort = process.env["PORT"];
 
@@ -181,6 +182,7 @@ async function shutdown(signal: string): Promise<void> {
 
   // Stop pgListener from holding its pool connection or reconnecting
   stopPgListener();
+  await closeTemplateRendererBrowser();
 
   server.close(async () => {
     try {

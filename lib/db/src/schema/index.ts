@@ -30,6 +30,7 @@ export * from "./safetyScan";
 export * from "./voiceInspection";
 export * from "./backup";
 export * from "./psi";
+export * from "./documentTemplates";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 

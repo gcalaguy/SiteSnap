@@ -10,6 +10,8 @@ import { getClientInfo } from "../lib/clientInfo";
 import { sendEmail, ResendSandboxError, escapeHtml } from "../lib/mailer.js";
 import { logger } from "../lib/logger.js";
 import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
+import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { buildInvoiceMergeData } from "../lib/documentTemplateLiveData";
 
 const router = Router();
 
@@ -305,26 +307,35 @@ async function sendInvoiceSignedEmails(
   // Build PDF buffer server-side
   let pdfBase64: string | undefined;
   try {
-    const pdfBuffer = await buildInvoicePdfBuffer({
-      invoiceNumber: invoice.invoiceNumber,
-      title: invoice.invoiceNumber,
-      clientName: invoice.clientName,
-      clientEmail: invoice.clientEmail,
-      status: "signed",
-      lineItems: (invoice.lineItems as any[]) ?? [],
-      subtotal: invoice.subtotal,
-      taxRate: invoice.taxRate,
-      taxAmount: invoice.taxAmount,
-      total: invoice.total,
-      notes: invoice.notes,
-      dueDate: invoice.dueDate,
-      createdAt: invoice.createdAt,
-      companyName,
-      companyAddress: company?.address ?? null,
-      companyPhone: company?.phone ?? null,
-      signerName: invoice.signerName,
-      signedAt: invoice.signedAt,
-      defaultNotes: company?.defaultInvoiceNotes ?? null,
+    const pdfBuffer = await renderDocumentWithTemplate({
+      companyId: invoice.companyId,
+      documentType: "invoice",
+      mergeData: buildInvoiceMergeData(
+        { ...invoice, invoiceNumber: invoice.invoiceNumber },
+        { name: companyName, address: company?.address, phone: company?.phone },
+      ),
+      defaultFallback: () =>
+        buildInvoicePdfBuffer({
+          invoiceNumber: invoice.invoiceNumber,
+          title: invoice.invoiceNumber,
+          clientName: invoice.clientName,
+          clientEmail: invoice.clientEmail,
+          status: "signed",
+          lineItems: (invoice.lineItems as any[]) ?? [],
+          subtotal: invoice.subtotal,
+          taxRate: invoice.taxRate,
+          taxAmount: invoice.taxAmount,
+          total: invoice.total,
+          notes: invoice.notes,
+          dueDate: invoice.dueDate,
+          createdAt: invoice.createdAt,
+          companyName,
+          companyAddress: company?.address ?? null,
+          companyPhone: company?.phone ?? null,
+          signerName: invoice.signerName,
+          signedAt: invoice.signedAt,
+          defaultNotes: company?.defaultInvoiceNotes ?? null,
+        }),
     });
     pdfBase64 = pdfBuffer.toString("base64");
   } catch (pdfErr) {

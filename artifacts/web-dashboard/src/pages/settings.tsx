@@ -5,6 +5,7 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 import { FeaturesTab } from "@/components/settings/FeaturesTab";
 import { PermissionsTab } from "@/components/settings/PermissionsTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
+import { CustomDocumentTemplatesTab } from "@/components/settings/CustomDocumentTemplatesTab";
 import { PricingTab } from "@/components/settings/PricingTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { AccountingTab } from "@/components/settings/AccountingTab";
@@ -32,6 +33,7 @@ export default function Settings() {
           {isOwner && company && <TabsTrigger value="features">Features</TabsTrigger>}
           {isOwner && company && <TabsTrigger value="permissions">Permissions</TabsTrigger>}
           {company && <TabsTrigger value="branding">Branding & Documents</TabsTrigger>}
+          {company && <TabsTrigger value="document-templates">Document Templates</TabsTrigger>}
           {isOwner && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="accounting">Accounting</TabsTrigger>
@@ -58,6 +60,12 @@ export default function Settings() {
         {company && (
           <TabsContent value="branding">
             <BrandingTab company={company} isOwner={!!isOwner} />
+          </TabsContent>
+        )}
+
+        {company && (
+          <TabsContent value="document-templates">
+            <CustomDocumentTemplatesTab isOwner={!!isOwner} />
           </TabsContent>
         )}
 

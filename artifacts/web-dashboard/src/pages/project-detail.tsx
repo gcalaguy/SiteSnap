@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   useGetProject,
@@ -36,7 +36,7 @@ import PermitsTab from "@/components/project-detail/PermitsTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,11 +44,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 
 const GOLD = "#C9A84C";
@@ -66,6 +68,79 @@ type ProjectAssignment = {
   userRole: string | null;
   userEmail: string | null;
 };
+
+type TabItem = { value: string; label: string; icon?: ComponentType<{ className?: string }> };
+
+function TabNavButton({
+  value,
+  label,
+  icon: Icon,
+  isActive,
+  onSelect,
+}: {
+  value: string;
+  label: string;
+  icon?: ComponentType<{ className?: string }>;
+  isActive: boolean;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+        isActive ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      {label}
+    </button>
+  );
+}
+
+function TabNavDropdown({
+  label,
+  items,
+  activeTab,
+  onSelect,
+}: {
+  label: string;
+  items: TabItem[];
+  activeTab: string;
+  onSelect: (value: string) => void;
+}) {
+  if (items.length === 0) return null;
+  const isActive = items.some((item) => item.value === activeTab);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+            isActive ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {label}
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {items.map(({ value, label: itemLabel, icon: Icon }) => (
+          <DropdownMenuItem
+            key={value}
+            onSelect={() => onSelect(value)}
+            className={cn("gap-2", activeTab === value && "bg-accent text-accent-foreground")}
+          >
+            {Icon && <Icon className="h-3.5 w-3.5" />}
+            {itemLabel}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -230,6 +305,30 @@ export default function ProjectDetail() {
   if (projectLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading project...</div>;
   if (!project) return <div className="p-8 text-center">Project not found</div>;
 
+  const financialsTabs = (
+    [
+      hasPerm("viewFinancials") && { value: "cost", label: "Cost Analysis" },
+      hasPerm("viewQuotes") && { value: "quotes", label: "Quotes", icon: FileText },
+      isOwnerOrForeman && { value: "change-orders", label: "Change Orders", icon: FileText },
+    ] as (TabItem | false)[]
+  ).filter((t): t is TabItem => !!t);
+
+  const docsCommunicationTabs = (
+    [
+      hasPerm("viewRFIs") && { value: "rfis", label: "RFIs" },
+      hasPerm("viewDocuments") && { value: "documents", label: "Documents", icon: FolderOpen },
+      hasPerm("viewClientMessages") && { value: "client-messages", label: "Client Messages", icon: MessageCircle },
+      isOwnerOrForeman && hasPermitsFeature && { value: "permits", label: "Permits", icon: BadgeCheck },
+    ] as (TabItem | false)[]
+  ).filter((t): t is TabItem => !!t);
+
+  const safetyTeamTabs = (
+    [
+      { value: "team", label: "Team", icon: Users },
+      hasPerm("viewSafetyTab") && { value: "safety", label: "Safety & Compliance", icon: Shield },
+    ] as (TabItem | false)[]
+  ).filter((t): t is TabItem => !!t);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
@@ -358,51 +457,13 @@ export default function ProjectDetail() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-max min-w-full h-10">
-            <TabsTrigger value="overview" className="px-4 whitespace-nowrap">Overview</TabsTrigger>
-            <TabsTrigger value="tasks" className="px-4 whitespace-nowrap">Tasks</TabsTrigger>
-            <TabsTrigger value="reports" className="px-4 whitespace-nowrap">Daily Reports</TabsTrigger>
-            {hasPerm("viewFinancials") && (
-              <TabsTrigger value="cost" className="px-4 whitespace-nowrap">Cost Analysis</TabsTrigger>
-            )}
-            {hasPerm("viewRFIs") && (
-              <TabsTrigger value="rfis" className="px-4 whitespace-nowrap">RFIs</TabsTrigger>
-            )}
-            {hasPerm("viewQuotes") && (
-              <TabsTrigger value="quotes" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5" />Quotes
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="team" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" />Team
-            </TabsTrigger>
-            {hasPerm("viewDocuments") && (
-              <TabsTrigger value="documents" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <FolderOpen className="h-3.5 w-3.5" />Documents
-              </TabsTrigger>
-            )}
-            {hasPerm("viewClientMessages") && (
-              <TabsTrigger value="client-messages" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <MessageCircle className="h-3.5 w-3.5" />Client Messages
-              </TabsTrigger>
-            )}
-            {hasPerm("viewSafetyTab") && (
-              <TabsTrigger value="safety" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5" />Safety & Compliance
-              </TabsTrigger>
-            )}
-            {isOwnerOrForeman && (
-              <TabsTrigger value="change-orders" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5" />Change Orders
-              </TabsTrigger>
-            )}
-            {isOwnerOrForeman && hasPermitsFeature && (
-              <TabsTrigger value="permits" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <BadgeCheck className="h-3.5 w-3.5" />Permits
-              </TabsTrigger>
-            )}
-          </TabsList>
+        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1 w-full md:w-max">
+          <TabNavButton value="overview" label="Overview" isActive={activeTab === "overview"} onSelect={setActiveTab} />
+          <TabNavButton value="tasks" label="Tasks" isActive={activeTab === "tasks"} onSelect={setActiveTab} />
+          <TabNavButton value="reports" label="Daily Reports" isActive={activeTab === "reports"} onSelect={setActiveTab} />
+          <TabNavDropdown label="Financials" items={financialsTabs} activeTab={activeTab} onSelect={setActiveTab} />
+          <TabNavDropdown label="Docs & Communication" items={docsCommunicationTabs} activeTab={activeTab} onSelect={setActiveTab} />
+          <TabNavDropdown label="Safety & Team" items={safetyTeamTabs} activeTab={activeTab} onSelect={setActiveTab} />
         </div>
 
         <TabsContent value="overview" className="space-y-4 mt-6">

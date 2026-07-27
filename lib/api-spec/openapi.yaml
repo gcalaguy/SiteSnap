@@ -5228,6 +5228,76 @@ paths:
         "404":
           description: Project not found
 
+  # ── Custom Document Templates ─────────────────────────────────────────────────
+  /templates:
+    get:
+      operationId: listDocumentTemplates
+      tags: [settings]
+      summary: List the company's custom document templates, one entry per supported document type
+      responses:
+        "200":
+          description: One entry per supported document type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateList"
+
+  /templates/merge-tags:
+    get:
+      operationId: listDocumentTemplateMergeTags
+      tags: [settings]
+      summary: Catalog of available {{merge_tag}} variables per document type, for the "Available Dynamic Variables" cheat sheet
+      responses:
+        "200":
+          description: Merge tag catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateMergeTagCatalog"
+
+  /templates/preview:
+    post:
+      operationId: previewDocumentTemplate
+      tags: [settings]
+      summary: Render a PDF preview with sample data, using the active custom template for a document type or the default theme if none is set
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentTemplatePreviewBody"
+      responses:
+        "200":
+          description: Rendered PDF preview
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "502":
+          description: Template render failed
+
+  /templates/{documentType}:
+    delete:
+      operationId: resetDocumentTemplate
+      tags: [settings]
+      summary: Remove the company's custom template for a document type, reverting to the default theme
+      parameters:
+        - name: documentType
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/DocumentTemplateType"
+      responses:
+        "200":
+          description: Reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateResetResponse"
+        "404":
+          description: No custom template found for this document type
+
 components:
   parameters:
     companyId:
@@ -9507,6 +9577,96 @@ components:
           type: ["string", "null"]
         defaultInvoiceNotes:
           type: ["string", "null"]
+
+    DocumentTemplateType:
+      type: string
+      enum: [quote, invoice, rfi, proposal, change_order]
+
+    DocumentTemplateFileType:
+      type: string
+      enum: [docx, html, pdf]
+
+    DocumentTemplateRecord:
+      type: object
+      required: [id, originalFilename, fileType, mimeType, fileSizeBytes, detectedMergeTags, updatedAt]
+      properties:
+        id:
+          type: integer
+        originalFilename:
+          type: string
+        fileType:
+          $ref: "#/components/schemas/DocumentTemplateFileType"
+        mimeType:
+          type: string
+        fileSizeBytes:
+          type: integer
+        detectedMergeTags:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    DocumentTemplateListItem:
+      type: object
+      required: [documentType, hasCustomTemplate, template]
+      properties:
+        documentType:
+          $ref: "#/components/schemas/DocumentTemplateType"
+        hasCustomTemplate:
+          type: boolean
+        template:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DocumentTemplateRecord"
+
+    DocumentTemplateList:
+      type: object
+      required: [templates]
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentTemplateListItem"
+
+    DocumentTemplateMergeTagDef:
+      type: object
+      required: [tag, label, description]
+      properties:
+        tag:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+
+    DocumentTemplateMergeTagCatalog:
+      type: object
+      required: [catalog]
+      properties:
+        catalog:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/DocumentTemplateMergeTagDef"
+
+    DocumentTemplatePreviewBody:
+      type: object
+      required: [documentType]
+      properties:
+        documentType:
+          $ref: "#/components/schemas/DocumentTemplateType"
+
+    DocumentTemplateResetResponse:
+      type: object
+      required: [ok, documentType]
+      properties:
+        ok:
+          type: boolean
+        documentType:
+          $ref: "#/components/schemas/DocumentTemplateType"
 
     # ── Compliance ────────────────────────────────────────────────────────────
     ComplianceDirective:
