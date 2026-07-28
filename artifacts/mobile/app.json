@@ -17,18 +17,24 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sitesnap.buildcore",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
-        "NSMicrophoneUsageDescription": "Site Snap uses your microphone for voice commands so you can log hours, daily notes, and project updates hands-free."
+        "UIBackgroundModes": [
+          "remote-notification",
+          "remote-notification"
+        ],
+        "NSMicrophoneUsageDescription": "Site Snap uses your microphone for voice commands so you can log hours, daily notes, and project updates hands-free.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.sitesnap.buildcore",
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "RECORD_AUDIO"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
