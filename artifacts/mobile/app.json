@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Site Snap",
-    "slug": "mobile",
+    "slug": "workspace",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/sitesnap-logo.png",
@@ -76,6 +76,11 @@
       ],
       "expo-audio"
     ],
+    "extra": {
+      "eas": {
+        "projectId": "3b2289f1-27d6-4ab1-ba27-8321e7c4bc5f"
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
