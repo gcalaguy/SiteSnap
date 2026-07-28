@@ -18,8 +18,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_PRODUCTION_CLERK_KEY",
-        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_REPLIT_APP_DOMAIN"
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_DOMAIN": "sitesnapdemo.replit.app"
       }
     },
     "production": {
@@ -30,8 +30,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_PRODUCTION_CLERK_KEY",
-        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_REPLIT_APP_DOMAIN"
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_DOMAIN": "sitesnapdemo.replit.app"
       }
     }
   },
