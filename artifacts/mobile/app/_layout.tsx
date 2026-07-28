@@ -265,7 +265,8 @@ function RootLayoutNav() {
 
   // Terms must be accepted before the user can interact with any app screen.
   // Keep this above the routing effect so it can gate navigation.
-  const needsTerms = !!me && !me.termsAcceptedAt;
+  // TODO: Re-enable terms and conditions
+  const needsTerms = false; // !!me && !me.termsAcceptedAt;
 
   useEffect(() => {
     if (!isLoaded) return;
