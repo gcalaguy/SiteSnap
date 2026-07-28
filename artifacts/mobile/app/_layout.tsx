@@ -39,7 +39,7 @@ const hasMissingConfig = missingClerkKey || missingDomain;
 
 function MissingConfigScreen() {
   useEffect(() => {
-    try { SplashScreen.hideAsync(); } catch {}
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   const missing: string[] = [];
@@ -124,7 +124,7 @@ const tokenCache = {
   },
 };
 
-try { SplashScreen.preventAutoHideAsync(); } catch {}
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useAuth();
