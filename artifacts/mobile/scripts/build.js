@@ -55,20 +55,34 @@ function stripProtocol(domain) {
 }
 
 function getDeploymentDomain() {
+  // REPLIT_INTERNAL_APP_DOMAIN is set by Replit's own deployment infra when
+  // this build runs as part of an actual autoscale deploy — always trust it.
   if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
     return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
   }
 
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
-  }
-
+  // EXPO_PUBLIC_DOMAIN is an explicit human-set override (the stable published
+  // domain, e.g. sitesnapdemo.replit.app) and must win over the ephemeral dev
+  // domain below — otherwise an App-Store-bound build silently ships with the
+  // workspace preview URL baked in, which stops resolving once the dev session
+  // ends and breaks every API call for anyone outside this workspace.
   if (process.env.EXPO_PUBLIC_DOMAIN) {
     return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
   }
 
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    console.warn(
+      "WARNING: Falling back to REPLIT_DEV_DOMAIN (ephemeral workspace preview URL). " +
+        "This is fine for local test builds, but a build shipped to TestFlight/App Store " +
+        "with this domain baked in will break for every user once this dev session ends. " +
+        "Set EXPO_PUBLIC_DOMAIN to the stable published deployment domain before " +
+        "building for App Store submission.",
+    );
+    return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
+  }
+
   console.error(
-    "ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN",
+    "ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, EXPO_PUBLIC_DOMAIN, or REPLIT_DEV_DOMAIN",
   );
   process.exit(1);
 }

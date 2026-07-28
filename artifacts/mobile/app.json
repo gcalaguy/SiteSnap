@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/sitesnap-logo.png",
-    "scheme": "mobile",
+    "scheme": "sitesnap",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,12 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.sitesnap.buildcore",
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
         "NSMicrophoneUsageDescription": "Site Snap uses your microphone for voice commands so you can log hours, daily notes, and project updates hands-free."
       }
     },
     "android": {
+      "package": "com.sitesnap.buildcore",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
@@ -36,7 +38,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://sitesnap.replit.app/"
         }
       ],
       "expo-font",

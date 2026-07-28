@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "requireCommit": false
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Debug"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release",
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_PRODUCTION_CLERK_KEY",
+        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_REPLIT_APP_DOMAIN"
+      }
+    },
+    "production": {
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_PRODUCTION_CLERK_KEY",
+        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_REPLIT_APP_DOMAIN"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -22,6 +22,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { signOut } from "@/utils/auth";
 
 const PRIMARY = "#D4AF37";
 const BG = "#0A0A0A";
@@ -121,6 +122,19 @@ export default function OnboardingScreen() {
   const creating = createCompany.isPending;
   const joining = syncUser.isPending || acceptInvitation.isPending;
 
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
@@ -134,6 +148,10 @@ export default function OnboardingScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
+              <Feather name="log-out" size={14} color="#94a3b8" />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
             <View style={styles.iconCircle}>
               <Feather name="home" size={32} color={PRIMARY} />
             </View>
@@ -275,6 +293,17 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
   scroll: { padding: 24 },
   header: { alignItems: "center", marginBottom: 32, paddingTop: 8 },
+  signOutBtn: {
+    position: "absolute",
+    top: 8,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  signOutText: { fontSize: 13, fontWeight: "600", color: "#94a3b8" },
   iconCircle: {
     width: 76,
     height: 76,

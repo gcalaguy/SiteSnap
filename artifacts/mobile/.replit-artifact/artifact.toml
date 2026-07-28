@@ -25,3 +25,4 @@ run = [ "pnpm", "--filter", "@workspace/mobile", "run", "serve" ]
 [services.env]
 PORT = "18115"
 BASE_PATH = "/mobile/"
+EXPO_PUBLIC_DOMAIN = "sitesnapdemo.replit.app"
