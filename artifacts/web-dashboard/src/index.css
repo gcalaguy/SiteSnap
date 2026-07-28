@@ -41,6 +41,32 @@
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: var(--destructive-border);
 
+  --color-surface-inverted: var(--surface-inverted);
+
+  --color-severity-critical: var(--severity-critical);
+  --color-severity-critical-bg: var(--severity-critical-bg);
+  --color-severity-critical-border: var(--severity-critical-border);
+  --color-severity-critical-badge: var(--severity-critical-badge);
+  --color-severity-critical-badge-foreground: var(--severity-critical-badge-foreground);
+
+  --color-severity-high: var(--severity-high);
+  --color-severity-high-bg: var(--severity-high-bg);
+  --color-severity-high-border: var(--severity-high-border);
+  --color-severity-high-badge: var(--severity-high-badge);
+  --color-severity-high-badge-foreground: var(--severity-high-badge-foreground);
+
+  --color-severity-medium: var(--severity-medium);
+  --color-severity-medium-bg: var(--severity-medium-bg);
+  --color-severity-medium-border: var(--severity-medium-border);
+  --color-severity-medium-badge: var(--severity-medium-badge);
+  --color-severity-medium-badge-foreground: var(--severity-medium-badge-foreground);
+
+  --color-severity-low: var(--severity-low);
+  --color-severity-low-bg: var(--severity-low-bg);
+  --color-severity-low-border: var(--severity-low-border);
+  --color-severity-low-badge: var(--severity-low-badge);
+  --color-severity-low-badge-foreground: var(--severity-low-badge-foreground);
+
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
@@ -119,6 +145,37 @@
   --input: 0 0% 89%;
   --ring: 43 62% 52%;
 
+  /* Fixed dark surface for high-emphasis panels (AI briefing, etc.) — always
+     dark regardless of light/dark mode, matching the Black & Gold brand. */
+  --surface-inverted: #111111;
+
+  /* Risk/alert severity — theme-invariant so status meaning stays consistent
+     across light/dark mode. Values match the Tailwind red/orange/yellow/green
+     600/100/800 scale used elsewhere for the same severities. */
+  --severity-critical: #dc2626;
+  --severity-critical-bg: #1a0000;
+  --severity-critical-border: rgba(127, 29, 29, 0.375);
+  --severity-critical-badge: #fee2e2;
+  --severity-critical-badge-foreground: #991b1b;
+
+  --severity-high: #ea580c;
+  --severity-high-bg: #1a0900;
+  --severity-high-border: rgba(124, 45, 18, 0.375);
+  --severity-high-badge: #ffedd5;
+  --severity-high-badge-foreground: #9a3412;
+
+  --severity-medium: #ca8a04;
+  --severity-medium-bg: #1a1200;
+  --severity-medium-border: rgba(120, 53, 15, 0.375);
+  --severity-medium-badge: #fef9c3;
+  --severity-medium-badge-foreground: #854d0e;
+
+  --severity-low: #16a34a;
+  --severity-low-bg: #001a09;
+  --severity-low-border: rgba(20, 83, 45, 0.375);
+  --severity-low-badge: #dcfce7;
+  --severity-low-badge-foreground: #166534;
+
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
@@ -170,6 +227,32 @@
 
   --input: 0 0% 15%;
   --ring: 43 62% 52%;
+
+  --surface-inverted: #111111;
+
+  --severity-critical: #dc2626;
+  --severity-critical-bg: #1a0000;
+  --severity-critical-border: rgba(127, 29, 29, 0.375);
+  --severity-critical-badge: #fee2e2;
+  --severity-critical-badge-foreground: #991b1b;
+
+  --severity-high: #ea580c;
+  --severity-high-bg: #1a0900;
+  --severity-high-border: rgba(124, 45, 18, 0.375);
+  --severity-high-badge: #ffedd5;
+  --severity-high-badge-foreground: #9a3412;
+
+  --severity-medium: #ca8a04;
+  --severity-medium-bg: #1a1200;
+  --severity-medium-border: rgba(120, 53, 15, 0.375);
+  --severity-medium-badge: #fef9c3;
+  --severity-medium-badge-foreground: #854d0e;
+
+  --severity-low: #16a34a;
+  --severity-low-bg: #001a09;
+  --severity-low-border: rgba(20, 83, 45, 0.375);
+  --severity-low-badge: #dcfce7;
+  --severity-low-badge-foreground: #166534;
 }
 
 @layer base {

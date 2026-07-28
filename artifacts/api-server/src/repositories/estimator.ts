@@ -11,6 +11,8 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, count, inArray, sql, isNull } from "drizzle-orm";
 
+type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 // ── Cost Models ────────────────────────────────────────────────────────────────
 
 export async function listCostModelsForCompany(companyId: number): Promise<EstimatorCostModel[]> {
@@ -309,8 +311,8 @@ export async function insertQuote(data: InsertQuoteInput) {
 
 // ── Seed provisioning (used once globally, then cloned per company) ──────────
 
-export async function hasGlobalCostModelTemplates(): Promise<boolean> {
-  const rows = await db
+export async function hasGlobalCostModelTemplates(dbClient: DbClient = db): Promise<boolean> {
+  const rows = await dbClient
     .select({ id: estimatorCostModelsTable.id })
     .from(estimatorCostModelsTable)
     .where(isNull(estimatorCostModelsTable.companyId))
@@ -320,14 +322,15 @@ export async function hasGlobalCostModelTemplates(): Promise<boolean> {
 
 export async function insertGlobalCostModelTemplates(
   models: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt" | "companyId" | "sourceType" | "sourceId">[],
+  dbClient: DbClient = db,
 ): Promise<void> {
-  await db.insert(estimatorCostModelsTable).values(
+  await dbClient.insert(estimatorCostModelsTable).values(
     models.map((m) => ({ ...m, companyId: null, sourceType: "manual" as const, sourceId: null, createdAt: new Date(), updatedAt: new Date() })),
   );
 }
 
-export async function hasGlobalAddonTemplates(): Promise<boolean> {
-  const rows = await db
+export async function hasGlobalAddonTemplates(dbClient: DbClient = db): Promise<boolean> {
+  const rows = await dbClient
     .select({ id: estimatorAddonsTable.id })
     .from(estimatorAddonsTable)
     .where(isNull(estimatorAddonsTable.companyId))
@@ -337,14 +340,15 @@ export async function hasGlobalAddonTemplates(): Promise<boolean> {
 
 export async function insertGlobalAddonTemplates(
   addons: Omit<EstimatorAddon, "id" | "createdAt" | "companyId">[],
+  dbClient: DbClient = db,
 ): Promise<void> {
-  await db.insert(estimatorAddonsTable).values(
+  await dbClient.insert(estimatorAddonsTable).values(
     addons.map((a) => ({ ...a, companyId: null, createdAt: new Date() })),
   );
 }
 
-export async function hasCompanyCostModels(companyId: number): Promise<boolean> {
-  const rows = await db
+export async function hasCompanyCostModels(companyId: number, dbClient: DbClient = db): Promise<boolean> {
+  const rows = await dbClient
     .select({ id: estimatorCostModelsTable.id })
     .from(estimatorCostModelsTable)
     .where(eq(estimatorCostModelsTable.companyId, companyId))
@@ -352,13 +356,13 @@ export async function hasCompanyCostModels(companyId: number): Promise<boolean> 
   return rows.length > 0;
 }
 
-export async function getAllGlobalCostModelTemplates(): Promise<EstimatorCostModel[]> {
-  return db.select().from(estimatorCostModelsTable).where(isNull(estimatorCostModelsTable.companyId));
+export async function getAllGlobalCostModelTemplates(dbClient: DbClient = db): Promise<EstimatorCostModel[]> {
+  return dbClient.select().from(estimatorCostModelsTable).where(isNull(estimatorCostModelsTable.companyId));
 }
 
-export async function insertCompanyCostModels(companyId: number, templates: EstimatorCostModel[]): Promise<void> {
+export async function insertCompanyCostModels(companyId: number, templates: EstimatorCostModel[], dbClient: DbClient = db): Promise<void> {
   if (!templates.length) return;
-  await db.insert(estimatorCostModelsTable).values(
+  await dbClient.insert(estimatorCostModelsTable).values(
     templates.map((t) => ({
       companyId,
       projectType: t.projectType,
@@ -376,8 +380,8 @@ export async function insertCompanyCostModels(companyId: number, templates: Esti
   );
 }
 
-export async function hasCompanyAddons(companyId: number): Promise<boolean> {
-  const rows = await db
+export async function hasCompanyAddons(companyId: number, dbClient: DbClient = db): Promise<boolean> {
+  const rows = await dbClient
     .select({ id: estimatorAddonsTable.id })
     .from(estimatorAddonsTable)
     .where(eq(estimatorAddonsTable.companyId, companyId))
@@ -385,13 +389,13 @@ export async function hasCompanyAddons(companyId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function getAllGlobalAddonTemplates(): Promise<EstimatorAddon[]> {
-  return db.select().from(estimatorAddonsTable).where(isNull(estimatorAddonsTable.companyId));
+export async function getAllGlobalAddonTemplates(dbClient: DbClient = db): Promise<EstimatorAddon[]> {
+  return dbClient.select().from(estimatorAddonsTable).where(isNull(estimatorAddonsTable.companyId));
 }
 
-export async function insertCompanyAddons(companyId: number, templates: EstimatorAddon[]): Promise<void> {
+export async function insertCompanyAddons(companyId: number, templates: EstimatorAddon[], dbClient: DbClient = db): Promise<void> {
   if (!templates.length) return;
-  await db.insert(estimatorAddonsTable).values(
+  await dbClient.insert(estimatorAddonsTable).values(
     templates.map((a) => ({
       companyId,
       name: a.name,

@@ -72,7 +72,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function statusBadgeClass(status: string) {
-  return STATUS_STYLES[status] ?? "bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20";
+  return STATUS_STYLES[status] ?? "bg-primary/10 text-primary border-primary/20";
 }
 
 function renderSafeDate(dateString: string | null | undefined) {
@@ -91,7 +91,7 @@ export function daysUntil(dateString: string | null): number | null {
 
 export function ExpirationCell({ permit }: { permit: Permit }) {
   const days = daysUntil(permit.expirationDate);
-  if (days === null) return <span className="text-[#0A0A0A]/40">—</span>;
+  if (days === null) return <span className="text-foreground/40">—</span>;
   if (days < 0) {
     return (
       <span className="text-red-500 font-medium">
@@ -106,17 +106,17 @@ export function ExpirationCell({ permit }: { permit: Permit }) {
       </span>
     );
   }
-  return <span className="text-[#0A0A0A]/60">{renderSafeDate(permit.expirationDate)}</span>;
+  return <span className="text-foreground/60">{renderSafeDate(permit.expirationDate)}</span>;
 }
 
 export function PermitFileLink({ fileUrl }: { fileUrl: string | null }) {
   const { open, isFetching } = useSignedDownload(fileUrl);
-  if (!fileUrl) return <span className="text-xs text-[#0A0A0A]/30">No file</span>;
+  if (!fileUrl) return <span className="text-xs text-foreground/30">No file</span>;
   return (
     <Button
       size="sm"
       variant="ghost"
-      className="h-7 px-2 text-[#C9A84C] hover:text-[#C9A84C] hover:bg-[#C9A84C]/10"
+      className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
       onClick={(e) => {
         e.stopPropagation();
         open();
@@ -233,9 +233,9 @@ export function PermitFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl bg-white border-[#E5E5E5]">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold" style={{ color: "#0A0A0A" }}>
+          <DialogTitle className="text-lg font-bold text-foreground">
             {editing ? "Edit Permit" : "New Permit"}
           </DialogTitle>
         </DialogHeader>
@@ -247,7 +247,7 @@ export function PermitFormDialog({
                 value={form.projectId}
                 onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
               >
-                <SelectTrigger className="bg-white border-[#E5E5E5]">
+                <SelectTrigger className="bg-card border-border">
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,7 +267,7 @@ export function PermitFormDialog({
               placeholder="e.g. Building Permit #BP-2026-0142"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              className="bg-white border-[#E5E5E5]"
+              className="bg-card border-border"
             />
           </div>
 
@@ -278,7 +278,7 @@ export function PermitFormDialog({
                 value={form.status}
                 onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
               >
-                <SelectTrigger className="bg-white border-[#E5E5E5]">
+                <SelectTrigger className="bg-card border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -296,7 +296,7 @@ export function PermitFormDialog({
                 type="date"
                 value={form.expirationDate}
                 onChange={(e) => setForm((f) => ({ ...f, expirationDate: e.target.value }))}
-                className="bg-white border-[#E5E5E5]"
+                className="bg-card border-border"
               />
             </div>
           </div>
@@ -313,20 +313,20 @@ export function PermitFormDialog({
             <Button
               type="button"
               variant="outline"
-              className="w-full border-[#E5E5E5] justify-start font-normal"
+              className="w-full border-border justify-start font-normal"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="w-4 h-4 mr-2 text-[#C9A84C]" />
+              <Upload className="w-4 h-4 mr-2 text-primary" />
               {form.file ? form.file.name : "Choose a file..."}
             </Button>
           </div>
         </div>
         <DialogFooter className="mt-2">
-          <Button variant="outline" className="border-[#E5E5E5]" onClick={onClose}>
+          <Button variant="outline" className="border-border" onClick={onClose}>
             Cancel
           </Button>
           <Button
-            className="bg-[#C9A84C] text-black hover:bg-[#C9A84C]/90"
+            className="bg-primary text-black hover:bg-primary/90"
             disabled={!valid || save.isPending}
             onClick={() => save.mutate()}
           >
@@ -432,26 +432,26 @@ function PermitsPageContent() {
 
   if (activeQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8F8F8" }}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
-          <RefreshCw className="w-5 h-5 animate-spin text-[#C9A84C]" />
-          <span className="text-sm text-[#0A0A0A]/60">Loading permits...</span>
+          <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-foreground/60">Loading permits...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
+    <div className="min-h-screen bg-background">
       <div className="max-w-full mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-[#C9A84C]/10 flex items-center justify-center">
-            <BadgeCheck className="w-5 h-5 text-[#C9A84C]" />
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BadgeCheck className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold" style={{ color: "#0A0A0A" }}>Permits</h1>
-            <p className="text-xs text-[#0A0A0A]/50 mt-0.5">
+            <h1 className="text-xl font-bold text-foreground">Permits</h1>
+            <p className="text-xs text-foreground/50 mt-0.5">
               {isAdmin
                 ? "All construction permits across your company"
                 : "Permits for your assigned projects (view only)"}
@@ -459,7 +459,7 @@ function PermitsPageContent() {
           </div>
           {isAdmin && (
             <Button
-              className="bg-[#C9A84C] text-black hover:bg-[#C9A84C]/90"
+              className="bg-primary text-black hover:bg-primary/90"
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
@@ -473,18 +473,18 @@ function PermitsPageContent() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A0A0A]/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30" />
             <Input
               placeholder="Search by title, status or project..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-[#E5E5E5]"
+              className="pl-9 bg-card border-border"
             />
           </div>
           {isAdmin ? (
             <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="sm:w-56 bg-white border-[#E5E5E5]">
-                <Building2 className="w-4 h-4 mr-2 text-[#C9A84C]" />
+              <SelectTrigger className="sm:w-56 bg-card border-border">
+                <Building2 className="w-4 h-4 mr-2 text-primary" />
                 <SelectValue placeholder="All projects" />
               </SelectTrigger>
               <SelectContent>
@@ -498,8 +498,8 @@ function PermitsPageContent() {
             </Select>
           ) : (
             <Select value={effectiveProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="sm:w-56 bg-white border-[#E5E5E5]">
-                <Building2 className="w-4 h-4 mr-2 text-[#C9A84C]" />
+              <SelectTrigger className="sm:w-56 bg-card border-border">
+                <Building2 className="w-4 h-4 mr-2 text-primary" />
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent>
@@ -517,20 +517,20 @@ function PermitsPageContent() {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-bold" style={{ color: "#0A0A0A" }}>{permits.length}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Total Permits</p>
+              <p className="text-2xl font-bold text-foreground">{permits.length}</p>
+              <p className="text-xs text-foreground/50 mt-1">Total Permits</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-amber-500">{expiringSoon}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Expiring in 30 Days</p>
+              <p className="text-xs text-foreground/50 mt-1">Expiring in 30 Days</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-red-500">{expired}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Expired</p>
+              <p className="text-xs text-foreground/50 mt-1">Expired</p>
             </CardContent>
           </Card>
         </div>
@@ -539,8 +539,8 @@ function PermitsPageContent() {
         {accessDenied ? (
           <div className="py-16 flex flex-col items-center text-center">
             <ShieldAlert className="w-10 h-10 text-amber-400 mb-3" />
-            <p className="text-sm text-[#0A0A0A]/60 font-medium">You're not assigned to this project</p>
-            <p className="text-xs text-[#0A0A0A]/40 mt-1">
+            <p className="text-sm text-foreground/60 font-medium">You're not assigned to this project</p>
+            <p className="text-xs text-foreground/40 mt-1">
               Ask an owner to add you to the project team to view its permits
             </p>
           </div>
@@ -551,10 +551,10 @@ function PermitsPageContent() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 flex flex-col items-center text-center">
-            <FileText className="w-10 h-10 text-[#E5E5E5] mb-3" />
-            <p className="text-sm text-[#0A0A0A]/50">No permits found</p>
+            <FileText className="w-10 h-10 text-border mb-3" />
+            <p className="text-sm text-foreground/50">No permits found</p>
             {isAdmin && (
-              <p className="text-xs text-[#0A0A0A]/30 mt-1">
+              <p className="text-xs text-foreground/30 mt-1">
                 Create your first permit with the New Permit button
               </p>
             )}
@@ -564,23 +564,23 @@ function PermitsPageContent() {
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#FAFAFA]">
-                    <th className="text-left px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Permit</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Project</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Status</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Expires</th>
-                    <th className="text-right px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">
+                  <tr className="bg-muted/40">
+                    <th className="text-left px-5 py-2.5 text-xs font-semibold text-foreground/40">Permit</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-foreground/40">Project</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-foreground/40">Status</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-foreground/40">Expires</th>
+                    <th className="text-right px-5 py-2.5 text-xs font-semibold text-foreground/40">
                       {isAdmin ? "Actions" : "File"}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p) => (
-                    <tr key={p.id} className="border-t border-[#F5F5F5] hover:bg-[#FAFAFA]">
+                    <tr key={p.id} className="border-t border-border/60 hover:bg-muted/40">
                       <td className="px-5 py-3">
-                        <p className="font-medium text-[#0A0A0A]">{p.title}</p>
+                        <p className="font-medium text-foreground">{p.title}</p>
                       </td>
-                      <td className="px-4 py-3 text-[#0A0A0A]/60">
+                      <td className="px-4 py-3 text-foreground/60">
                         {p.projectName ?? projectNameById.get(p.projectId) ?? `#${p.projectId}`}
                       </td>
                       <td className="px-4 py-3">
@@ -599,7 +599,7 @@ function PermitsPageContent() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-[#0A0A0A]/40 hover:text-[#0A0A0A]"
+                                className="h-8 w-8 text-foreground/40 hover:text-foreground"
                                 onClick={() => {
                                   setEditing(p);
                                   setFormOpen(true);
@@ -646,7 +646,7 @@ function PermitsPageContent() {
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-        <AlertDialogContent className="bg-white border-[#E5E5E5]">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete permit?</AlertDialogTitle>
             <AlertDialogDescription>

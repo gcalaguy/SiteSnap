@@ -43,16 +43,19 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getAiErrorMessage } from "@/hooks/useApiError";
 
-const GOLD = "#D4AF37";
-const BLACK = "#111111";
+const GOLD = "hsl(var(--primary))";
+const BLACK = "var(--surface-inverted)";
+// Replaces the old hex+alpha-suffix hack (e.g. `${GOLD}18`) for any color —
+// token or literal — since color-mix works regardless of the source syntax.
+const withAlpha = (color: string, alphaPct: number) => `color-mix(in srgb, ${color} ${alphaPct}%, transparent)`;
 
 // ── Risk config ────────────────────────────────────────────────────────────────
 
 const RISK_CFG = {
-  Critical: { color: "#dc2626", bg: "#1a0000", border: "#7f1d1d60", badge: "#fee2e2", badgeText: "#991b1b", label: "Critical", barColor: "#dc2626" },
-  High:     { color: "#ea580c", bg: "#1a0900", border: "#7c2d1260", badge: "#ffedd5", badgeText: "#9a3412", label: "High",     barColor: "#ea580c" },
-  Medium:   { color: "#ca8a04", bg: "#1a1200", border: "#78350f60", badge: "#fef9c3", badgeText: "#854d0e", label: "Medium",   barColor: "#ca8a04" },
-  Low:      { color: "#16a34a", bg: "#001a09", border: "#14532d60", badge: "#dcfce7", badgeText: "#166534", label: "Low",      barColor: "#16a34a" },
+  Critical: { color: "var(--severity-critical)", bg: "var(--severity-critical-bg)", border: "var(--severity-critical-border)", badge: "var(--severity-critical-badge)", badgeText: "var(--severity-critical-badge-foreground)", label: "Critical", barColor: "var(--severity-critical)" },
+  High:     { color: "var(--severity-high)",     bg: "var(--severity-high-bg)",     border: "var(--severity-high-border)",     badge: "var(--severity-high-badge)",     badgeText: "var(--severity-high-badge-foreground)",     label: "High",     barColor: "var(--severity-high)" },
+  Medium:   { color: "var(--severity-medium)",   bg: "var(--severity-medium-bg)",   border: "var(--severity-medium-border)",   badge: "var(--severity-medium-badge)",   badgeText: "var(--severity-medium-badge-foreground)",   label: "Medium",   barColor: "var(--severity-medium)" },
+  Low:      { color: "var(--severity-low)",      bg: "var(--severity-low-bg)",      border: "var(--severity-low-border)",      badge: "var(--severity-low-badge)",      badgeText: "var(--severity-low-badge-foreground)",      label: "Low",      barColor: "var(--severity-low)" },
 } as const;
 
 type RiskLevel = keyof typeof RISK_CFG;
@@ -95,15 +98,15 @@ function RiskStatusSection() {
 
   if (topRisk.length === 0) {
     return (
-      <Card className="bg-white" style={{ border: "1px solid rgba(22,163,74,0.25)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+      <Card className="bg-card" style={{ border: "1px solid rgba(22,163,74,0.25)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
         <CardContent className="flex items-center justify-between py-3 px-4 flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0" style={{ background: "rgba(22,163,74,0.12)", border: "1px solid rgba(22,163,74,0.3)" }}>
               <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
             </div>
-            <p className="text-sm text-[#121212]">
+            <p className="text-sm text-foreground">
               <span className="font-semibold">All inspections clear</span>
-              <span className="text-[#888888]">
+              <span className="text-muted-foreground">
                 {" "}· {totalInspected} inspection{totalInspected !== 1 ? "s" : ""}
                 {health.avgRiskScore != null ? ` · avg score ${health.avgRiskScore}/10` : ""}
               </span>
@@ -124,22 +127,24 @@ function RiskStatusSection() {
   const avgScore = health.avgRiskScore;
 
   const hasCritical = topRisk.some(r => r.inspection.riskLevel === "Critical");
-  const headerColor = hasCritical ? "#dc2626" : "#ea580c";
-  const headerBg = hasCritical ? "linear-gradient(135deg, #1a0000 0%, #0d0d0d 100%)" : "linear-gradient(135deg, #1a0900 0%, #0d0d0d 100%)";
+  const headerColor = hasCritical ? "var(--severity-critical)" : "var(--severity-high)";
+  const headerBg = hasCritical
+    ? "linear-gradient(135deg, var(--severity-critical-bg) 0%, #0d0d0d 100%)"
+    : "linear-gradient(135deg, var(--severity-high-bg) 0%, #0d0d0d 100%)";
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: headerBg, border: `1px solid ${hasCritical ? "#7f1d1d60" : "#7c2d1260"}`, boxShadow: `0 4px 32px ${headerColor}18` }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: headerBg, border: `1px solid ${hasCritical ? "var(--severity-critical-border)" : "var(--severity-high-border)"}`, boxShadow: `0 4px 32px ${withAlpha(headerColor, 18)}` }}>
       {/* Header strip */}
-      <div className="flex items-center justify-between px-5 py-3" style={{ background: `${headerColor}12`, borderBottom: `1px solid ${headerColor}25` }}>
+      <div className="flex items-center justify-between px-5 py-3" style={{ background: withAlpha(headerColor, 12), borderBottom: `1px solid ${withAlpha(headerColor, 25)}` }}>
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: `${headerColor}22`, border: `1px solid ${headerColor}44` }}>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: withAlpha(headerColor, 22), border: `1px solid ${withAlpha(headerColor, 44)}` }}>
             <Flame className="h-3.5 w-3.5" style={{ color: headerColor }} />
           </div>
           <span className="text-xs font-bold uppercase tracking-widest" style={{ color: headerColor }}>
             At Risk Right Now
           </span>
           {alerts.total > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: `${headerColor}22`, color: headerColor }}>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: withAlpha(headerColor, 22), color: headerColor }}>
               {alerts.total} unread alert{alerts.total !== 1 ? "s" : ""}
             </span>
           )}
@@ -149,7 +154,7 @@ function RiskStatusSection() {
             <>
               <span><span className="font-semibold text-zinc-300">{atRiskCount}</span> at risk</span>
               <span><span className="font-semibold text-green-400">{safeCount}</span> clear</span>
-              {avgScore != null && <span>Avg score <span className="font-semibold" style={{ color: avgScore >= 7 ? "#dc2626" : avgScore >= 5 ? "#ea580c" : "#ca8a04" }}>{avgScore}/10</span></span>}
+              {avgScore != null && <span>Avg score <span className="font-semibold" style={{ color: avgScore >= 7 ? "var(--severity-critical)" : avgScore >= 5 ? "var(--severity-high)" : "var(--severity-medium)" }}>{avgScore}/10</span></span>}
             </>
           )}
           <Link href="/safety-compliance">
@@ -205,7 +210,7 @@ function RiskStatusSection() {
 
                 {/* Risk score bar */}
                 {score != null && (
-                  <div className="h-1 rounded-full overflow-hidden" style={{ background: `${cfg.color}22` }}>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: withAlpha(cfg.color, 13) }}>
                     <div
                       className="h-full rounded-full transition-all"
                       style={{ width: `${barPct}%`, background: cfg.color }}
@@ -271,17 +276,17 @@ function RiskStatusSection() {
         <div className="flex items-center gap-3 px-5 py-2.5 border-t border-white/5" style={{ background: "#0d0d0d" }}>
           <span className="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold">Unread Alerts</span>
           {alerts.critical > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#fee2e2", color: "#991b1b" }}>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "var(--severity-critical-badge)", color: "var(--severity-critical-badge-foreground)" }}>
               <span className="h-1.5 w-1.5 rounded-full bg-red-600 inline-block" /> {alerts.critical} critical
             </span>
           )}
           {alerts.high > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#ffedd5", color: "#9a3412" }}>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "var(--severity-high-badge)", color: "var(--severity-high-badge-foreground)" }}>
               <span className="h-1.5 w-1.5 rounded-full bg-orange-500 inline-block" /> {alerts.high} high
             </span>
           )}
           {alerts.medium > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#fef9c3", color: "#854d0e" }}>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "var(--severity-medium-badge)", color: "var(--severity-medium-badge-foreground)" }}>
               <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 inline-block" /> {alerts.medium} medium
             </span>
           )}
@@ -325,15 +330,15 @@ function parseBriefing(text: string): BriefingLine[] {
 }
 
 const SEV_SECTION_COLOR: Record<string, string> = {
-  "🚨": "#dc2626",
-  "⚠️": "#ea580c",
-  "⚠": "#ea580c",
+  "🚨": "var(--severity-critical)",
+  "⚠️": "var(--severity-high)",
+  "⚠": "var(--severity-high)",
   "🛠️": GOLD,
   "🛠": GOLD,
   "📅": "#60a5fa",
-  "📉": "#f97316",
+  "📉": "var(--severity-high)",
   "👷": "#a78bfa",
-  "✅": "#22c55e",
+  "✅": "var(--severity-low)",
 };
 
 function ForemanBriefingCard() {
@@ -364,12 +369,12 @@ function ForemanBriefingCard() {
       className="overflow-hidden"
       style={{ background: BLACK, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.22)" }}
     >
-      <CardHeader className="pb-3" style={{ borderBottom: `1px solid ${GOLD}18` }}>
+      <CardHeader className="pb-3" style={{ borderBottom: `1px solid ${withAlpha(GOLD, 9)}` }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
             <div
               className="flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0"
-              style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}40` }}
+              style={{ background: withAlpha(GOLD, 9), border: `1px solid ${withAlpha(GOLD, 25)}` }}
             >
               <ClipboardList className="h-4 w-4" style={{ color: GOLD }} />
             </div>
@@ -385,7 +390,7 @@ function ForemanBriefingCard() {
             size="sm"
             variant="ghost"
             className="h-8 gap-1.5 text-xs border"
-            style={{ borderColor: `${GOLD}35`, color: GOLD }}
+            style={{ borderColor: withAlpha(GOLD, 21), color: GOLD }}
             onClick={() => generate.mutate()}
             disabled={generate.isPending}
           >
@@ -408,8 +413,8 @@ function ForemanBriefingCard() {
         {!data && !generate.isPending && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-3"
-              style={{ background: `${GOLD}10`, border: `1px solid ${GOLD}25` }}>
-              <ClipboardList className="h-6 w-6" style={{ color: `${GOLD}b0` }} />
+              style={{ background: withAlpha(GOLD, 6), border: `1px solid ${withAlpha(GOLD, 15)}` }}>
+              <ClipboardList className="h-6 w-6" style={{ color: withAlpha(GOLD, 69) }} />
             </div>
             <p className="text-sm font-medium text-zinc-300 mb-1">Your AI briefing is ready to generate</p>
             <p className="text-xs text-zinc-600 max-w-xs">
@@ -485,31 +490,31 @@ type StatCardConfig = {
 };
 
 function StatCard({ href, label, value, sub, icon: Icon, alert }: StatCardConfig) {
-  const accent = alert ? "#EF4444" : GOLD;
+  const accent = alert ? "hsl(var(--destructive))" : GOLD;
   return (
     <Link href={href} className="block group">
       <Card
-        className="cursor-pointer transition-all duration-150 hover:shadow-md bg-white"
+        className="cursor-pointer transition-all duration-150 hover:shadow-md bg-card"
         style={{
-          border: alert ? "1.5px solid rgba(239,68,68,0.35)" : "1px solid rgba(0,0,0,0.08)",
+          border: alert ? "1.5px solid hsl(var(--destructive) / 0.35)" : "1px solid rgba(0,0,0,0.08)",
           boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
         }}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
           <CardTitle
             className={`text-[11px] uppercase tracking-wide ${alert ? "font-bold" : "font-semibold"}`}
-            style={{ color: alert ? accent : "#9a9a9a" }}
+            style={{ color: alert ? accent : "hsl(var(--muted-foreground))" }}
           >
             {label}
           </CardTitle>
           <Icon className="h-4 w-4" style={{ color: accent }} />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold" style={{ color: alert ? accent : "#121212" }}>
+          <div className="text-2xl font-bold" style={{ color: alert ? accent : "hsl(var(--foreground))" }}>
             {value}
           </div>
           <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-[#999999]">{sub}</p>
+            <p className="text-xs text-muted-foreground">{sub}</p>
             <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: accent }} />
           </div>
         </CardContent>
@@ -519,7 +524,7 @@ function StatCard({ href, label, value, sub, icon: Icon, alert }: StatCardConfig
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-bold uppercase tracking-wider text-[#999999] mb-2">{children}</p>;
+  return <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{children}</p>;
 }
 
 function fmt(n: number, opts?: Intl.NumberFormatOptions) {
@@ -590,11 +595,11 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
           <Activity className="h-6 w-6" style={{ color: GOLD }} />
           Dashboard
         </h1>
-        <p className="text-sm text-[#121212]/60 font-medium">Overview of your company's projects and activities.</p>
+        <p className="text-sm text-muted-foreground font-medium">Overview of your company's projects and activities.</p>
       </div>
 
       {/* Daily Foreman Briefing — owners and foremen only */}
@@ -609,7 +614,7 @@ export default function Dashboard() {
         <Card className="border-amber-200/40 bg-gradient-to-r from-amber-50/80 to-orange-50/60">
           <CardContent className="flex items-start gap-3 pt-4 pb-4">
             <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
-              style={{ background: `${GOLD}22`, border: `1.5px solid ${GOLD}44` }}>
+              style={{ background: withAlpha(GOLD, 13), border: `1.5px solid ${withAlpha(GOLD, 27)}` }}>
               <Sparkles className="h-4 w-4" style={{ color: GOLD }} />
             </div>
             <div>
@@ -647,7 +652,7 @@ export default function Dashboard() {
       <div>
         <SectionLabel>Activity</SectionLabel>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4 bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <Card className="col-span-4 bg-card" style={{ border: `2px solid ${withAlpha(GOLD, 20)}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <CardHeader>
               <CardTitle className="text-sm font-extrabold uppercase tracking-wider" style={{ color: GOLD }}>Recent Activity</CardTitle>
             </CardHeader>
@@ -655,17 +660,17 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 {activity?.length === 0 ? (
-                  <div className="text-center text-sm text-[#888888] py-4 font-medium">No recent activity.</div>
+                  <div className="text-center text-sm text-muted-foreground py-4 font-medium">No recent activity.</div>
                 ) : (
                   activity?.map((item) => (
                     <div key={item.id} className="flex items-center">
-                      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full shrink-0" style={{ background: "rgba(212,175,55,0.10)", border: "1px solid rgba(212,175,55,0.20)" }}>
+                      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full shrink-0" style={{ background: withAlpha(GOLD, 10), border: `1px solid ${withAlpha(GOLD, 20)}` }}>
                         <Activity className="h-4 w-4" style={{ color: GOLD }} />
                       </div>
                       <div className="ml-4 space-y-0.5">
-                        <p className="text-sm font-medium leading-none text-[#121212]">{item.description}</p>
-                        <p className="text-xs text-[#888888] font-medium">
-                          {item.userName} • {item.projectName && <span className="font-semibold text-[#121212]/70">{item.projectName} • </span>}
+                        <p className="text-sm font-medium leading-none text-foreground">{item.description}</p>
+                        <p className="text-xs text-muted-foreground font-medium">
+                          {item.userName} • {item.projectName && <span className="font-semibold text-foreground/70">{item.projectName} • </span>}
                           {format(new Date(item.createdAt), "MMM d, h:mm a")}
                         </p>
                       </div>
@@ -680,7 +685,7 @@ export default function Dashboard() {
             <WeatherCard />
 
             {/* Notifications Panel */}
-            <Card className="bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <Card className="bg-card" style={{ border: `2px solid ${withAlpha(GOLD, 20)}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -698,7 +703,7 @@ export default function Dashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs h-7 px-2 text-[#D4AF37] hover:text-[#b5922e]"
+                      className="text-xs h-7 px-2 text-primary hover:opacity-80"
                       onClick={handleMarkAll}
                     >
                       Mark all read
@@ -709,8 +714,8 @@ export default function Dashboard() {
               <CardContent className="px-3 pb-3">
                 {!notifications || notifications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <Bell className="h-8 w-8 mb-2" style={{ color: "rgba(212,175,55,0.40)" }} />
-                    <p className="text-xs text-[#888888] font-medium">No notifications</p>
+                    <Bell className="h-8 w-8 mb-2" style={{ color: withAlpha(GOLD, 40) }} />
+                    <p className="text-xs text-muted-foreground font-medium">No notifications</p>
                   </div>
                 ) : (
                   <div className="space-y-1 max-h-64 overflow-y-auto">
@@ -718,18 +723,18 @@ export default function Dashboard() {
                       <div
                         key={n.id}
                         className={`flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors ${n.isRead ? "opacity-50" : ""}`}
-                        style={!n.isRead ? { background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.15)" } : {}}
+                        style={!n.isRead ? { background: withAlpha(GOLD, 6), border: `1px solid ${withAlpha(GOLD, 15)}` } : {}}
                       >
                         <div
                           className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
-                          style={{ background: n.isRead ? "#F0F0F0" : "rgba(212,175,55,0.12)" }}
+                          style={{ background: n.isRead ? "hsl(var(--muted))" : withAlpha(GOLD, 12) }}
                         >
-                          <Bell className="h-3 w-3" style={{ color: n.isRead ? "#AAAAAA" : GOLD }} />
+                          <Bell className="h-3 w-3" style={{ color: n.isRead ? "hsl(var(--muted-foreground))" : GOLD }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold leading-tight text-[#121212]">{n.title}</p>
-                          <p className="text-xs text-[#888888] mt-0.5 leading-tight font-medium">{n.body}</p>
-                          <p className="text-[10px] text-[#AAAAAA] mt-0.5 font-medium">
+                          <p className="text-xs font-semibold leading-tight text-foreground">{n.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-tight font-medium">{n.body}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
                             {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                           </p>
                         </div>

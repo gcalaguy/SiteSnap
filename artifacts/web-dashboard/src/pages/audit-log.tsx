@@ -8,9 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, ShieldCheck, Clock, User, FolderOpen, Globe } from "lucide-react";
 import { format } from "date-fns";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
-
 const renderSafeTimestamp = (dateString: string | null | undefined) => {
   if (!dateString) return "N/A";
   try {
@@ -79,8 +76,8 @@ export default function AuditLogPage() {
   return (
     <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <ShieldCheck size={22} style={{ color: GOLD }} />
-        <h1 className="text-xl font-bold tracking-tight" style={{ color: BLACK }}>
+        <ShieldCheck size={22} className="text-primary" />
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
           Audit Log
         </h1>
       </div>

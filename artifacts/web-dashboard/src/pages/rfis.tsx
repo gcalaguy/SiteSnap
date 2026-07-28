@@ -70,18 +70,18 @@ export default function RFIsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
-          <MessageSquareWarning className="h-6 w-6" style={{ color: "#D4AF37" }} />
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+          <MessageSquareWarning className="h-6 w-6" style={{ color: "hsl(var(--primary))" }} />
           RFIs
         </h1>
-        <p className="text-sm text-[#121212]/60 font-medium">All Requests for Information across your projects.</p>
+        <p className="text-sm text-foreground/60 font-medium">All Requests for Information across your projects.</p>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative max-w-sm flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
           <Input
-            className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+            className="pl-9 border-primary/20 focus-visible:ring-primary"
             placeholder="Search RFIs…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -92,7 +92,7 @@ export default function RFIsPage() {
           value={projectId !== undefined ? String(projectId) : "all"}
           onValueChange={(v) => setProjectId(v === "all" ? undefined : Number(v))}
         >
-          <SelectTrigger className="w-[180px] border-[#D4AF37]/20 focus:ring-[#D4AF37]">
+          <SelectTrigger className="w-[180px] border-primary/20 focus:ring-primary">
             <SelectValue placeholder="All Projects" />
           </SelectTrigger>
           <SelectContent>
@@ -109,7 +109,7 @@ export default function RFIsPage() {
           value={status ?? "all"}
           onValueChange={(v) => setStatus(v === "all" ? undefined : v)}
         >
-          <SelectTrigger className="w-[150px] border-[#D4AF37]/20 focus:ring-[#D4AF37]">
+          <SelectTrigger className="w-[150px] border-primary/20 focus:ring-primary">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -127,7 +127,7 @@ export default function RFIsPage() {
             variant="ghost"
             size="sm"
             onClick={clearFilters}
-            className="text-[#121212]/60 hover:text-[#121212] gap-1"
+            className="text-foreground/60 hover:text-foreground gap-1"
           >
             <X className="h-3.5 w-3.5" />
             Clear filters
@@ -136,12 +136,12 @@ export default function RFIsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-[#121212]/60 animate-pulse font-medium">Loading RFIs…</div>
+        <div className="py-16 text-center text-foreground/60 animate-pulse font-medium">Loading RFIs…</div>
       ) : sorted.length === 0 ? (
-        <Card className="border-[#D4AF37]/20">
+        <Card className="border-primary/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-            <MessageSquareWarning className="h-10 w-10 text-[#D4AF37]/40" />
-            <p className="text-[#121212]/60 font-medium">
+            <MessageSquareWarning className="h-10 w-10 text-primary/40" />
+            <p className="text-foreground/60 font-medium">
               {search || hasFilters ? "No RFIs match your filters." : "No RFIs yet. Submit one from a project."}
             </p>
           </CardContent>
@@ -149,12 +149,12 @@ export default function RFIsPage() {
       ) : (
         <div className="space-y-3">
           {sorted.map((rfi) => (
-            <Card key={rfi.id} className="hover:border-[#D4AF37]/40 transition-colors border-[#D4AF37]/20">
+            <Card key={rfi.id} className="hover:border-primary/40 transition-colors border-primary/20">
               <CardContent className="py-4 px-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-mono text-[#121212]/50">{rfi.rfiNumber}</span>
+                      <span className="text-xs font-mono text-foreground/50">{rfi.rfiNumber}</span>
                       <Badge variant="outline" className={`text-xs ${statusColor[rfi.status] ?? ""}`}>
                         {rfi.status.replace("_", " ")}
                       </Badge>
@@ -162,10 +162,10 @@ export default function RFIsPage() {
                         {rfi.priority}
                       </Badge>
                     </div>
-                    <p className="font-semibold text-sm truncate text-[#121212]">{rfi.subject}</p>
-                    <p className="text-xs text-[#121212]/60 mt-1 font-medium">
+                    <p className="font-semibold text-sm truncate text-foreground">{rfi.subject}</p>
+                    <p className="text-xs text-foreground/60 mt-1 font-medium">
                       {rfi.projectName && (
-                        <span className="font-semibold text-[#121212]">{rfi.projectName} · </span>
+                        <span className="font-semibold text-foreground">{rfi.projectName} · </span>
                       )}
                       Submitted by {rfi.submittedByName} · {format(new Date(rfi.createdAt), "MMM d, yyyy")}
                       {rfi.dueDate && ` · Due ${format(new Date(rfi.dueDate), "MMM d, yyyy")}`}
@@ -173,7 +173,7 @@ export default function RFIsPage() {
                   </div>
                   <Link
                     href={`/projects/${rfi.projectId}`}
-                    className="shrink-0 flex items-center gap-1 text-xs text-[#D4AF37] hover:underline mt-1 font-medium"
+                    className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline mt-1 font-medium"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />

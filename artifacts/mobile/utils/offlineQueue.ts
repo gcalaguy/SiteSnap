@@ -20,9 +20,27 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import { ApiError } from "@workspace/api-client-react";
 
 // AsyncStorage key that holds the serialised queue (JSON array of payloads).
 const QUEUE_KEY = "safety_form_offline_queue";
+
+// Matches OfflineQueueContext.tsx's cap — after this many failed attempts an
+// item stops being retried automatically instead of being resubmitted forever.
+const MAX_RETRIES = 3;
+
+/**
+ * A 4xx response (other than 429/408, which are typically transient rate
+ * limits/timeouts) means the payload itself is invalid — retrying it
+ * unchanged will just fail the same way every time. Anything else (network
+ * errors, 5xx, 429, 408) is treated as transient and worth retrying.
+ */
+function isPermanentFailure(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.status >= 400 && err.status < 500 && err.status !== 429 && err.status !== 408;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // M-SC3 fix: The module-level NetInfo listener has been removed.
@@ -78,18 +96,23 @@ async function writeQueue(queue: any[]): Promise<void> {
  */
 export async function queueOffline(formData: any): Promise<void> {
   const queue = await readQueue();
-  queue.push({ ...formData, _queuedAt: Date.now() });
+  queue.push({ ...formData, _queuedAt: Date.now(), _retries: 0 });
   await writeQueue(queue);
 }
 
 /**
  * flushOfflineQueue
  *
- * Reads every pending item from AsyncStorage, checks whether the device
+ * Reads every non-failed item from AsyncStorage, checks whether the device
  * currently has network connectivity, and – if it does – calls `apiSubmitFn`
  * for each item **sequentially**.  Successfully submitted items are removed
- * from the queue.  Items that fail again are left in place so the next flush
- * can retry them.
+ * from the queue.  Items that fail with a transient error (network issue,
+ * 5xx, 429, 408) are left in place, up to MAX_RETRIES attempts, so the next
+ * flush can retry them.  Items that fail with a permanent error (any other
+ * 4xx – the payload itself is invalid) or that exhaust MAX_RETRIES are marked
+ * `_failed` and skipped by future flushes — kept in storage rather than
+ * silently discarded, since nothing else in this module can recover them once
+ * gone.
  *
  * Storing `apiSubmitFn` in module scope also keeps the global NetInfo listener
  * (see below) up-to-date with the caller's latest reference.
@@ -113,18 +136,33 @@ export async function flushOfflineQueue(
   const remaining: any[] = [];
 
   for (const item of queue) {
+    if (item._failed) {
+      // Already given up on this item in a previous flush — leave it in
+      // storage untouched instead of retrying it forever.
+      remaining.push(item);
+      continue;
+    }
+
     try {
-      // Strip the internal bookkeeping field before handing off to the API.
-      const { _queuedAt, ...payload } = item;
+      // Strip the internal bookkeeping fields before handing off to the API.
+      const { _queuedAt, _retries, _failed, ...payload } = item;
       await apiSubmitFn(payload);
       // Submission succeeded – item will NOT be pushed back into `remaining`.
-    } catch {
-      // Submission failed again – keep the item for the next flush attempt.
-      remaining.push(item);
+    } catch (err) {
+      const retries = (item._retries ?? 0) + 1;
+      if (isPermanentFailure(err) || retries >= MAX_RETRIES) {
+        // Payload is invalid, or we've retried enough times — stop trying,
+        // but keep the item around so it isn't silently lost.
+        remaining.push({ ...item, _retries: retries, _failed: true });
+        continue;
+      }
+      // Transient failure – keep the item, with its retry count bumped, for
+      // the next flush attempt.
+      remaining.push({ ...item, _retries: retries });
     }
   }
 
-  // Persist only the items that still need to be retried.
+  // Persist every item that either still needs retrying or has terminally failed.
   await writeQueue(remaining);
 }
 

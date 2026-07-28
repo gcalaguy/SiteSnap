@@ -143,13 +143,13 @@ function PhotoCard({
 
   return (
     <Card
-      className="border-[#D4AF37]/10 overflow-hidden cursor-pointer group"
+      className="border-primary/10 overflow-hidden cursor-pointer group"
       onClick={onClick}
     >
       <div className="aspect-square bg-gray-100 relative overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
-            <div className="w-6 h-6 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span>Loading...</span>
           </div>
         ) : imgUrl ? (
@@ -177,7 +177,7 @@ function PhotoCard({
           </div>
         )}
         {photo.markupData && (
-          <Badge className="absolute top-2 right-2 bg-[#D4AF37] text-white text-[10px]">
+          <Badge className="absolute top-2 right-2 bg-primary text-white text-[10px]">
             Marked up
           </Badge>
         )}
@@ -188,7 +188,7 @@ function PhotoCard({
                 e.stopPropagation();
                 setEditingPhotoId(photo.id);
               }}
-              className="p-1 rounded bg-white/90 hover:bg-white shadow text-[#D4AF37]"
+              className="p-1 rounded bg-white/90 hover:bg-white shadow text-primary"
               title="Edit"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -212,7 +212,7 @@ function PhotoCard({
             <Input
               defaultValue={photo.roomLocation || ""}
               placeholder="Room / Location"
-              className="text-xs border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+              className="text-xs border-primary/20 focus-visible:ring-primary"
               data-photo-id={photo.id}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -229,7 +229,7 @@ function PhotoCard({
                   ) as HTMLInputElement;
                   if (el) handleUpdatePhoto(photo.id, { roomLocation: el.value });
                 }}
-                className="px-2 py-1 text-[10px] rounded bg-[#D4AF37] text-white hover:bg-[#C9A02F]"
+                className="px-2 py-1 text-[10px] rounded bg-primary text-white hover:bg-primary/90"
               >
                 Save
               </button>
@@ -243,10 +243,10 @@ function PhotoCard({
           </div>
         ) : (
           <div className="space-y-0.5">
-            <p className="text-xs font-medium text-[#0A0A0A]">
+            <p className="text-xs font-medium text-foreground">
               {photo.roomLocation || "Untitled"}
             </p>
-            <p className="text-[10px] text-[#0A0A0A]/50">
+            <p className="text-[10px] text-foreground/50">
               {format(new Date(photo.createdAt), "MMM d, h:mm a")}
             </p>
           </div>
@@ -280,33 +280,33 @@ function LogEditForm({
         placeholder="Notes"
         maxLength={NOTES_MAX}
         rows={3}
-        className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+        className="border-primary/20 focus-visible:ring-primary"
       />
       <div className="flex gap-2">
         <Input
           value={weatherTemp}
           onChange={(e) => setWeatherTemp(e.target.value)}
           placeholder="Temp"
-          className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37] w-28"
+          className="border-primary/20 focus-visible:ring-primary w-28"
         />
         <Input
           value={weatherCondition}
           onChange={(e) => setWeatherCondition(e.target.value)}
           placeholder="Condition"
-          className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37] flex-1"
+          className="border-primary/20 focus-visible:ring-primary flex-1"
         />
       </div>
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#D4AF37]/20 hover:bg-[#D4AF37]/5"
+          className="px-3 py-1.5 text-xs font-medium rounded-md border border-primary/20 hover:bg-primary/5"
           disabled={isSaving}
         >
           Cancel
         </button>
         <button
           onClick={() => onSave({ notes, weatherTemp, weatherCondition })}
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-[#D4AF37] text-white hover:bg-[#C9A02F]"
+          className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-white hover:bg-primary/90"
           disabled={isSaving}
         >
           {isSaving ? "Saving..." : "Save"}
@@ -436,27 +436,27 @@ export default function FieldLogsPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
-          <FileText className="h-6 w-6" style={{ color: "#D4AF37" }} />
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+          <FileText className="h-6 w-6 text-primary" />
           Field Logs
         </h1>
-        <p className="text-sm text-[#121212]/60 font-medium">
+        <p className="text-sm text-foreground/60 font-medium">
           Daily notes, site photos, and safety signoffs from the field.
         </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
           <Input
-            className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+            className="pl-9 border-primary/20 focus-visible:ring-primary"
             placeholder="Search logs..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
-          className="h-9 px-3 rounded-md border border-[#D4AF37]/20 bg-white text-sm focus-visible:ring-[#D4AF37] outline-none"
+          className="h-9 px-3 rounded-md border border-primary/20 bg-white text-sm focus-visible:ring-primary outline-none"
           value={projectId ?? ""}
           onChange={(e) => setActiveProjectId(Number(e.target.value) || null)}
         >
@@ -469,22 +469,22 @@ export default function FieldLogsPage() {
       </div>
 
       <Tabs defaultValue="logs">
-        <TabsList className="bg-white border border-[#D4AF37]/20">
+        <TabsList className="bg-white border border-primary/20">
           <TabsTrigger
             value="logs"
-            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+            className="data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
           >
             <FileText className="h-4 w-4 mr-1.5" /> Daily Logs ({logs.length})
           </TabsTrigger>
           <TabsTrigger
             value="photos"
-            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+            className="data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
           >
             <Camera className="h-4 w-4 mr-1.5" /> Photos ({photos.length})
           </TabsTrigger>
           <TabsTrigger
             value="safety"
-            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+            className="data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
           >
             <ShieldCheck className="h-4 w-4 mr-1.5" /> Safety (
             {signoffs.length})
@@ -505,7 +505,7 @@ export default function FieldLogsPage() {
           ) : (
             <div className="space-y-3">
               {filteredLogs.map((log) => (
-                <Card key={log.id} className="border-[#D4AF37]/10">
+                <Card key={log.id} className="border-primary/10">
                   <CardContent className="p-4">
                     {editingLogId === log.id ? (
                       <LogEditForm
@@ -517,7 +517,7 @@ export default function FieldLogsPage() {
                     ) : (
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1 flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#121212]">
+                          <p className="text-sm font-medium text-foreground">
                             {log.notes || "No notes"}
                           </p>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -550,7 +550,7 @@ export default function FieldLogsPage() {
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setEditingLogId(log.id)}
-                                className="p-1 rounded hover:bg-[#D4AF37]/10 text-[#D4AF37]"
+                                className="p-1 rounded hover:bg-primary/10 text-primary"
                                 title="Edit"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -617,7 +617,7 @@ export default function FieldLogsPage() {
           ) : (
             <div className="space-y-3">
               {signoffs.map((s) => (
-                <Card key={s.id} className="border-[#D4AF37]/10">
+                <Card key={s.id} className="border-primary/10">
                   <CardContent className="p-4">
                     {editingSafetyId === s.id ? (
                       <div className="space-y-3">
@@ -626,7 +626,7 @@ export default function FieldLogsPage() {
                             <div key={question} className="flex items-center gap-2">
                               <span className="font-medium">{question}:</span>
                               <select
-                                className="text-xs rounded border border-[#D4AF37]/20 px-1 py-0.5"
+                                className="text-xs rounded border border-primary/20 px-1 py-0.5"
                                 defaultValue={answer}
                                 data-question={question}
                                 data-safety-id={s.id}
@@ -640,7 +640,7 @@ export default function FieldLogsPage() {
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => setEditingSafetyId(null)}
-                            className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#D4AF37]/20"
+                            className="px-3 py-1.5 text-xs font-medium rounded-md border border-primary/20"
                           >
                             Cancel
                           </button>
@@ -653,7 +653,7 @@ export default function FieldLogsPage() {
                               });
                               handleUpdateSafety(s.id, { responses });
                             }}
-                            className="px-3 py-1.5 text-xs font-medium rounded-md bg-[#D4AF37] text-white"
+                            className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-white"
                             disabled={savingId === s.id}
                           >
                             {savingId === s.id ? "Saving..." : "Save"}
@@ -665,7 +665,7 @@ export default function FieldLogsPage() {
                         <div className="space-y-2 flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <ShieldCheck className="h-4 w-4 text-green-600" />
-                            <span className="text-sm font-semibold text-[#121212]">
+                            <span className="text-sm font-semibold text-foreground">
                               Safety Check — Worker #{s.workerId}
                             </span>
                           </div>
@@ -709,7 +709,7 @@ export default function FieldLogsPage() {
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setEditingSafetyId(s.id)}
-                                className="p-1 rounded hover:bg-[#D4AF37]/10 text-[#D4AF37]"
+                                className="p-1 rounded hover:bg-primary/10 text-primary"
                                 title="Edit"
                               >
                                 <Pencil className="h-3.5 w-3.5" />

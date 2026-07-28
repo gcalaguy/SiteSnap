@@ -8,15 +8,16 @@ import type { ScanHazard } from "@/hooks/safety-scanner/useSafetyScan";
 import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { ActionItemDrawer } from "@/components/safety-scanner/ActionItemDrawer";
 
-const GOLD = "#C9A84C";
+const GOLD = "hsl(var(--primary))";
 
 const RISK_COLOR: Record<string, string> = {
-  critical: "#dc2626", high: "#d97706", medium: "#ca8a04", low: "#16a34a",
+  critical: "var(--severity-critical)", high: "var(--severity-high)",
+  medium: "var(--severity-medium)", low: "var(--severity-low)",
 };
 
 function ScanPhoto({ objectPath }: { objectPath: string }) {
   const { data: url } = useSignedUrl(objectPath);
-  if (!url) return <div className="w-full h-full animate-pulse" style={{ background: "#1a1a1a" }} />;
+  if (!url) return <div className="w-full h-full animate-pulse bg-muted" />;
   return <img src={url} alt="Scan evidence" className="w-full h-full object-cover" />;
 }
 
@@ -53,13 +54,13 @@ export default function SafetyScanDetailPage() {
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <Card style={{ background: "#111111", border: "1px solid #2a2a2a" }}>
+        <Card style={{ background: "var(--surface-inverted)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <CardContent className="p-4">
             <p className="text-xs font-semibold text-zinc-500">COMPLIANCE SCORE</p>
             <p className="text-3xl font-bold text-zinc-100 mt-1">{scan.complianceScore ?? 0}%</p>
           </CardContent>
         </Card>
-        <Card style={{ background: `${riskColor}1A`, border: `1px solid ${riskColor}` }}>
+        <Card style={{ background: `color-mix(in srgb, ${riskColor} 10%, transparent)`, border: `1px solid ${riskColor}` }}>
           <CardContent className="p-4">
             <p className="text-xs font-semibold" style={{ color: riskColor }}>RISK LEVEL</p>
             <p className="text-3xl font-bold mt-1" style={{ color: riskColor }}>
@@ -70,7 +71,7 @@ export default function SafetyScanDetailPage() {
       </div>
 
       {scan.summary && (
-        <Card style={{ background: "#111111", border: "1px solid #2a2a2a" }}>
+        <Card style={{ background: "var(--surface-inverted)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <CardContent className="p-4">
             <p className="text-xs font-semibold text-zinc-500 mb-2">AI SUMMARY</p>
             <p className="text-sm text-zinc-300 leading-relaxed">{scan.summary}</p>
@@ -78,7 +79,7 @@ export default function SafetyScanDetailPage() {
         </Card>
       )}
 
-      <Card style={{ background: "#111111", border: "1px solid #2a2a2a" }}>
+      <Card style={{ background: "var(--surface-inverted)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <CardContent className="p-4">
           <p className="text-xs font-semibold text-zinc-500 mb-3">PPE COMPLIANCE</p>
           <div className="grid grid-cols-2 gap-2">
@@ -103,7 +104,7 @@ export default function SafetyScanDetailPage() {
             {scan.hazards.map((h) => {
               const hColor = RISK_COLOR[h.severity];
               return (
-                <Card key={h.id} style={{ background: "#111111", border: "1px solid #2a2a2a" }}>
+                <Card key={h.id} style={{ background: "var(--surface-inverted)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       {h.sourcePhotoObjectPath && (

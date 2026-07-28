@@ -2,7 +2,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
@@ -33,25 +33,13 @@ export default function PsiListScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
-        {listQuery.isLoading && (
-          <View style={{ paddingVertical: 40, alignItems: "center" }}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        )}
-
-        {!listQuery.isLoading && rows.length === 0 && (
-          <View style={{ paddingVertical: 40, alignItems: "center" }}>
-            <Feather name="clipboard" size={28} color={colors.mutedForeground} style={{ opacity: 0.4 }} />
-            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No pre-inspection checklists yet.</Text>
-          </View>
-        )}
-
-        {rows.map((row) => {
+      <FlatList
+        data={listQuery.isLoading ? [] : rows}
+        keyExtractor={(row) => String(row.psi.id)}
+        renderItem={({ item: row }) => {
           const isDraft = row.psi.status === "draft";
           return (
             <TouchableOpacity
-              key={row.psi.id}
               onPress={() =>
                 router.push(
                   isDraft
@@ -78,8 +66,25 @@ export default function PsiListScreen() {
               </Text>
             </TouchableOpacity>
           );
-        })}
-      </ScrollView>
+        }}
+        ListHeaderComponent={
+          listQuery.isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          !listQuery.isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <Feather name="clipboard" size={28} color={colors.mutedForeground} style={{ opacity: 0.4 }} />
+              <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No pre-inspection checklists yet.</Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }

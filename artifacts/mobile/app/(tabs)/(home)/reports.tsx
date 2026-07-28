@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -277,14 +278,8 @@ export default function AllReportsScreen() {
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
-    >
+  const listHeader = (
+    <>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -499,33 +494,50 @@ export default function AllReportsScreen() {
         </View>
       ) : null}
 
-      {/* List */}
-      <View style={styles.listContainer}>
-        {isLoading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : filtered.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Feather name="file-text" size={40} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.foreground }]}>
-              {hasActiveFilter ? "No reports match your filters" : "No daily reports yet"}
-            </Text>
-            <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-              {hasActiveFilter
-                ? "Try adjusting your project, date, or search filter"
-                : "Reports submitted across all projects will appear here"}
-            </Text>
-          </View>
-        ) : (
-          filtered.map((r) => (
+      {isLoading && <ActivityIndicator color={colors.primary} style={styles.loader} />}
+
+      {!isLoading && filtered.length > 0 && <View style={{ height: 8 }} />}
+    </>
+  );
+
+  return (
+    <>
+      <FlatList
+        style={[styles.container, { backgroundColor: colors.background }]}
+        data={isLoading ? [] : filtered}
+        keyExtractor={(r) => String(r.id)}
+        renderItem={({ item: r }) => (
+          <View style={styles.listItemWrap}>
             <ReportRow
-              key={r.id}
               report={r}
               onPressProject={() => router.push(`/project/${r.projectId}` as any)}
               onEdit={() => openEdit(r)}
             />
-          ))
+          </View>
         )}
-      </View>
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.listContainer}>
+              <View style={styles.emptyContainer}>
+                <Feather name="file-text" size={40} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.foreground }]}>
+                  {hasActiveFilter ? "No reports match your filters" : "No daily reports yet"}
+                </Text>
+                <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
+                  {hasActiveFilter
+                    ? "Try adjusting your project, date, or search filter"
+                    : "Reports submitted across all projects will appear here"}
+                </Text>
+              </View>
+            </View>
+          ) : null
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+      />
 
       <Modal visible={!!editingReport} animationType="slide" transparent onRequestClose={() => setEditingReport(null)}>
         <View style={styles.modalOverlay}>
@@ -578,7 +590,7 @@ export default function AllReportsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>
   );
 }
 
@@ -605,6 +617,7 @@ const styles = StyleSheet.create({
   updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 4 },
   updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
   listContainer: { paddingHorizontal: 16, paddingTop: 8 },
+  listItemWrap: { paddingHorizontal: 16 },
   loader: { paddingVertical: 40 },
 
   row: {

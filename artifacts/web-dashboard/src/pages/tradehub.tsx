@@ -23,8 +23,8 @@ import { DraftBanner } from "@/components/DraftBanner";
 import { SignedAvatar } from "@/components/SignedAvatar";
 import { SignedImage } from "@/components/SignedImage";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
+const GOLD = "hsl(var(--primary))";
+const BLACK = "var(--surface-inverted)";
 const ORANGE = "#FF6B00";
 
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
@@ -107,7 +107,7 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {post.profile?.trade && (
-                  <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `${GOLD}18`, color: GOLD }}>
+                  <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${GOLD} 9%, transparent)`, color: GOLD }}>
                     {post.profile.trade}
                   </span>
                 )}
@@ -120,7 +120,7 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
           </div>
         </Link>
         <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
-          style={{ background: `${tc.accent}18`, color: tc.accent }}><Icon className="h-3 w-3" />{tc.label}</span>
+          style={{ background: `color-mix(in srgb, ${tc.accent} 9%, transparent)`, color: tc.accent }}><Icon className="h-3 w-3" />{tc.label}</span>
       </div>
 
       <Link href={`/tradehub/posts/${post.id}`}>
@@ -133,7 +133,7 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
       {post.type === "job" && (post.budget || post.jobType) && (
         <div className="flex gap-2 flex-wrap px-5 pb-3">
           {post.jobType && <span className="text-xs border border-border rounded-full px-2.5 py-0.5 text-muted-foreground">{post.jobType}</span>}
-          {post.budget && <span className="text-xs rounded-full px-2.5 py-0.5 font-semibold" style={{ background: `${GOLD}20`, color: GOLD }}>{post.budget}</span>}
+          {post.budget && <span className="text-xs rounded-full px-2.5 py-0.5 font-semibold" style={{ background: `color-mix(in srgb, ${GOLD} 13%, transparent)`, color: GOLD }}>{post.budget}</span>}
         </div>
       )}
 
@@ -150,27 +150,27 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
       <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border/40">
         <button onClick={() => onReact(post.id)}
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${post.hasReacted ? "font-semibold" : "text-muted-foreground"}`}
-          style={post.hasReacted ? { color: ORANGE, background: `${ORANGE}15` } : undefined}
-          onMouseEnter={(e) => { if (!post.hasReacted) { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; } }}
+          style={post.hasReacted ? { color: ORANGE, background: `color-mix(in srgb, ${ORANGE} 8%, transparent)` } : undefined}
+          onMouseEnter={(e) => { if (!post.hasReacted) { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `color-mix(in srgb, ${ORANGE} 7%, transparent)`; } }}
           onMouseLeave={(e) => { if (!post.hasReacted) { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; } }}>
           <ThumbsUp className={`h-3.5 w-3.5 ${post.hasReacted ? "fill-current" : ""}`} />{post.reactionCount > 0 ? post.reactionCount : "Like"}
         </button>
         <Link href={`/tradehub/posts/${post.id}`}>
           <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground transition-colors"
-            onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `color-mix(in srgb, ${ORANGE} 7%, transparent)`; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; }}>
             <MessageSquare className="h-3.5 w-3.5" />{post.commentCount > 0 ? post.commentCount : "Comment"}
           </button>
         </Link>
         <button onClick={handleShare} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground transition-colors"
-          onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `color-mix(in srgb, ${ORANGE} 7%, transparent)`; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; }}>
           <Share2 className="h-3.5 w-3.5" />Share
         </button>
         {post.type === "job" && (
           <Link href={`/tradehub/posts/${post.id}`} className="ml-auto">
             <button className="text-xs px-4 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
-              style={post.applicationCount > 0 ? { background: `${GOLD}20`, color: GOLD } : { background: BLACK, color: GOLD }}>
+              style={post.applicationCount > 0 ? { background: `color-mix(in srgb, ${GOLD} 13%, transparent)`, color: GOLD } : { background: BLACK, color: GOLD }}>
               {post.applicationCount > 0 ? `${post.applicationCount} Applied` : "Apply Now"}
             </button>
           </Link>
@@ -196,7 +196,7 @@ function ForumPostCard({ post, onReact }: { post: ForumPost; onReact: (id: numbe
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {post.profile?.trade && (
-                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `${GOLD}18`, color: GOLD }}>
+                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${GOLD} 9%, transparent)`, color: GOLD }}>
                       {post.profile.trade}
                     </span>
                   )}
@@ -217,7 +217,7 @@ function ForumPostCard({ post, onReact }: { post: ForumPost; onReact: (id: numbe
           <div className="flex items-center bg-muted rounded-lg overflow-hidden">
             <button onClick={() => onReact(post.id)}
               className={`flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors ${post.hasReacted ? "font-semibold" : "text-muted-foreground hover:text-foreground"}`}
-              style={post.hasReacted ? { color: "#ea580c", background: "#ea580c15" } : undefined}>
+              style={post.hasReacted ? { color: "var(--severity-high)", background: "color-mix(in srgb, var(--severity-high) 8%, transparent)" } : undefined}>
               <ArrowUp className="h-3.5 w-3.5" />
               {post.reactionCount > 0 ? post.reactionCount : "Upvote"}
             </button>
@@ -405,7 +405,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
               return (
                 <button key={t} onClick={() => setType(t)}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all"
-                  style={isActive ? { borderColor: cfg.accent, background: `${cfg.accent}12`, color: cfg.accent } : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                  style={isActive ? { borderColor: cfg.accent, background: `color-mix(in srgb, ${cfg.accent} 7%, transparent)`, color: cfg.accent } : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
                   <Ic className="h-4 w-4" />{cfg.label}
                 </button>
               );
@@ -724,7 +724,7 @@ export default function TradehubPage() {
             ) : (
               <div>
                 <p className="text-sm font-semibold mb-1 text-white">Complete your profile</p>
-                <p className="text-xs mb-3 leading-relaxed" style={{ color: "#a1a1aa" }}>Set up your TradeHub profile to connect with Canadian contractors.</p>
+                <p className="text-xs mb-3 leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>Set up your TradeHub profile to connect with Canadian contractors.</p>
                 <Link href="/tradehub/profile/me">
                   <Button size="sm" className="w-full font-semibold" style={{ background: GOLD, color: BLACK }}>Set Up Profile</Button>
                 </Link>
@@ -741,9 +741,9 @@ export default function TradehubPage() {
             ].map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}>
                 <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors rounded-lg mx-auto"
-                  style={{ color: "#a1a1aa", width: "calc(100% - 8px)", marginLeft: 4 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                  style={{ color: "hsl(var(--muted-foreground))", width: "calc(100% - 8px)", marginLeft: 4 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, hsl(var(--primary)) 8%, transparent)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "hsl(var(--muted-foreground))"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
                   <Icon className="h-4 w-4 flex-shrink-0" style={{ color: GOLD }} />{label}
                 </button>
               </Link>
@@ -758,9 +758,9 @@ export default function TradehubPage() {
             ].map(({ label, icon: Icon }) => (
               <button key={label}
                 className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium transition-colors rounded-lg mx-auto"
-                style={{ color: "#a1a1aa", width: "calc(100% - 8px)", marginLeft: 4 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                style={{ color: "hsl(var(--muted-foreground))", width: "calc(100% - 8px)", marginLeft: 4 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, hsl(var(--primary)) 8%, transparent)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "hsl(var(--muted-foreground))"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                 onClick={() => toast({ title: label, description: "Coming soon to TradeHub." })}>
                 <span className="flex items-center gap-3"><Icon className="h-4 w-4 flex-shrink-0" style={{ color: GOLD }} />{label}</span>
               </button>
@@ -772,15 +772,15 @@ export default function TradehubPage() {
             <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Refine Feed</p>
               <Select value={feedTrade} onValueChange={setFeedTrade}>
-                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}><SelectValue placeholder="All trades" /></SelectTrigger>
+                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "hsl(var(--sidebar-accent))", color: "white" }}><SelectValue placeholder="All trades" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All Trades</SelectItem>{TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={feedProvince} onValueChange={setFeedProvince}>
-                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}><SelectValue placeholder="All provinces" /></SelectTrigger>
+                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "hsl(var(--sidebar-accent))", color: "white" }}><SelectValue placeholder="All provinces" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All Provinces</SelectItem>{PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
               </Select>
               {hasFeedFilters && (
-                <button className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors" style={{ color: GOLD, background: "#1f1f1f" }}
+                <button className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors" style={{ color: GOLD, background: "hsl(var(--sidebar-accent))" }}
                   onClick={() => { setFeedTrade("all"); setFeedProvince("all"); }}><X className="h-3 w-3" />Clear Filters</button>
               )}
             </div>
@@ -789,7 +789,7 @@ export default function TradehubPage() {
           {activeTab === "forums" && (
             <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Sort Discussions</p>
-              <div className="flex rounded-lg overflow-hidden" style={{ background: "#1f1f1f" }}>
+              <div className="flex rounded-lg overflow-hidden" style={{ background: "hsl(var(--sidebar-accent))" }}>
                 <button onClick={() => setForumSort("new")} className={`flex-1 py-1.5 text-xs font-medium transition-colors ${forumSort === "new" ? "" : "text-zinc-500"}`}
                   style={forumSort === "new" ? { background: GOLD, color: BLACK } : undefined}><Clock className="h-3 w-3 inline mr-1" />New</button>
                 <button onClick={() => setForumSort("top")} className={`flex-1 py-1.5 text-xs font-medium transition-colors ${forumSort === "top" ? "" : "text-zinc-500"}`}
@@ -802,15 +802,15 @@ export default function TradehubPage() {
             <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Refine Tenders</p>
               <Select value={tenderTrade} onValueChange={setTenderTrade}>
-                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}><SelectValue placeholder="All trades" /></SelectTrigger>
+                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "hsl(var(--sidebar-accent))", color: "white" }}><SelectValue placeholder="All trades" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All Trades</SelectItem>{TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={tenderProvince} onValueChange={setTenderProvince}>
-                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}><SelectValue placeholder="All provinces" /></SelectTrigger>
+                <SelectTrigger className="text-sm border-0 h-9" style={{ background: "hsl(var(--sidebar-accent))", color: "white" }}><SelectValue placeholder="All provinces" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All Provinces</SelectItem>{PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
               </Select>
               {hasTenderFilters && (
-                <button className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors" style={{ color: GOLD, background: "#1f1f1f" }}
+                <button className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors" style={{ color: GOLD, background: "hsl(var(--sidebar-accent))" }}
                   onClick={() => { setTenderTrade("all"); setTenderProvince("all"); }}><X className="h-3 w-3" />Clear Filters</button>
               )}
             </div>
@@ -940,17 +940,17 @@ export default function TradehubPage() {
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Trending Job Openings</p>
             </div>
             {trendingJobs.length === 0 ? (
-              <p className="text-xs" style={{ color: "#71717a" }}>No open tenders yet.</p>
+              <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>No open tenders yet.</p>
             ) : (
               <div className="space-y-1">
                 {trendingJobs.map((job) => (
                   <button key={job.id} onClick={() => setActiveTab("tenders")}
                     className="w-full text-left rounded-lg p-2.5 transition-colors"
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, hsl(var(--primary)) 8%, transparent)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
                     <p className="text-sm font-semibold text-white truncate leading-snug">{job.projectTitle}</p>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="text-xs" style={{ color: "#a1a1aa" }}>{job.companyName}</span>
+                      <span className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>{job.companyName}</span>
                       {job.applicationCount > 0 && (
                         <span className="text-xs font-semibold" style={{ color: GOLD }}>· {job.applicationCount} applied</span>
                       )}
@@ -961,7 +961,7 @@ export default function TradehubPage() {
             )}
             <button onClick={() => setActiveTab("tenders")}
               className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors font-medium"
-              style={{ color: GOLD, background: "#1f1f1f" }}>
+              style={{ color: GOLD, background: "hsl(var(--sidebar-accent))" }}>
               View All Tenders<ChevronRight className="h-3 w-3" />
             </button>
           </div>
@@ -972,19 +972,19 @@ export default function TradehubPage() {
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Hot Discussions</p>
             </div>
             {hotDiscussions.length === 0 ? (
-              <p className="text-xs" style={{ color: "#71717a" }}>No discussions yet.</p>
+              <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>No discussions yet.</p>
             ) : (
               <div className="space-y-1">
                 {hotDiscussions.map((post) => (
                   <Link key={post.id} href={`/tradehub/posts/${post.id}`}>
                     <div className="w-full text-left rounded-lg p-2.5 transition-colors cursor-pointer"
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(201,168,76,0.08)"; }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "color-mix(in srgb, hsl(var(--primary)) 8%, transparent)"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
                       <p className="text-sm font-semibold text-white truncate leading-snug">{post.title}</p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <ArrowUp className="h-3 w-3" style={{ color: ORANGE }} />
                         <span className="text-xs font-semibold" style={{ color: ORANGE }}>{post.reactionCount}</span>
-                        <span className="text-xs" style={{ color: "#71717a" }}>· {post.commentCount} comments</span>
+                        <span className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>· {post.commentCount} comments</span>
                       </div>
                     </div>
                   </Link>
@@ -993,7 +993,7 @@ export default function TradehubPage() {
             )}
             <button onClick={() => setActiveTab("forums")}
               className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors font-medium"
-              style={{ color: GOLD, background: "#1f1f1f" }}>
+              style={{ color: GOLD, background: "hsl(var(--sidebar-accent))" }}>
               View All Discussions<ChevronRight className="h-3 w-3" />
             </button>
           </div>

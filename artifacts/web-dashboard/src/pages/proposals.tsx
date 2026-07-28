@@ -506,7 +506,11 @@ export default function Proposals() {
                   <tr
                     key={row.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer group"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open ${row.type === "estimate" ? "estimate" : "proposal"}: ${row.title}`}
                     onClick={() => row.type === "estimate" ? openEstimate(row.raw as BuilderEstimate) : openProposal(row.raw as Proposal)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); row.type === "estimate" ? openEstimate(row.raw as BuilderEstimate) : openProposal(row.raw as Proposal); } }}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -837,7 +841,14 @@ function EstimateBuilder({
               <Button size="sm" variant="outline" onClick={() => setEditingTitle(false)}>✕</Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setTitleVal(estimate.title); setEditingTitle(true); }}>
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-label={`Edit title: ${estimate.title}`}
+              onClick={() => { setTitleVal(estimate.title); setEditingTitle(true); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTitleVal(estimate.title); setEditingTitle(true); } }}
+            >
               <h2 className="text-xl font-bold truncate">{estimate.title}</h2>
               <Pencil size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </div>
@@ -891,12 +902,33 @@ function EstimateBuilder({
                 ) : editRow?.id === item.id && editRow.field === "description" ? (
                   <Input className="h-7 text-sm" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "description", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "description", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
-                  <div className="cursor-pointer" onClick={() => { setEditRow({ id: item.id, field: "name" }); setEditVal(item.name); }}>
+                  <div
+                    className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit item name: ${item.name}`}
+                    onClick={() => { setEditRow({ id: item.id, field: "name" }); setEditVal(item.name); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditRow({ id: item.id, field: "name" }); setEditVal(item.name); } }}
+                  >
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     {item.description ? (
-                      <p className="text-xs text-muted-foreground truncate" onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(item.description || ""); }}>{item.description}</p>
+                      <p
+                        className="text-xs text-muted-foreground truncate"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Edit description: ${item.description}`}
+                        onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(item.description || ""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(item.description || ""); } }}
+                      >{item.description}</p>
                     ) : (
-                      <p className="text-xs text-muted-foreground/50 italic" onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(""); }}>Click to add description</p>
+                      <p
+                        className="text-xs text-muted-foreground/50 italic"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Add description"
+                        onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(""); } }}
+                      >Click to add description</p>
                     )}
                   </div>
                 )}
@@ -907,7 +939,14 @@ function EstimateBuilder({
                 {editRow?.id === item.id && editRow.field === "quantity" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "quantity", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "quantity", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
-                  <span className="text-sm cursor-pointer hover:text-blue-600" onClick={() => { setEditRow({ id: item.id, field: "quantity" }); setEditVal(String(n(item.quantity))); }}>{n(item.quantity)}</span>
+                  <span
+                    className="text-sm cursor-pointer hover:text-blue-600"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit quantity: ${n(item.quantity)}`}
+                    onClick={() => { setEditRow({ id: item.id, field: "quantity" }); setEditVal(String(n(item.quantity))); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditRow({ id: item.id, field: "quantity" }); setEditVal(String(n(item.quantity))); } }}
+                  >{n(item.quantity)}</span>
                 )}
               </div>
 
@@ -916,7 +955,14 @@ function EstimateBuilder({
                 {editRow?.id === item.id && editRow.field === "unitCost" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "unitCost", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "unitCost", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
-                  <span className="text-sm cursor-pointer hover:text-blue-600" onClick={() => { setEditRow({ id: item.id, field: "unitCost" }); setEditVal(String(n(item.unitCost))); }}>{cad(n(item.unitCost))}</span>
+                  <span
+                    className="text-sm cursor-pointer hover:text-blue-600"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit unit cost: ${cad(n(item.unitCost))}`}
+                    onClick={() => { setEditRow({ id: item.id, field: "unitCost" }); setEditVal(String(n(item.unitCost))); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditRow({ id: item.id, field: "unitCost" }); setEditVal(String(n(item.unitCost))); } }}
+                  >{cad(n(item.unitCost))}</span>
                 )}
               </div>
 
@@ -925,7 +971,15 @@ function EstimateBuilder({
                 {editRow?.id === item.id && editRow.field === "margin" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "margin", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "margin", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
-                  <span className="text-sm cursor-pointer hover:text-blue-600" style={{ color: "#6366F1" }} onClick={() => { setEditRow({ id: item.id, field: "margin" }); setEditVal(String(n(item.margin))); }}>{n(item.margin)}%</span>
+                  <span
+                    className="text-sm cursor-pointer hover:text-blue-600"
+                    style={{ color: "#6366F1" }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit margin: ${n(item.margin)} percent`}
+                    onClick={() => { setEditRow({ id: item.id, field: "margin" }); setEditVal(String(n(item.margin))); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditRow({ id: item.id, field: "margin" }); setEditVal(String(n(item.margin))); } }}
+                  >{n(item.margin)}%</span>
                 )}
               </div>
 

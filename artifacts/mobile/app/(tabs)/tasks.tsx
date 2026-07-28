@@ -11,6 +11,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -193,32 +194,7 @@ function TaskRow({ task, projectName, onToggle }: { task: Task; projectName?: st
   );
 }
 
-function TaskSection({
-  label,
-  tasks,
-  projectMap,
-  onToggle,
-  labelColor,
-}: {
-  label: string;
-  tasks: Task[];
-  projectMap: Record<number, string>;
-  onToggle: (t: Task) => void;
-  labelColor: string;
-}) {
-  if (tasks.length === 0) return null;
-  return (
-    <>
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionLabel, { color: labelColor }]}>{label}</Text>
-        <Text style={[styles.sectionCount, { color: labelColor }]}>{tasks.length}</Text>
-      </View>
-      {tasks.map((t) => (
-        <TaskRow key={t.id} task={t} projectName={projectMap[t.projectId]} onToggle={onToggle} />
-      ))}
-    </>
-  );
-}
+type TaskSectionData = { title: string; data: Task[]; labelColor: string };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -407,13 +383,14 @@ function WorkerTasksScreen() {
   const done = visible.filter((t) => t.status === "done");
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
-    >
+  const sections: TaskSectionData[] = [
+    { title: "In Progress", data: inProgress, labelColor: colors.primary },
+    { title: "To Do", data: todo, labelColor: colors.mutedForeground },
+    { title: "Done", data: done, labelColor: colors.mutedForeground },
+  ].filter((s) => s.data.length > 0);
+
+  const listHeader = (
+    <>
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
@@ -466,28 +443,44 @@ function WorkerTasksScreen() {
         </View>
       ) : null}
 
-      {isLoading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : visible.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Feather name="check-square" size={40} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {statusFilter !== "all" ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks` : "No tasks assigned to you"}
-          </Text>
-          <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-            {statusFilter !== "all"
-              ? "Try a different filter above."
-              : "When a foreman assigns a task to you, it will appear here."}
-          </Text>
-        </View>
-      ) : (
-        <>
-          <TaskSection label="In Progress" tasks={inProgress} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.primary} />
-          <TaskSection label="To Do" tasks={todo} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
-          <TaskSection label="Done" tasks={done} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
-        </>
+      {isLoading && <ActivityIndicator color={colors.primary} style={styles.loader} />}
+    </>
+  );
+
+  return (
+    <SectionList
+      style={[styles.container, { backgroundColor: colors.background }]}
+      sections={sections}
+      keyExtractor={(item) => String(item.id)}
+      renderItem={({ item }) => (
+        <TaskRow key={item.id} task={item} projectName={projectMap[item.projectId]} onToggle={handleToggle} />
       )}
-    </ScrollView>
+      renderSectionHeader={({ section }) => (
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionLabel, { color: section.labelColor }]}>{section.title}</Text>
+          <Text style={[styles.sectionCount, { color: section.labelColor }]}>{section.data.length}</Text>
+        </View>
+      )}
+      ListHeaderComponent={listHeader}
+      ListEmptyComponent={
+        !isLoading ? (
+          <View style={styles.emptyContainer}>
+            <Feather name="check-square" size={40} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.foreground }]}>
+              {statusFilter !== "all" ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks` : "No tasks assigned to you"}
+            </Text>
+            <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
+              {statusFilter !== "all"
+                ? "Try a different filter above."
+                : "When a foreman assigns a task to you, it will appear here."}
+            </Text>
+          </View>
+        ) : null
+      }
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+    />
   );
 }
 
@@ -597,6 +590,13 @@ function OwnerTasksScreen() {
   const todo = visibleTasks.filter((t) => t.status === "todo");
   const done = visibleTasks.filter((t) => t.status === "done");
 
+  const sections: TaskSectionData[] = [
+    { title: "In Progress", data: inProgress, labelColor: colors.primary },
+    { title: "To Do", data: todo, labelColor: colors.mutedForeground },
+    { title: "Done", data: done, labelColor: colors.mutedForeground },
+  ].filter((s) => s.data.length > 0);
+  const showTasksSpinner = allProjects.length > 0 && tasksLoading;
+
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   // Build project name lookup for TaskRow labels (was empty before — bug fix)
   const projectMap: Record<number, string> = {};
@@ -628,14 +628,8 @@ function OwnerTasksScreen() {
     );
   });
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={taskRefreshing} onRefresh={handleTaskRefresh} tintColor={colors.primary} />}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
-    >
+  const ownerListHeader = (
+    <>
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
@@ -697,37 +691,54 @@ function OwnerTasksScreen() {
         </View>
       ) : null}
 
-      {!allProjects.length ? (
-        <View style={styles.noProjectBanner}>
-          <Feather name="layers" size={44} color={colors.border} />
-          <Text style={[styles.noProjectText, { color: colors.foreground }]}>No projects yet</Text>
-          <Text style={[styles.noProjectSub, { color: colors.mutedForeground }]}>
-            {isOwnerOrForeman ? "Create a project from the Projects tab to start adding tasks." : "Create a project on the web dashboard to manage tasks."}
-          </Text>
-        </View>
-      ) : tasksLoading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : visibleTasks.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Feather name={filterMode === "mine" ? "user-check" : "check-square"} size={40} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {filterMode === "mine" && statusFilter !== "all"
-              ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks assigned to you`
-              : filterMode === "mine"
-              ? "Nothing assigned to you"
-              : statusFilter !== "all"
-              ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks`
-              : "No tasks for this project"}
-          </Text>
-        </View>
-      ) : (
-        <>
-          <TaskSection label="In Progress" tasks={inProgress} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.primary} />
-          <TaskSection label="To Do" tasks={todo} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
-          <TaskSection label="Done" tasks={done} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
-        </>
-      )}
-    </ScrollView>
+      {showTasksSpinner && <ActivityIndicator color={colors.primary} style={styles.loader} />}
+    </>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SectionList
+        style={[styles.container, { backgroundColor: colors.background }]}
+        sections={sections}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => (
+          <TaskRow key={item.id} task={item} projectName={projectMap[item.projectId]} onToggle={handleToggle} />
+        )}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: section.labelColor }]}>{section.title}</Text>
+            <Text style={[styles.sectionCount, { color: section.labelColor }]}>{section.data.length}</Text>
+          </View>
+        )}
+        ListHeaderComponent={ownerListHeader}
+        ListEmptyComponent={
+          showTasksSpinner ? null : !allProjects.length ? (
+            <View style={styles.noProjectBanner}>
+              <Feather name="layers" size={44} color={colors.border} />
+              <Text style={[styles.noProjectText, { color: colors.foreground }]}>No projects yet</Text>
+              <Text style={[styles.noProjectSub, { color: colors.mutedForeground }]}>
+                {isOwnerOrForeman ? "Create a project from the Projects tab to start adding tasks." : "Create a project on the web dashboard to manage tasks."}
+              </Text>
+            </View>
+          ) : visibleTasks.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Feather name={filterMode === "mine" ? "user-check" : "check-square"} size={40} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.foreground }]}>
+                {filterMode === "mine" && statusFilter !== "all"
+                  ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks assigned to you`
+                  : filterMode === "mine"
+                  ? "Nothing assigned to you"
+                  : statusFilter !== "all"
+                  ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks`
+                  : "No tasks for this project"}
+              </Text>
+            </View>
+          ) : null
+        }
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={taskRefreshing} onRefresh={handleTaskRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+      />
 
       {isOwnerOrForeman && allProjects.length > 0 && (
         <Pressable

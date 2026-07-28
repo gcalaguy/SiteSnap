@@ -3,7 +3,7 @@ import {
   Alert,
   Platform,
   Pressable,
-  ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -258,6 +258,20 @@ function NoteCard({
   );
 }
 
+type QueueRow =
+  | { kind: "report"; key: string; item: QueuedReport; projectName: string; onRetry?: () => void; onDiscard?: () => void }
+  | { kind: "media"; key: string; item: QueuedMedia; onRetry?: () => void; onDiscard?: () => void }
+  | { kind: "note"; key: string; item: QueuedNote; onRetry?: () => void; onDiscard?: () => void }
+  | { kind: "synced"; key: string; item: SyncedReport; projectName: string };
+
+type QueueSection = {
+  key: string;
+  title: string;
+  data: QueueRow[];
+  action?: React.ReactNode;
+  emptyMessage?: { icon: string; message: string };
+};
+
 export default function SyncQueueScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -329,12 +343,108 @@ export default function SyncQueueScreen() {
   const pendingNotes = noteQueue.filter((n) => n.status === "pending");
   const failedNotes = noteQueue.filter((n) => n.status === "failed");
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 40 }}
-      showsVerticalScrollIndicator={false}
-    >
+  const pendingRows: QueueRow[] = [
+    ...pendingReports.map((item): QueueRow => ({
+      kind: "report", key: `report-${item.id}`, item, projectName: getProjectName(item.op.projectId),
+    })),
+    ...pendingMedia.map((item): QueueRow => ({ kind: "media", key: `media-${item.id}`, item })),
+    ...pendingNotes.map((item): QueueRow => ({ kind: "note", key: `note-${item.id}`, item })),
+  ];
+
+  const failedRows: QueueRow[] = [
+    ...failedReports.map((item): QueueRow => ({
+      kind: "report",
+      key: `report-${item.id}`,
+      item,
+      projectName: getProjectName(item.op.projectId),
+      onRetry: () => retryReports(),
+      onDiscard: () =>
+        Alert.alert("Discard Report", "This report will be permanently deleted.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: clearReportsFailed },
+        ]),
+    })),
+    ...failedMedia.map((item): QueueRow => ({
+      kind: "media",
+      key: `media-${item.id}`,
+      item,
+      onRetry: () => retryMedia(),
+      onDiscard: () =>
+        Alert.alert("Discard File", "The locally saved file will be permanently deleted.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: clearMediaFailed },
+        ]),
+    })),
+    ...failedNotes.map((item): QueueRow => ({
+      kind: "note",
+      key: `note-${item.id}`,
+      item,
+      onRetry: () => retryNotes(),
+      onDiscard: () =>
+        Alert.alert("Discard Note", "This note will be permanently deleted.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: clearNotesFailed },
+        ]),
+    })),
+  ];
+
+  const syncedRows: QueueRow[] = syncedHistory.map((item): QueueRow => ({
+    kind: "synced", key: `synced-${item.id}`, item, projectName: getProjectName(opProjectId(item.op)),
+  }));
+
+  const sections: QueueSection[] = [
+    ...(pendingRows.length > 0
+      ? [{ key: "pending", title: `Pending · ${totalPending}`, data: pendingRows }]
+      : []),
+    ...(failedRows.length > 0
+      ? [{
+          key: "failed",
+          title: `Failed · ${totalFailed}`,
+          data: failedRows,
+          action: (
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert("Clear All Failed", "Permanently discard all failed items?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Discard All",
+                    style: "destructive",
+                    onPress: () => {
+                      clearReportsFailed();
+                      clearMediaFailed();
+                      clearNotesFailed();
+                    },
+                  },
+                ])
+              }
+            >
+              <Text style={[styles.sectionAction, { color: "#DC2626" }]}>Clear all</Text>
+            </TouchableOpacity>
+          ),
+        }]
+      : []),
+    {
+      key: "synced",
+      title: `Synced Reports · ${syncedHistory.length}`,
+      data: syncedRows,
+      action: syncedHistory.length > 0 ? (
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert("Clear History", "Remove all synced records from this list?", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Clear", onPress: clearHistory },
+            ])
+          }
+        >
+          <Text style={[styles.sectionAction, { color: colors.mutedForeground }]}>Clear</Text>
+        </TouchableOpacity>
+      ) : undefined,
+      emptyMessage: { icon: "clock", message: "Reports synced from offline mode will appear here." },
+    },
+  ];
+
+  const listHeader = (
+    <>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
         <Pressable style={[styles.backBtn, { backgroundColor: colors.muted }]} onPress={() => router.back()}>
@@ -391,130 +501,58 @@ export default function SyncQueueScreen() {
         ))}
       </View>
 
-      {/* ── Pending ── */}
-      {(pendingReports.length > 0 || pendingMedia.length > 0 || pendingNotes.length > 0) && (
-        <View style={styles.section}>
-          <SectionHeader title={`Pending · ${totalPending}`} />
-          <View style={styles.cardList}>
-            {pendingReports.map((item) => (
-              <ReportCard key={item.id} item={item} projectName={getProjectName(item.op.projectId)} />
-            ))}
-            {pendingMedia.map((item) => (
-              <MediaCard key={item.id} item={item} />
-            ))}
-            {pendingNotes.map((item) => (
-              <NoteCard key={item.id} item={item} />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* ── Failed ── */}
-      {totalFailed > 0 && (
-        <View style={styles.section}>
-          <SectionHeader
-            title={`Failed · ${totalFailed}`}
-            action={
-              <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Clear All Failed", "Permanently discard all failed items?", [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Discard All",
-                      style: "destructive",
-                      onPress: () => {
-                        clearReportsFailed();
-                        clearMediaFailed();
-                        clearNotesFailed();
-                      },
-                    },
-                  ])
-                }
-              >
-                <Text style={[styles.sectionAction, { color: "#DC2626" }]}>Clear all</Text>
-              </TouchableOpacity>
-            }
-          />
-          <View style={styles.cardList}>
-            {failedReports.map((item) => (
-              <ReportCard
-                key={item.id}
-                item={item}
-                projectName={getProjectName(item.op.projectId)}
-                onRetry={() => retryReports()}
-                onDiscard={() =>
-                  Alert.alert("Discard Report", "This report will be permanently deleted.", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Discard", style: "destructive", onPress: clearReportsFailed },
-                  ])
-                }
-              />
-            ))}
-            {failedMedia.map((item) => (
-              <MediaCard
-                key={item.id}
-                item={item}
-                onRetry={() => retryMedia()}
-                onDiscard={() =>
-                  Alert.alert("Discard File", "The locally saved file will be permanently deleted.", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Discard", style: "destructive", onPress: clearMediaFailed },
-                  ])
-                }
-              />
-            ))}
-            {failedNotes.map((item) => (
-              <NoteCard
-                key={item.id}
-                item={item}
-                onRetry={() => retryNotes()}
-                onDiscard={() =>
-                  Alert.alert("Discard Note", "This note will be permanently deleted.", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Discard", style: "destructive", onPress: clearNotesFailed },
-                  ])
-                }
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* ── All clear ── */}
       {totalPending === 0 && totalFailed === 0 && (
         <EmptyState icon="check-circle" message="Everything is synced — nothing waiting." />
       )}
+    </>
+  );
 
-      {/* ── Synced history (reports only) ── */}
-      <View style={styles.section}>
-        <SectionHeader
-          title={`Synced Reports · ${syncedHistory.length}`}
-          action={
-            syncedHistory.length > 0 ? (
-              <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Clear History", "Remove all synced records from this list?", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Clear", onPress: clearHistory },
-                  ])
-                }
-              >
-                <Text style={[styles.sectionAction, { color: colors.mutedForeground }]}>Clear</Text>
-              </TouchableOpacity>
-            ) : undefined
-          }
-        />
-        {syncedHistory.length === 0 ? (
-          <EmptyState icon="clock" message="Reports synced from offline mode will appear here." />
-        ) : (
-          <View style={styles.cardList}>
-            {syncedHistory.map((item) => (
-              <SyncedCard key={item.id} item={item} projectName={getProjectName(opProjectId(item.op))} />
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
+  return (
+    <SectionList
+      style={[styles.container, { backgroundColor: colors.background }]}
+      sections={sections}
+      keyExtractor={(item) => item.key}
+      renderItem={({ item }) => {
+        switch (item.kind) {
+          case "report":
+            return (
+              <View style={styles.rowWrap}>
+                <ReportCard item={item.item} projectName={item.projectName} onRetry={item.onRetry} onDiscard={item.onDiscard} />
+              </View>
+            );
+          case "media":
+            return (
+              <View style={styles.rowWrap}>
+                <MediaCard item={item.item} onRetry={item.onRetry} onDiscard={item.onDiscard} />
+              </View>
+            );
+          case "note":
+            return (
+              <View style={styles.rowWrap}>
+                <NoteCard item={item.item} onRetry={item.onRetry} onDiscard={item.onDiscard} />
+              </View>
+            );
+          case "synced":
+            return (
+              <View style={styles.rowWrap}>
+                <SyncedCard item={item.item} projectName={item.projectName} />
+              </View>
+            );
+        }
+      }}
+      renderSectionHeader={({ section }) => (
+        <SectionHeader title={section.title} action={section.action} />
+      )}
+      renderSectionFooter={({ section }) => {
+        if (section.data.length > 0 || !section.emptyMessage) return null;
+        return <EmptyState icon={section.emptyMessage.icon} message={section.emptyMessage.message} />;
+      }}
+      SectionSeparatorComponent={() => <View style={{ height: 28 }} />}
+      ListHeaderComponent={listHeader}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 40 }}
+      showsVerticalScrollIndicator={false}
+    />
   );
 }
 
@@ -584,8 +622,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   sectionAction: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  section: { marginBottom: 28 },
-  cardList: { paddingHorizontal: 20, gap: 10 },
+  rowWrap: { paddingHorizontal: 20, marginBottom: 10 },
   card: {
     borderRadius: 12,
     borderWidth: 1,

@@ -154,7 +154,11 @@
       "Bash(set -x)",
       "WebFetch(domain:sitesnapdemo.replit.app)",
       "Bash(awk -F'=' '{print length\\($2\\)\" chars, starts with: \"substr\\($2,1,12\\)}')",
-      "Bash(openssl rand *)"
+      "Bash(openssl rand *)",
+      "Bash(gh alias *)",
+      "Bash(gh extension *)",
+      "Bash(gh --version)",
+      "Bash(mkdir -p /tmp/claude-1000/-home-runner-workspace/2ae4c47d-07ae-4cf0-822d-6f9ff8726a96/scratchpad1)"
     ]
   }
 }

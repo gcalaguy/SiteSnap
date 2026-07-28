@@ -17,14 +17,14 @@ export default function CrmPage() {
   const tabBtnClass = (active: boolean) =>
     `flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
       active
-        ? "border-[#D4AF37] text-[#D4AF37]"
-        : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+        ? "border-primary text-primary"
+        : "border-transparent text-foreground/60 hover:text-foreground hover:border-primary/30"
     }`;
 
   return (
     <div className="flex flex-col min-h-full">
       {/* Underline tab bar */}
-      <div className="border-b border-[#D4AF37]/20 bg-white shrink-0 px-6">
+      <div className="border-b border-primary/20 bg-card shrink-0 px-6">
         <div className="flex gap-0 -mb-px">
           <button className={tabBtnClass(tab === "leads")} onClick={() => setTab("leads")}>
             <TrendingUp className="h-4 w-4" />

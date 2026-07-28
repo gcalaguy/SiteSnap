@@ -69,9 +69,9 @@ export default function InventoryPage() {
             label="Material Alerts"
             value={summary?.materialAlerts ?? "—"}
             icon={AlertTriangle}
-            color={(summary?.materialAlerts ?? 0) > 0 ? "#dc2626" : "#16a34a"}
+            color={(summary?.materialAlerts ?? 0) > 0 ? "var(--severity-critical)" : "var(--severity-low)"}
           />
-          <StatTile label="Checked Out" value={summary?.activeCheckouts ?? "—"} icon={ArrowRightLeft} color="#d97706" />
+          <StatTile label="Checked Out" value={summary?.activeCheckouts ?? "—"} icon={ArrowRightLeft} color="var(--severity-high)" />
         </div>
 
         {/* Tabs */}
@@ -84,7 +84,7 @@ export default function InventoryPage() {
               <TabsTrigger
                 key={key}
                 value={key}
-                className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold text-[#888888] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 <Icon size={14} />
                 {label}

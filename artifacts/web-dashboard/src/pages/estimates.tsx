@@ -104,52 +104,52 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
     <div className="space-y-5">
       {/* Summary banner — only for AI estimator text summaries */}
       {summaryText && (
-        <div className="rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/20 p-4">
-          <p className="text-sm text-[#121212]/70 leading-relaxed font-medium">{summaryText}</p>
+        <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+          <p className="text-sm text-foreground/70 leading-relaxed font-medium">{summaryText}</p>
         </div>
       )}
 
       {/* Cost summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg bg-white border border-[#D4AF37]/20 p-3 text-center">
-          <p className="text-xs text-[#121212]/60 mb-1 font-semibold">Materials</p>
-          <p className="text-lg font-extrabold text-[#121212]">{fmt(materialsTotal)}</p>
+        <div className="rounded-lg bg-white border border-primary/20 p-3 text-center">
+          <p className="text-xs text-foreground/60 mb-1 font-semibold">Materials</p>
+          <p className="text-lg font-extrabold text-foreground">{fmt(materialsTotal)}</p>
         </div>
-        <div className="rounded-lg bg-white border border-[#D4AF37]/20 p-3 text-center">
-          <p className="text-xs text-[#121212]/60 mb-1 font-semibold">Labour</p>
-          <p className="text-lg font-extrabold text-[#121212]">{fmt(laborTotal)}</p>
+        <div className="rounded-lg bg-white border border-primary/20 p-3 text-center">
+          <p className="text-xs text-foreground/60 mb-1 font-semibold">Labour</p>
+          <p className="text-lg font-extrabold text-foreground">{fmt(laborTotal)}</p>
         </div>
         {equipmentTotal > 0 && (
-          <div className="rounded-lg bg-white border border-[#D4AF37]/20 p-3 text-center">
-            <p className="text-xs text-[#121212]/60 mb-1 font-semibold">Equipment</p>
-            <p className="text-lg font-extrabold text-[#121212]">{fmt(equipmentTotal)}</p>
+          <div className="rounded-lg bg-white border border-primary/20 p-3 text-center">
+            <p className="text-xs text-foreground/60 mb-1 font-semibold">Equipment</p>
+            <p className="text-lg font-extrabold text-foreground">{fmt(equipmentTotal)}</p>
           </div>
         )}
         {addonsTotal > 0 && (
-          <div className="rounded-lg bg-white border border-[#D4AF37]/20 p-3 text-center">
-            <p className="text-xs text-[#121212]/60 mb-1 font-semibold">Add-ons</p>
-            <p className="text-lg font-extrabold text-[#121212]">{fmt(addonsTotal)}</p>
+          <div className="rounded-lg bg-white border border-primary/20 p-3 text-center">
+            <p className="text-xs text-foreground/60 mb-1 font-semibold">Add-ons</p>
+            <p className="text-lg font-extrabold text-foreground">{fmt(addonsTotal)}</p>
           </div>
         )}
         {overhead > 0 && (
-          <div className="rounded-lg bg-white border border-[#D4AF37]/20 p-3 text-center">
-            <p className="text-xs text-[#121212]/60 mb-1 font-semibold">Overhead ({smart?.overheadPct ?? 0}%)</p>
-            <p className="text-lg font-extrabold text-[#121212]">{fmt(overhead)}</p>
+          <div className="rounded-lg bg-white border border-primary/20 p-3 text-center">
+            <p className="text-xs text-foreground/60 mb-1 font-semibold">Overhead ({smart?.overheadPct ?? 0}%)</p>
+            <p className="text-lg font-extrabold text-foreground">{fmt(overhead)}</p>
           </div>
         )}
-        <div className="rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 p-3 text-center col-span-2 sm:col-span-1">
-          <p className="text-xs font-semibold mb-1" style={{ color: "#D4AF37" }}>Contingency ({smart?.contingencyPct ?? r.contingencyPct ?? 10}%)</p>
-          <p className="text-lg font-extrabold" style={{ color: "#D4AF37" }}>{fmt(contingency)}</p>
+        <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-center col-span-2 sm:col-span-1">
+          <p className="text-xs font-semibold mb-1 text-primary">Contingency ({smart?.contingencyPct ?? r.contingencyPct ?? 10}%)</p>
+          <p className="text-lg font-extrabold text-primary">{fmt(contingency)}</p>
         </div>
       </div>
 
       {/* Total range */}
-      <div className="rounded-xl bg-[#121212] text-white p-5 flex items-center justify-between gap-4 flex-wrap border-t-[3px] border-[#D4AF37]">
+      <div className="rounded-xl bg-surface-inverted text-white p-5 flex items-center justify-between gap-4 flex-wrap border-t-[3px] border-primary">
         <div>
           <p className="text-xs text-white/60 uppercase tracking-wider mb-1 font-semibold">
             {smart ? "Price to Client (CAD)" : "Estimated Total Range (CAD)"}
           </p>
-          <p className="text-3xl font-black" style={{ color: "#D4AF37" }}>{fmt(totalLow)}</p>
+          <p className="text-3xl font-black text-primary">{fmt(totalLow)}</p>
           {!smart && <p className="text-sm text-white/60 mt-0.5 font-medium">to {fmt(totalHigh)}</p>}
           {smart && smart.suggestedMarginPct > 0 && (
             <p className="text-xs text-white/60 mt-0.5">incl. {smart.suggestedMarginPct}% margin</p>
@@ -779,15 +779,15 @@ function HistoryCard({ estimate, onDelete, onView }: {
   const totalHigh = r.totalHigh;
 
   return (
-    <div className="flex items-start gap-4 p-4 hover:bg-[#D4AF37]/5 transition-colors rounded-lg border border-[#D4AF37]/15 hover:border-[#D4AF37]/40 bg-white">
-      <div className="rounded-full p-2 shrink-0 mt-0.5" style={{ background: "rgba(201,168,76,0.12)" }}>
-        <Sparkles className="h-4 w-4" style={{ color: "#D4AF37" }} />
+    <div className="flex items-start gap-4 p-4 hover:bg-primary/5 transition-colors rounded-lg border border-primary/15 hover:border-primary/40 bg-white">
+      <div className="rounded-full p-2 shrink-0 mt-0.5 bg-primary/10">
+        <Sparkles className="h-4 w-4 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <p className="font-extrabold text-sm truncate text-[#121212]">{estimate.title}</p>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-[#121212]/60 flex-wrap font-medium">
+            <p className="font-extrabold text-sm truncate text-foreground">{estimate.title}</p>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-foreground/60 flex-wrap font-medium">
               <span>{format(new Date(estimate.createdAt), "MMM d, yyyy")}</span>
               {estimate.sourceFilename && (
                 <>
@@ -800,7 +800,7 @@ function HistoryCard({ estimate, onDelete, onView }: {
               {estimate.status === "ready" && totalLow != null && (
                 <>
                   <span>·</span>
-                  <span className="font-extrabold" style={{ color: "#D4AF37" }}>
+                  <span className="font-extrabold text-primary">
                     {fmt(totalLow)} – {fmt(totalHigh)}
                   </span>
                 </>
@@ -809,7 +809,7 @@ function HistoryCard({ estimate, onDelete, onView }: {
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {estimate.status === "ready" && (
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 font-semibold border-[#D4AF37]/40 text-[#121212] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]" onClick={() => onView(estimate)}>
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 font-semibold border-primary/40 text-foreground hover:bg-primary/10 hover:border-primary" onClick={() => onView(estimate)}>
                 View <ArrowRight className="h-3 w-3" />
               </Button>
             )}
@@ -817,12 +817,12 @@ function HistoryCard({ estimate, onDelete, onView }: {
               <Badge variant="destructive" className="text-xs font-extrabold">Failed</Badge>
             )}
             {estimate.status === "generating" && (
-              <Badge variant="secondary" className="text-xs gap-1 font-extrabold border-0" style={{ background: "rgba(201,168,76,0.12)", color: "#D4AF37" }}>
+              <Badge variant="secondary" className="text-xs gap-1 font-extrabold border-0 bg-primary/10 text-primary">
                 <Loader2 className="h-3 w-3 animate-spin" /> Generating
               </Badge>
             )}
             <button
-              className="p-1.5 rounded hover:bg-destructive/10 text-[#121212]/40 hover:text-destructive transition-colors"
+              className="p-1.5 rounded hover:bg-destructive/10 text-foreground/40 hover:text-destructive transition-colors"
               onClick={() => onDelete(estimate.id)}
               title="Delete"
             >
@@ -932,11 +932,11 @@ export default function EstimatesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2 text-[#121212]">
-            <Calculator className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2 text-foreground">
+            <Calculator className="h-6 w-6 text-primary" />
             Estimating
           </h1>
-          <p className="text-[#121212]/60 text-sm mt-1 font-medium">
+          <p className="text-foreground/60 text-sm mt-1 font-medium">
             DB-driven pricing · AI-powered parsing · type scope or upload plans
           </p>
         </div>
@@ -948,24 +948,24 @@ export default function EstimatesPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex rounded-lg border border-[#D4AF37]/30 overflow-hidden bg-white">
+      <div className="flex rounded-lg border border-primary/30 overflow-hidden bg-white">
         {([
           { key: "estimator" as const, label: "Estimator", icon: Calculator },
           { key: "history" as const, label: "Past Estimates", icon: Clock },
         ]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors border-r last:border-r-0 border-[#D4AF37]/20 ${
+            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors border-r last:border-r-0 border-primary/20 ${
               tab === key
-                ? "bg-[#D4AF37] text-white"
-                : "bg-transparent text-[#121212]/70 hover:bg-[#D4AF37]/10"
+                ? "bg-primary text-white"
+                : "bg-transparent text-foreground/70 hover:bg-primary/10"
             }`}
             onClick={() => { setTab(key); setActiveEstimate(null); setIsEditing(false); }}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
             {key === "history" && estimates.length > 0 && (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 leading-none font-bold ${tab === "history" ? "bg-white/20 text-white" : "bg-[#D4AF37]/15 text-[#D4AF37]"}`}>
+              <span className={`text-xs rounded-full px-1.5 py-0.5 leading-none font-bold ${tab === "history" ? "bg-white/20 text-white" : "bg-primary/15 text-primary"}`}>
                 {estimates.length}
               </span>
             )}
@@ -1117,25 +1117,25 @@ export default function EstimatesPage() {
         </div>
       ) : (
         /* ── Estimate list ── */
-        <Card className="shadow-sm border-[#D4AF37]/20 bg-white">
-          <CardHeader className="pb-3 border-b border-[#D4AF37]/15">
-            <CardTitle className="text-base flex items-center gap-2 font-extrabold text-[#121212]">
-              <Clock className="h-4 w-4" style={{ color: "#D4AF37" }} />
+        <Card className="shadow-sm border-primary/20 bg-white">
+          <CardHeader className="pb-3 border-b border-primary/15">
+            <CardTitle className="text-base flex items-center gap-2 font-extrabold text-foreground">
+              <Clock className="h-4 w-4 text-primary" />
               Past Estimates
-              <Badge variant="secondary" className="ml-auto font-extrabold border-0" style={{ background: "rgba(201,168,76,0.12)", color: "#D4AF37" }}>{estimates.length}</Badge>
+              <Badge variant="secondary" className="ml-auto font-extrabold border-0 bg-primary/10 text-primary">{estimates.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="p-8 text-center text-sm text-[#121212]/60">
-                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" style={{ color: "#D4AF37" }} />Loading…
+              <div className="p-8 text-center text-sm text-foreground/60">
+                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />Loading…
               </div>
             ) : estimatesError ? (
               <div className="p-8 text-center text-sm text-red-500 font-medium">Failed to load estimates. Please refresh and try again.</div>
             ) : estimates.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[#121212]/60 font-medium">No saved estimates yet.</div>
+              <div className="p-8 text-center text-sm text-foreground/60 font-medium">No saved estimates yet.</div>
             ) : (
-              <div className="divide-y divide-[#D4AF37]/10">
+              <div className="divide-y divide-primary/10">
                 {estimates.map((e) => (
                   <HistoryCard
                     key={e.id}

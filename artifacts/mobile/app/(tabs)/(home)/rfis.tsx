@@ -12,6 +12,7 @@ import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -475,17 +476,10 @@ export default function AllRFIsScreen() {
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
-  return (
+  const listHeader = (
     <>
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-        contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
-      >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Feather name="arrow-left" size={22} color={colors.foreground} />
           </Pressable>
@@ -687,49 +681,66 @@ export default function AllRFIsScreen() {
           )}
         </View>
 
-        {updatedLabel ? (
-          <View style={styles.updatedRow}>
-            <Feather name="clock" size={11} color="#9CA3AF" />
-            <Text style={styles.updatedText}>{updatedLabel}</Text>
-          </View>
-        ) : null}
-
-        {/* List */}
-        <View style={styles.listContainer}>
-          {isLoading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
-          ) : filtered.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Feather name="alert-circle" size={40} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.foreground }]}>
-                {hasActiveFilter ? "No RFIs match your filters" : "No RFIs yet"}
-              </Text>
-              <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-                {hasActiveFilter
-                  ? "Try adjusting your project, status, or search filter"
-                  : "RFIs submitted across all projects will appear here"}
-              </Text>
-              {!hasActiveFilter && (
-                <TouchableOpacity
-                  style={[styles.emptyNewBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => setShowNewRFI(true)}
-                >
-                  <Feather name="plus" size={15} color="#fff" />
-                  <Text style={styles.newBtnText}>New RFI</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            filtered.map((r) => (
-              <RFIRow
-                key={r.id}
-                rfi={r}
-                onPressProject={() => router.push(`/project/${r.projectId}` as any)}
-              />
-            ))
-          )}
+      {updatedLabel ? (
+        <View style={styles.updatedRow}>
+          <Feather name="clock" size={11} color="#9CA3AF" />
+          <Text style={styles.updatedText}>{updatedLabel}</Text>
         </View>
-      </ScrollView>
+      ) : null}
+
+      {isLoading && <ActivityIndicator color={colors.primary} style={styles.loader} />}
+
+      {/* Top gap before the list starts — matches the old listContainer's paddingTop. */}
+      {!isLoading && filtered.length > 0 && <View style={{ height: 8 }} />}
+    </>
+  );
+
+  return (
+    <>
+      <FlatList
+        style={[styles.container, { backgroundColor: colors.background }]}
+        data={isLoading ? [] : filtered}
+        keyExtractor={(r) => String(r.id)}
+        renderItem={({ item: r }) => (
+          <View style={styles.listItemWrap}>
+            <RFIRow
+              rfi={r}
+              onPressProject={() => router.push(`/project/${r.projectId}` as any)}
+            />
+          </View>
+        )}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.listContainer}>
+              <View style={styles.emptyContainer}>
+                <Feather name="alert-circle" size={40} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.foreground }]}>
+                  {hasActiveFilter ? "No RFIs match your filters" : "No RFIs yet"}
+                </Text>
+                <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
+                  {hasActiveFilter
+                    ? "Try adjusting your project, status, or search filter"
+                    : "RFIs submitted across all projects will appear here"}
+                </Text>
+                {!hasActiveFilter && (
+                  <TouchableOpacity
+                    style={[styles.emptyNewBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => setShowNewRFI(true)}
+                  >
+                    <Feather name="plus" size={15} color="#fff" />
+                    <Text style={styles.newBtnText}>New RFI</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : null
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+      />
 
       <NewRFIModal visible={showNewRFI} onClose={() => setShowNewRFI(false)} />
     </>
@@ -777,6 +788,7 @@ const styles = StyleSheet.create({
   filterPillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
   listContainer: { paddingHorizontal: 16, paddingTop: 8 },
+  listItemWrap: { paddingHorizontal: 16 },
   loader: { paddingVertical: 40 },
 
   row: {

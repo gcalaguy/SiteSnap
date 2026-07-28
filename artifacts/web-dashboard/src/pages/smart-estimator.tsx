@@ -64,8 +64,8 @@ import { BreakdownPanel } from "@/components/smart-estimator/BreakdownPanel";
 import { ActualCard } from "@/components/smart-estimator/ActualCard";
 import { type LineItem, type EstimateSummary, fmtCurrency as fmt } from "@/lib/estimator";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
+const GOLD = "hsl(var(--primary))";
+const BLACK = "var(--surface-inverted)";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -840,7 +840,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       {step === 1 && (
         <div className="space-y-4">
         <Card>
-          <CardHeader className="flex flex-col space-y-1.5 p-6 text-[#d0a539] bg-[#000000d9]">
+          <CardHeader className="flex flex-col space-y-1.5 p-6 text-primary bg-surface-inverted">
             <CardTitle className="text-base">Describe your project</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-5 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]">
@@ -958,7 +958,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             <Button
               onClick={handleExtractParams}
               disabled={parseMutation.isPending || parseFromFileMutation.isPending}
-              className="w-full gap-2 bg-[#d0a539]"
+              className="w-full gap-2 bg-primary"
               size="lg"
             >
               {(parseMutation.isPending || parseFromFileMutation.isPending) ? (

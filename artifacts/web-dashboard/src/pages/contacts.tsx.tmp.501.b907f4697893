@@ -234,11 +234,11 @@ export default function Contacts() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
             <BookUser className="h-7 w-7" style={{ color: "#D4AF37" }} />
             Contacts
           </h1>
-          <p className="text-[#121212]/60 font-medium">CRM — clients, workers, subcontractors & suppliers</p>
+          <p className="text-foreground/60 font-medium">CRM — clients, workers, subcontractors & suppliers</p>
         </div>
         <Button
           onClick={openCreate}
@@ -273,7 +273,7 @@ export default function Contacts() {
                 <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "#D4AF37" }}>
                   {cfg.label}
                 </p>
-                <p className="text-2xl font-extrabold text-[#121212]">
+                <p className="text-2xl font-extrabold text-foreground">
                   {typeCounts[t] ?? 0}
                 </p>
               </div>
@@ -318,8 +318,8 @@ export default function Contacts() {
           >
             <BookUser size={28} style={{ color: "#D4AF37" }} />
           </div>
-          <h3 className="text-lg font-extrabold mb-1 text-[#121212]">No contacts yet</h3>
-          <p className="text-sm text-[#121212]/60 mb-4 font-medium">
+          <h3 className="text-lg font-extrabold mb-1 text-foreground">No contacts yet</h3>
+          <p className="text-sm text-foreground/60 mb-4 font-medium">
             {search || typeFilter !== "all" ? "No contacts match your filters." : "Add your first client, worker, subcontractor or supplier."}
           </p>
           {!search && typeFilter === "all" && (
@@ -359,9 +359,9 @@ export default function Contacts() {
                       {c.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-extrabold text-sm truncate text-[#121212]">{c.name}</p>
+                      <p className="font-extrabold text-sm truncate text-foreground">{c.name}</p>
                       {c.company && (
-                        <p className="text-xs text-[#121212]/60 truncate flex items-center gap-1 font-medium">
+                        <p className="text-xs text-foreground/60 truncate flex items-center gap-1 font-medium">
                           <Building2 size={11} /> {c.company}
                         </p>
                       )}
@@ -397,7 +397,7 @@ export default function Contacts() {
                   {c.email && (
                     <a
                       href={`mailto:${c.email}`}
-                      className="flex items-center gap-2 text-xs text-[#121212]/60 hover:text-[#121212] transition-colors truncate font-medium"
+                      className="flex items-center gap-2 text-xs text-foreground/60 hover:text-foreground transition-colors truncate font-medium"
                     >
                       <Mail size={12} /> {c.email}
                     </a>
@@ -405,7 +405,7 @@ export default function Contacts() {
                   {c.phone && (
                     <a
                       href={`tel:${c.phone}`}
-                      className="flex items-center gap-2 text-xs text-[#121212]/60 hover:text-[#121212] transition-colors font-medium"
+                      className="flex items-center gap-2 text-xs text-foreground/60 hover:text-foreground transition-colors font-medium"
                     >
                       <Phone size={12} /> {c.phone}
                     </a>
@@ -414,7 +414,7 @@ export default function Contacts() {
 
                 {/* Expiration dates */}
                 {(c.type === "subcontractor" || c.type === "supplier") && (c.coiExpiration || c.workersCompClearanceExpiration) && (
-                  <div className="text-[10px] text-[#121212]/50 space-y-0.5 font-medium">
+                  <div className="text-[10px] text-foreground/50 space-y-0.5 font-medium">
                     {c.coiExpiration && (
                       <div className="flex items-center gap-1">
                         <Calendar size={10} /> COI expires {c.coiExpiration}
@@ -433,7 +433,7 @@ export default function Contacts() {
                 )}
 
                 {c.notes && (
-                  <p className="text-xs text-[#121212]/60 bg-[#D4AF37]/5 rounded-md px-3 py-2 line-clamp-2 font-medium">
+                  <p className="text-xs text-foreground/60 bg-[#D4AF37]/5 rounded-md px-3 py-2 line-clamp-2 font-medium">
                     {c.notes}
                   </p>
                 )}
@@ -443,7 +443,7 @@ export default function Contacts() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="flex-1 text-xs h-7 font-semibold text-[#121212]/70 hover:text-[#121212] hover:bg-[#D4AF37]/10"
+                    className="flex-1 text-xs h-7 font-semibold text-foreground/70 hover:text-foreground hover:bg-[#D4AF37]/10"
                     onClick={() => openEdit(c)}
                   >
                     <Pencil size={12} className="mr-1" /> Edit
@@ -451,7 +451,7 @@ export default function Contacts() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="flex-1 text-xs h-7 font-semibold text-[#121212]/70 hover:text-[#121212] hover:bg-[#D4AF37]/10"
+                    className="flex-1 text-xs h-7 font-semibold text-foreground/70 hover:text-foreground hover:bg-[#D4AF37]/10"
                     onClick={() => setFilesContact({ id: c.id, name: c.name })}
                   >
                     <Paperclip size={12} className="mr-1" /> Files

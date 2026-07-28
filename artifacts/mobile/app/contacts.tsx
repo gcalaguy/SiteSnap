@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   Pressable,
   StyleSheet,
   Platform,
@@ -440,22 +441,22 @@ export default function ContactsScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={contacts}
+          keyExtractor={(c) => String(c.id)}
+          renderItem={({ item: c }) => (
+            <ContactCard
+              contact={c}
+              onPress={() => openEdit(c)}
+              onDelete={() => remove.mutate({ contactId: c.id })}
+            />
+          )}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 10 }}
-        >
-          {contacts.map((c) => (
-            <ContactCard
-              key={c.id}
-              contact={c}
-              onPress={() => openEdit(c)}
-              onDelete={() => remove.mutate({ contactId: c.id })}
-            />
-          ))}
-        </ScrollView>
+        />
       )}
 
       <ContactFormModal

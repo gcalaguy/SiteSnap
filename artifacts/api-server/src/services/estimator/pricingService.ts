@@ -1,4 +1,6 @@
+import { db } from "@workspace/db";
 import type { EstimatorCostModel, EstimatorAddon } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import {
   hasGlobalCostModelTemplates,
   insertGlobalCostModelTemplates,
@@ -112,25 +114,39 @@ const ADDON_SEED: Omit<EstimatorAddon, "id" | "createdAt" | "companyId">[] = [
   { name: "Basement Waterproofing",     addonKey: "basement_waterproofing",   description: "Interior drain tile system, sump pump, membrane",     costType: "flat",     amount: "9000",  applicableTypes: "basement_finish,renovation_residential" },
 ];
 
+// Arbitrary fixed key for the global-template seed lock, matching the fixed
+// advisory-lock-key convention used by cron.ts (LOCK.* in the 7000s range).
+const GLOBAL_SEED_LOCK_KEY = 7100;
+
 // Ensures global pricing templates exist (once ever), then clones them for
 // this company if it doesn't have its own cost models/addons yet.
+//
+// Each phase runs inside its own pg_advisory_xact_lock so concurrent calls
+// (e.g. two requests for the same new company, or two companies racing the
+// one-time global seed) serialize on the check-then-insert instead of both
+// passing the "has templates?" check and inserting duplicates.
 export async function seedPricingData(companyId: number): Promise<void> {
-  if (!(await hasGlobalCostModelTemplates())) {
-    await insertGlobalCostModelTemplates(COST_MODEL_SEED);
-    if (!(await hasGlobalAddonTemplates())) {
-      await insertGlobalAddonTemplates(ADDON_SEED);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${GLOBAL_SEED_LOCK_KEY}::bigint)`);
+    if (!(await hasGlobalCostModelTemplates(tx))) {
+      await insertGlobalCostModelTemplates(COST_MODEL_SEED, tx);
     }
-  }
+    if (!(await hasGlobalAddonTemplates(tx))) {
+      await insertGlobalAddonTemplates(ADDON_SEED, tx);
+    }
+  });
 
-  if (!(await hasCompanyCostModels(companyId))) {
-    const allTemplates = await getAllGlobalCostModelTemplates();
-    await insertCompanyCostModels(companyId, allTemplates);
-  }
-
-  if (!(await hasCompanyAddons(companyId))) {
-    const allAddons = await getAllGlobalAddonTemplates();
-    await insertCompanyAddons(companyId, allAddons);
-  }
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${companyId}::bigint)`);
+    if (!(await hasCompanyCostModels(companyId, tx))) {
+      const allTemplates = await getAllGlobalCostModelTemplates(tx);
+      await insertCompanyCostModels(companyId, allTemplates, tx);
+    }
+    if (!(await hasCompanyAddons(companyId, tx))) {
+      const allAddons = await getAllGlobalAddonTemplates(tx);
+      await insertCompanyAddons(companyId, allAddons, tx);
+    }
+  });
 }
 
 export async function getProjectTypeLabels(companyId: number): Promise<Record<string, string>> {

@@ -179,6 +179,11 @@ const ELEMENT_NUMBERS: Record<string, number> = Object.fromEntries(
   Object.keys(ELEMENT_NAMES).map((k) => [k, parseInt(k.replace("element_", ""))]),
 );
 
+// ── Color tokens ──────────────────────────────────────────────────────────────
+
+const GOLD = "hsl(var(--primary))";
+const withAlpha = (color: string, alphaPct: number) => `color-mix(in srgb, ${color} ${alphaPct}%, transparent)`;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeUntilExpiry(expiresAt: string): string {
@@ -192,23 +197,23 @@ function timeUntilExpiry(expiresAt: string): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "#4ade80";
-  if (score >= 60) return "#facc15";
-  if (score >= 40) return "#fb923c";
-  return "#f87171";
+  if (score >= 80) return "var(--severity-low)";
+  if (score >= 60) return "var(--severity-medium)";
+  if (score >= 40) return "var(--severity-high)";
+  return "var(--severity-critical)";
 }
 
 function capaPriorityColor(priority: string): string {
-  const map: Record<string, string> = { critical: "#f87171", high: "#fb923c", medium: "#facc15", low: "#86efac" };
+  const map: Record<string, string> = { critical: "var(--severity-critical)", high: "var(--severity-high)", medium: "var(--severity-medium)", low: "var(--severity-low)" };
   return map[priority] ?? "#9ca3af";
 }
 
 function capaStatusBg(status: string): string {
   const map: Record<string, string> = {
-    open: "#7f1d1d",
+    open: "var(--severity-critical-bg)",
     in_progress: "#1e3a5f",
-    pending_review: "#3b2700",
-    closed: "#14532d",
+    pending_review: "var(--severity-medium-bg)",
+    closed: "var(--severity-low-bg)",
     void: "#1f2937",
   };
   return map[status] ?? "#374151";
@@ -290,13 +295,13 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
   if (!matchesSearch) return null;
 
   return (
-    <div style={{ background: "#111111", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+    <div style={{ background: "var(--surface-inverted)", border: `1px solid ${expanded ? withAlpha(GOLD, 27) : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
       {/* Header row */}
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
       >
-        <span style={{ width: 32, height: 32, borderRadius: "50%", background: "#1a1a1a", border: "1px solid #C9A84C44", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#C9A84C", flexShrink: 0 }}>{num}</span>
+        <span style={{ width: 32, height: 32, borderRadius: "50%", background: "#1a1a1a", border: `1px solid ${withAlpha(GOLD, 27)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: GOLD, flexShrink: 0 }}>{num}</span>
         <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#f3f4f6" }}>{name}</span>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -315,7 +320,7 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
           {el.entryCount > 0 && (
             <span style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: scoreColor(el.averageScore), minWidth: 38, textAlign: "right" }}>{el.averageScore}%</span>
           )}
-          <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+          <span style={{ color: expanded ? GOLD : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
         </div>
       </button>
 
@@ -437,7 +442,7 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <h4 style={{ fontSize: 11, fontWeight: 600, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, margin: "0 0 8px" }}>{title}</h4>
+      <h4 style={{ fontSize: 11, fontWeight: 600, color: GOLD, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, margin: "0 0 8px" }}>{title}</h4>
       {children}
     </div>
   );
@@ -454,7 +459,7 @@ function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
   });
 
   return (
-    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? withAlpha(GOLD, 27) : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
@@ -464,7 +469,7 @@ function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
           {psi.projectName ?? "Unknown project"}{psi.tradeDescription ? ` — ${psi.tradeDescription}` : ""}
         </span>
         <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{psi.signatureCount} sig{psi.signatureCount === 1 ? "" : "s"} · {psi.approvalCount} appr{psi.approvalCount === 1 ? "" : "s"}</span>
-        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+        <span style={{ color: expanded ? GOLD : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
 
       {expanded && (
@@ -494,7 +499,7 @@ function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
                       <div style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 500, marginBottom: 4 }}>{cat.title}</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {items.map((item, i) => (
-                          <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "#111111", color: "#9ca3af", border: "1px solid #2a2a2a" }}>{item}</span>
+                          <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--surface-inverted)", color: "#9ca3af", border: "1px solid #2a2a2a" }}>{item}</span>
                         ))}
                       </div>
                     </div>
@@ -524,7 +529,7 @@ function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
             <Section title="Voice Notes">
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {psi.voiceNotes.map((n) => (
-                  <div key={n.id} style={{ padding: "8px 12px", background: "#111111", borderRadius: 6, border: "1px solid #2a2a2a" }}>
+                  <div key={n.id} style={{ padding: "8px 12px", background: "var(--surface-inverted)", borderRadius: 6, border: "1px solid #2a2a2a" }}>
                     <p style={{ fontSize: 12, color: "#d1d5db", margin: 0 }}>{n.transcript}</p>
                     <p style={{ fontSize: 11, color: "#6b7280", margin: "4px 0 0" }}>{fmtDate(n.recordedAt)}</p>
                   </div>
@@ -583,7 +588,7 @@ function VoiceInspectionCard({ vi }: { vi: VoiceInspectionRow }) {
   const passColor = VI_PASS_COLOR[vi.passStatus ?? "conditional"];
 
   return (
-    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? withAlpha(GOLD, 27) : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
@@ -594,7 +599,7 @@ function VoiceInspectionCard({ vi }: { vi: VoiceInspectionRow }) {
         </span>
         <span style={{ fontSize: 11, fontWeight: 600, color: passColor, whiteSpace: "nowrap" }}>{(vi.passStatus ?? "conditional").toUpperCase()}</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: severityColor, whiteSpace: "nowrap" }}>{(vi.severityLevel ?? "low").toUpperCase()}</span>
-        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+        <span style={{ color: expanded ? GOLD : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
 
       {expanded && (
@@ -657,7 +662,7 @@ function SafetyScanCard({ scan }: { scan: SafetyScanRow }) {
   const riskColor = VI_SEVERITY_COLOR[scan.riskLevel ?? "low"];
 
   return (
-    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? withAlpha(GOLD, 27) : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
@@ -668,7 +673,7 @@ function SafetyScanCard({ scan }: { scan: SafetyScanRow }) {
         </span>
         <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{scan.hazards.length} hazard{scan.hazards.length === 1 ? "" : "s"}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: riskColor, whiteSpace: "nowrap", fontFamily: "monospace" }}>{scan.complianceScore ?? 0}%</span>
-        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+        <span style={{ color: expanded ? GOLD : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
 
       {expanded && (
@@ -698,7 +703,7 @@ function SafetyScanCard({ scan }: { scan: SafetyScanRow }) {
                 {scan.hazards.map((h) => {
                   const hColor = VI_SEVERITY_COLOR[h.severity] ?? "#9ca3af";
                   return (
-                    <div key={h.id} style={{ padding: "8px 12px", background: "#111111", borderRadius: 6, border: "1px solid #2a2a2a" }}>
+                    <div key={h.id} style={{ padding: "8px 12px", background: "var(--surface-inverted)", borderRadius: 6, border: "1px solid #2a2a2a" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: hColor }}>{h.severity.toUpperCase()}</span>
                         <span style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 500 }}>{h.title}</span>
@@ -721,7 +726,7 @@ function SafetyScanCard({ scan }: { scan: SafetyScanRow }) {
               href={scan.reportUrl}
               target="_blank"
               rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#C9A84C", textDecoration: "none" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: GOLD, textDecoration: "none" }}
             >
               ⬇ View PDF Report
             </a>
@@ -769,7 +774,7 @@ export default function AuditorPortalPage() {
     return (
       <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, border: "3px solid #C9A84C", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" }} />
+          <div style={{ width: 48, height: 48, border: `3px solid ${GOLD}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" }} />
           <p style={{ color: "#9ca3af", fontSize: 14 }}>Loading auditor portal…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -798,7 +803,7 @@ export default function AuditorPortalPage() {
       <div style={{ background: "linear-gradient(135deg, #111111 0%, #0a0a0a 100%)", borderBottom: "1px solid #1f1f1f", padding: "0 24px", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 6, background: "linear-gradient(135deg, #C9A84C, #a07830)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#0a0a0a" }}>
+            <div style={{ width: 32, height: 32, borderRadius: 6, background: `linear-gradient(135deg, ${GOLD}, color-mix(in srgb, ${GOLD} 65%, black))`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "hsl(var(--primary-foreground))" }}>
               COR
             </div>
             <div>
@@ -819,7 +824,7 @@ export default function AuditorPortalPage() {
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
         {/* Summary hero */}
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, marginBottom: 36, background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, padding: 28, alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, marginBottom: 36, background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, padding: 28, alignItems: "center" }}>
           <ScoreArc score={overallScore} />
           <div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: "#f3f4f6", margin: "0 0 4px" }}>COR Compliance Evidence Summary</h2>
@@ -846,8 +851,8 @@ export default function AuditorPortalPage() {
         </div>
 
         {/* Score bars overview */}
-        <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, padding: 24, marginBottom: 24 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>Element Score Overview</h3>
+        <div style={{ background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: GOLD, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>Element Score Overview</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 32px" }}>
             {data.elements.map((el) => (
               <ScoreBar key={el.key} score={el.entryCount > 0 ? el.averageScore : 0} label={`${ELEMENT_NUMBERS[el.key]}. ${ELEMENT_NAMES[el.key]}`} />
@@ -862,20 +867,20 @@ export default function AuditorPortalPage() {
             placeholder="Search elements, descriptions, policies, CAPAs…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", padding: "10px 16px 10px 40px", background: "#111111", border: "1px solid #2a2a2a", borderRadius: 8, color: "#f3f4f6", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", padding: "10px 16px 10px 40px", background: "var(--surface-inverted)", border: "1px solid #2a2a2a", borderRadius: 8, color: "#f3f4f6", fontSize: 14, outline: "none", boxSizing: "border-box" }}
           />
           <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#4b5563", fontSize: 16 }}>⌕</span>
         </div>
 
         {/* Element accordions */}
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>19 IHSA COR Elements — Evidence Index</h3>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: GOLD, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>19 IHSA COR Elements — Evidence Index</h3>
         {data.elements.map((el) => (
           <ElementCard key={el.key} el={el} search={search} />
         ))}
 
         {/* Recent inspections (collapsible global section) */}
         {data.recentInspections.length > 0 && (
-          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+          <div style={{ background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
             <button
               onClick={() => setShowInspections((v) => !v)}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
@@ -918,7 +923,7 @@ export default function AuditorPortalPage() {
 
         {/* Pre-Inspection checklists (collapsible global section) */}
         {data.recentPsiChecklists.length > 0 && (
-          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+          <div style={{ background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
             <button
               onClick={() => setShowPsi((v) => !v)}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
@@ -939,7 +944,7 @@ export default function AuditorPortalPage() {
 
         {/* AI Voice Inspections (collapsible global section) */}
         {data.recentVoiceInspections.length > 0 && (
-          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+          <div style={{ background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
             <button
               onClick={() => setShowVoiceInspections((v) => !v)}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
@@ -960,7 +965,7 @@ export default function AuditorPortalPage() {
 
         {/* AI Safety Scans (collapsible global section) */}
         {data.recentSafetyScans.length > 0 && (
-          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+          <div style={{ background: "var(--surface-inverted)", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
             <button
               onClick={() => setShowSafetyScans((v) => !v)}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
@@ -982,7 +987,7 @@ export default function AuditorPortalPage() {
         {/* Footer */}
         <div style={{ marginTop: 48, textAlign: "center", borderTop: "1px solid #1a1a1a", paddingTop: 24 }}>
           <p style={{ fontSize: 11, color: "#374151" }}>This portal is read-only and time-limited. Evidence shown covers the last 12 months.</p>
-          <p style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>Powered by <span style={{ color: "#C9A84C" }}>SiteSnap</span> — Ontario COR Compliance Platform</p>
+          <p style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>Powered by <span style={{ color: GOLD }}>SiteSnap</span> — Ontario COR Compliance Platform</p>
         </div>
       </div>
     </div>

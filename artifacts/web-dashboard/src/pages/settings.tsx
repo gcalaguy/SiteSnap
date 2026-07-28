@@ -18,11 +18,11 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-full mx-auto">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
-          <Globe className="h-6 w-6" style={{ color: "#D4AF37" }} />
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+          <Globe className="h-6 w-6 text-primary" />
           Settings
         </h1>
-        <p className="text-sm text-[#121212]/60 font-medium">Manage your company information and preferences.</p>
+        <p className="text-sm text-foreground/60 font-medium">Manage your company information and preferences.</p>
       </div>
 
       <Tabs defaultValue="company" className="space-y-5">

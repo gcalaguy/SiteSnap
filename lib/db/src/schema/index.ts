@@ -1167,7 +1167,9 @@ export const submissionCommentsTable = pgTable("submission_comments", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   comment: text("comment").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_submission_comments_submission_id").on(t.submissionId),
+]);
 export type SubmissionComment = typeof submissionCommentsTable.$inferSelect;
 
 // ── Estimates ─────────────────────────────────────────────────────────────────
@@ -1552,7 +1554,9 @@ export const tradehubMessagesTable = pgTable("tradehub_messages", {
   senderId: integer("sender_id").notNull().references(() => usersTable.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_tradehub_messages_conversation_id").on(t.conversationId),
+]);
 export type TradehubMessage = typeof tradehubMessagesTable.$inferSelect;
 
 // ── AI Smart Estimator — Cost Models ─────────────────────────────────────────
@@ -1701,7 +1705,10 @@ export const scheduleEventAssigneesTable = pgTable("schedule_event_assignees", {
   eventId: integer("event_id").notNull().references(() => scheduleEventsTable.id, { onDelete: "cascade" }),
   resourceType: text("resource_type").notNull(), // user | equipment
   resourceId: integer("resource_id").notNull(),
-});
+}, (t) => [
+  index("idx_schedule_event_assignees_event_id").on(t.eventId),
+  index("idx_schedule_event_assignees_resource").on(t.resourceType, t.resourceId),
+]);
 
 export type ScheduleEventAssignee = typeof scheduleEventAssigneesTable.$inferSelect;
 

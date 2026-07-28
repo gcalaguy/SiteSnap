@@ -21,8 +21,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
 const TEXTAREA_FIELD_MAX = 2_000;
 
 interface FormField {
@@ -433,7 +431,6 @@ export default function SafetySubmitPage() {
             <Button
               onClick={() => saveMutation.mutate({ status: "submitted" })}
               disabled={saveMutation.isPending || !validateRequired() || hasTextareaAtLimit()}
-              style={{ background: GOLD, color: BLACK }}
               className="font-semibold gap-2"
             >
               {saveMutation.isPending ? (

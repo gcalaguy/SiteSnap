@@ -105,7 +105,7 @@ function SignedPhotoThumbnail({ path, alt }: { path: string | null | undefined; 
     <img
       src={signedUrl}
       alt={alt}
-      className="w-10 h-10 rounded-lg object-cover border border-[#E5E5E5] flex-shrink-0"
+      className="w-10 h-10 rounded-lg object-cover border border-border flex-shrink-0"
       loading="lazy"
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -200,10 +200,10 @@ export default function WorkerDocumentsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8F8F8" }}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
-          <RefreshCw className="w-5 h-5 animate-spin text-[#C9A84C]" />
-          <span className="text-sm text-[#0A0A0A]/60">Loading documents...</span>
+          <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-foreground/60">Loading documents...</span>
         </div>
       </div>
     );
@@ -211,7 +211,7 @@ export default function WorkerDocumentsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: "#F8F8F8" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <ShieldCheck className="w-12 h-12 text-red-400 mb-3" />
         <p className="text-sm text-red-500">Failed to load worker documents</p>
       </div>
@@ -219,26 +219,26 @@ export default function WorkerDocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
+    <div className="min-h-screen bg-background">
       <div className="max-w-full mx-auto px-6 py-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-[#C9A84C]/10 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5 text-[#C9A84C]" />
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "#0A0A0A" }}>Worker Documents</h1>
-            <p className="text-xs text-[#0A0A0A]/50 mt-0.5">Compliance vault by worker profile</p>
+            <h1 className="text-xl font-bold text-foreground">Worker Documents</h1>
+            <p className="text-xs text-foreground/50 mt-0.5">Compliance vault by worker profile</p>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A0A0A]/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30" />
           <Input
             placeholder="Search by worker name or document type..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-white border-[#E5E5E5]"
+            className="pl-9 bg-card border-border"
           />
         </div>
 
@@ -246,20 +246,20 @@ export default function WorkerDocumentsPage() {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-bold" style={{ color: "#0A0A0A" }}>{docs.length}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Total Documents</p>
+              <p className="text-2xl font-bold text-foreground">{docs.length}</p>
+              <p className="text-xs text-foreground/50 mt-1">Total Documents</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-bold text-[#C9A84C]">{groups.length}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Workers</p>
+              <p className="text-2xl font-bold text-primary">{groups.length}</p>
+              <p className="text-xs text-foreground/50 mt-1">Workers</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-emerald-500">{docs.filter((d) => d.status === "active").length}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Active</p>
+              <p className="text-xs text-foreground/50 mt-1">Active</p>
             </CardContent>
           </Card>
         </div>
@@ -267,9 +267,9 @@ export default function WorkerDocumentsPage() {
         {/* Worker Profiles */}
         {filteredGroups.length === 0 ? (
           <div className="py-16 flex flex-col items-center text-center">
-            <FileText className="w-10 h-10 text-[#E5E5E5] mb-3" />
-            <p className="text-sm text-[#0A0A0A]/50">No documents found</p>
-            <p className="text-xs text-[#0A0A0A]/30 mt-1">Workers upload certificates from their mobile vault</p>
+            <FileText className="w-10 h-10 text-border mb-3" />
+            <p className="text-sm text-foreground/50">No documents found</p>
+            <p className="text-xs text-foreground/30 mt-1">Workers upload certificates from their mobile vault</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -281,34 +281,34 @@ export default function WorkerDocumentsPage() {
                     {/* Profile Header */}
                     <button
                       onClick={() => setExpandedWorkerId(isExpanded ? null : group.workerId)}
-                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[#FAFAFA] transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
                     >
-                      <div className="w-9 h-9 rounded-full bg-[#C9A84C]/10 flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-[#C9A84C]" />
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#0A0A0A] truncate">{group.workerName}</p>
-                        <p className="text-xs text-[#0A0A0A]/40 truncate">{group.workerEmail}</p>
+                        <p className="text-sm font-semibold text-foreground truncate">{group.workerName}</p>
+                        <p className="text-xs text-foreground/40 truncate">{group.workerEmail}</p>
                       </div>
-                      <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 flex-shrink-0">
+                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 flex-shrink-0">
                         {group.docs.length} doc{group.docs.length > 1 ? "s" : ""}
                       </Badge>
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-[#0A0A0A]/30 flex-shrink-0" />
+                        <ChevronUp className="w-4 h-4 text-foreground/30 flex-shrink-0" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-[#0A0A0A]/30 flex-shrink-0" />
+                        <ChevronDown className="w-4 h-4 text-foreground/30 flex-shrink-0" />
                       )}
                     </button>
 
                     {/* Documents Table */}
                     {isExpanded && (
-                      <div className="border-t border-[#F0F0F0]">
+                      <div className="border-t border-border/60">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-[#FAFAFA]">
-                              <th className="text-left px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Document</th>
-                              <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Uploaded</th>
-                              <th className="text-right px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Actions</th>
+                            <tr className="bg-muted/40">
+                              <th className="text-left px-5 py-2.5 text-xs font-semibold text-foreground/40">Document</th>
+                              <th className="text-left px-4 py-2.5 text-xs font-semibold text-foreground/40">Uploaded</th>
+                              <th className="text-right px-5 py-2.5 text-xs font-semibold text-foreground/40">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -317,7 +317,7 @@ export default function WorkerDocumentsPage() {
                               return (
                                 <tr
                                   key={d.id}
-                                  className="border-t border-[#F5F5F5] hover:bg-[#FAFAFA] cursor-pointer"
+                                  className="border-t border-border/60 hover:bg-muted/40 cursor-pointer"
                                   onClick={() => openDoc(d)}
                                 >
                                   <td className="px-5 py-3">
@@ -325,12 +325,12 @@ export default function WorkerDocumentsPage() {
                                       {imageDoc && d.status !== "file_missing" ? (
                                         <SignedPhotoThumbnail path={d.filePath ?? d.fileUrl} alt={d.documentType} />
                                       ) : (
-                                        <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
-                                          <FileText className="w-4 h-4 text-[#0A0A0A]/30" />
+                                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                          <FileText className="w-4 h-4 text-foreground/30" />
                                         </div>
                                       )}
                                       <div>
-                                        <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 font-medium">
+                                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-medium">
                                           {d.documentType}
                                         </Badge>
                                         {d.status === "file_missing" && (
@@ -342,7 +342,7 @@ export default function WorkerDocumentsPage() {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-[#0A0A0A]/60">
+                                  <td className="px-4 py-3 text-foreground/60">
                                     {renderSafeDate(d.createdAt)}
                                   </td>
                                   <td className="px-5 py-3 text-right">
@@ -377,18 +377,18 @@ export default function WorkerDocumentsPage() {
       {/* Document Detail Dialog */}
       {selectedDoc && (
         <Dialog open onOpenChange={() => { setSelectedDoc(null); setSignedUrl(null); }}>
-          <DialogContent className="max-w-3xl bg-white border-[#E5E5E5]">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold" style={{ color: "#0A0A0A" }}>
+              <DialogTitle className="text-lg font-bold text-foreground">
                 {selectedDoc.documentType}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               {/* Document Preview */}
               {isImageFile(selectedDoc) && (
-                <div className="rounded-lg border border-[#E5E5E5] overflow-hidden bg-[#FAFAFA] flex items-center justify-center min-h-[200px]">
+                <div className="rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center min-h-[200px]">
                   {loadingSignedUrl ? (
-                    <div className="flex items-center gap-2 text-[#0A0A0A]/40 py-8">
+                    <div className="flex items-center gap-2 text-foreground/40 py-8">
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       <span className="text-xs">Loading preview...</span>
                     </div>
@@ -399,7 +399,7 @@ export default function WorkerDocumentsPage() {
                       className="max-w-full max-h-[400px] object-contain"
                     />
                   ) : (
-                    <div className="flex flex-col items-center gap-2 py-8 text-[#0A0A0A]/40">
+                    <div className="flex flex-col items-center gap-2 py-8 text-foreground/40">
                       <Image className="w-8 h-8" />
                       <span className="text-xs">Preview unavailable</span>
                     </div>
@@ -409,12 +409,12 @@ export default function WorkerDocumentsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-[#0A0A0A]/40">Worker</p>
-                  <p className="text-sm font-medium text-[#0A0A0A]">{selectedDoc.workerName || "Unknown"}</p>
-                  <p className="text-xs text-[#0A0A0A]/40">{selectedDoc.workerEmail || ""}</p>
+                  <p className="text-xs text-foreground/40">Worker</p>
+                  <p className="text-sm font-medium text-foreground">{selectedDoc.workerName || "Unknown"}</p>
+                  <p className="text-xs text-foreground/40">{selectedDoc.workerEmail || ""}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#0A0A0A]/40">Status</p>
+                  <p className="text-xs text-foreground/40">Status</p>
                   <Badge
                     className={
                       selectedDoc.status === "active"
@@ -428,11 +428,11 @@ export default function WorkerDocumentsPage() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-xs text-[#0A0A0A]/40">Uploaded</p>
-                  <p className="text-sm font-medium text-[#0A0A0A]">{renderSafeDate(selectedDoc.createdAt)}</p>
+                  <p className="text-xs text-foreground/40">Uploaded</p>
+                  <p className="text-sm font-medium text-foreground">{renderSafeDate(selectedDoc.createdAt)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#0A0A0A]/40">File</p>
+                  <p className="text-xs text-foreground/40">File</p>
                   <div className="flex items-center gap-2 mt-1">
                     {selectedDoc.status === "file_missing" ? (
                       <span className="text-sm text-red-500 flex items-center gap-1.5">
@@ -440,7 +440,7 @@ export default function WorkerDocumentsPage() {
                         File missing — ask the worker to re-upload
                       </span>
                     ) : loadingSignedUrl ? (
-                      <span className="text-sm text-[#0A0A0A]/40 flex items-center gap-1.5">
+                      <span className="text-sm text-foreground/40 flex items-center gap-1.5">
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         Loading link...
                       </span>
@@ -449,14 +449,14 @@ export default function WorkerDocumentsPage() {
                         href={signedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-[#C9A84C] hover:underline break-all"
+                        className="text-sm text-primary hover:underline break-all"
                       >
                         Open document
                       </a>
                     ) : (
-                      <span className="text-sm text-[#0A0A0A]/40">Preview unavailable</span>
+                      <span className="text-sm text-foreground/40">Preview unavailable</span>
                     )}
-                    {signedUrl && <Download className="w-3 h-3 text-[#C9A84C]" />}
+                    {signedUrl && <Download className="w-3 h-3 text-primary" />}
                   </div>
                 </div>
               </div>

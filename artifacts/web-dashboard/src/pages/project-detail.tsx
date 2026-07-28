@@ -53,8 +53,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils";
 
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
+const GOLD = "hsl(var(--primary))";
+const BLACK = "var(--surface-inverted)";
 const ASSIGN_NOTES_MAX = 1_000;
 
 type ProjectAssignment = {
@@ -503,7 +503,7 @@ export default function ProjectDetail() {
                     <Icon size={15} style={{ color: GOLD }} />
                   </div>
                   <p className="text-2xl font-bold text-white">{value}</p>
-                  {sub && <p className="text-xs mt-1" style={{ color: "#71717a" }}>{sub}</p>}
+                  {sub && <p className="text-xs mt-1 text-muted-foreground">{sub}</p>}
                 </>
               );
               return onClick ? (

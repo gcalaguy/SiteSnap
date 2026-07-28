@@ -768,7 +768,7 @@ export default function QuoteDetail() {
             <>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button className="gap-2" style={{ background: "#16a34a", color: "#fff" }} disabled={approveQuote.isPending}>
+                  <Button className="gap-2 bg-severity-low text-white" disabled={approveQuote.isPending}>
                     <CheckCircle className="h-4 w-4" />
                     {approveQuote.isPending ? "Approving…" : "Approve"}
                   </Button>

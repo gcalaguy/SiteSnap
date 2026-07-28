@@ -23,33 +23,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
-const GOLD = "#D4AF37";
-const BLACK = "#0A0A0A";
-const SURFACE = "#141414";
+const GOLD = "hsl(var(--primary))";
+const BLACK = "hsl(var(--primary-foreground))";
+const SURFACE = "var(--surface-inverted)";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   open: {
     label: "Open",
     icon: FileQuestion,
-    color: "#ef4444",
+    color: "hsl(var(--destructive))",
     bg: "bg-red-950/40",
     border: "border-red-800/40",
     badge: "bg-red-100 text-red-700 border-red-200",
-    glow: "#ef444422",
+    glow: "color-mix(in srgb, hsl(var(--destructive)) 13%, transparent)",
   },
   in_review: {
     label: "In Review",
     icon: Eye,
-    color: "#f59e0b",
+    color: "var(--severity-medium)",
     bg: "bg-amber-950/40",
     border: "border-amber-700/40",
     badge: "bg-amber-100 text-amber-700 border-amber-200",
-    glow: "#f59e0b22",
+    glow: "color-mix(in srgb, var(--severity-medium) 13%, transparent)",
   },
   answered: {
     label: "Answered",
     icon: CheckCheck,
+    // Informational (non-risk) workflow accent — no design-system token models
+    // this, so it stays a literal distinct category color.
     color: "#3b82f6",
     bg: "bg-blue-950/40",
     border: "border-blue-800/40",
@@ -59,29 +61,29 @@ const STATUS_CONFIG = {
   approved: {
     label: "Approved",
     icon: CheckCircle2,
-    color: "#22c55e",
+    color: "var(--severity-low)",
     bg: "bg-green-950/40",
     border: "border-green-800/40",
     badge: "bg-green-100 text-green-700 border-green-200",
-    glow: "#22c55e22",
+    glow: "color-mix(in srgb, var(--severity-low) 13%, transparent)",
   },
   rejected: {
     label: "Rejected",
     icon: XCircle,
-    color: "#f43f5e",
+    color: "var(--severity-critical)",
     bg: "bg-rose-950/40",
     border: "border-rose-800/40",
     badge: "bg-rose-100 text-rose-700 border-rose-200",
-    glow: "#f43f5e22",
+    glow: "color-mix(in srgb, var(--severity-critical) 13%, transparent)",
   },
   closed: {
     label: "Closed",
     icon: Clock,
-    color: "#6b7280",
+    color: "hsl(var(--muted-foreground))",
     bg: "bg-zinc-900/40",
     border: "border-zinc-700/40",
     badge: "bg-gray-100 text-gray-600 border-gray-200",
-    glow: "#6b728022",
+    glow: "color-mix(in srgb, hsl(var(--muted-foreground)) 13%, transparent)",
   },
 } as const;
 
@@ -188,7 +190,7 @@ function ChangeStatusDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl" style={{ background: SURFACE, border: `1px solid ${GOLD}33` }}>
+      <DialogContent className="max-w-xl" style={{ background: SURFACE, border: `1px solid color-mix(in srgb, ${GOLD} 20%, transparent)` }}>
         <DialogHeader>
           <DialogTitle className="text-white">Change RFI Status</DialogTitle>
         </DialogHeader>
@@ -378,7 +380,7 @@ export default function RfiSubmittalPage() {
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <Card style={{ background: SURFACE, border: `1px solid #27272a` }}>
+        <Card style={{ background: SURFACE, border: `1px solid hsl(var(--border))` }}>
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
             <LayoutGrid size={40} className="text-zinc-700" />
             <p className="text-zinc-500 font-medium">
@@ -406,7 +408,7 @@ export default function RfiSubmittalPage() {
               <div
                 key={rfi.id}
                 className="group flex items-center gap-4 rounded-xl px-4 py-3 border transition-all duration-150 hover:border-zinc-600"
-                style={{ background: SURFACE, borderColor: "#27272a" }}
+                style={{ background: SURFACE, borderColor: "hsl(var(--border))" }}
               >
                 {/* Status indicator */}
                 <div

@@ -153,34 +153,57 @@ router.delete(
 
 type ConflictResult = { eventId: number; title: string; startTime: Date; endTime: Date };
 
-async function detectConflicts(
+type ResourceRef = { resourceType: "user" | "equipment"; resourceId: number };
+
+// Batches conflict detection across all assignees into one query per distinct
+// resourceType (at most 2), instead of one query per assignee.
+async function detectConflictsBatch(
   companyId: number,
-  resourceType: "user" | "equipment",
-  resourceId: number,
+  resources: ResourceRef[],
   startTime: Date,
   endTime: Date,
   excludeEventId?: number,
-): Promise<ConflictResult[]> {
-  const assigneesWithEvents = await db
-    .select({
-      eventId: scheduleEventAssigneesTable.eventId,
-      title: scheduleEventsTable.title,
-      startTime: scheduleEventsTable.startTime,
-      endTime: scheduleEventsTable.endTime,
-    })
-    .from(scheduleEventAssigneesTable)
-    .innerJoin(scheduleEventsTable, eq(scheduleEventsTable.id, scheduleEventAssigneesTable.eventId))
-    .where(
-      and(
-        eq(scheduleEventsTable.companyId, companyId),
-        eq(scheduleEventAssigneesTable.resourceType, resourceType),
-        eq(scheduleEventAssigneesTable.resourceId, resourceId),
-        lt(scheduleEventsTable.startTime, endTime),
-        gt(scheduleEventsTable.endTime, startTime),
-        ...(excludeEventId ? [ne(scheduleEventsTable.id, excludeEventId)] : []),
-      ),
-    );
-  return assigneesWithEvents;
+): Promise<Map<string, ConflictResult[]>> {
+  const results = new Map<string, ConflictResult[]>();
+  if (resources.length === 0) return results;
+
+  const idsByType = new Map<"user" | "equipment", Set<number>>();
+  for (const r of resources) {
+    if (!idsByType.has(r.resourceType)) idsByType.set(r.resourceType, new Set());
+    idsByType.get(r.resourceType)!.add(r.resourceId);
+  }
+
+  for (const [resourceType, idSet] of idsByType) {
+    const resourceIds = [...idSet];
+    const rows = await db
+      .select({
+        eventId: scheduleEventAssigneesTable.eventId,
+        resourceId: scheduleEventAssigneesTable.resourceId,
+        title: scheduleEventsTable.title,
+        startTime: scheduleEventsTable.startTime,
+        endTime: scheduleEventsTable.endTime,
+      })
+      .from(scheduleEventAssigneesTable)
+      .innerJoin(scheduleEventsTable, eq(scheduleEventsTable.id, scheduleEventAssigneesTable.eventId))
+      .where(
+        and(
+          eq(scheduleEventsTable.companyId, companyId),
+          eq(scheduleEventAssigneesTable.resourceType, resourceType),
+          inArray(scheduleEventAssigneesTable.resourceId, resourceIds),
+          lt(scheduleEventsTable.startTime, endTime),
+          gt(scheduleEventsTable.endTime, startTime),
+          ...(excludeEventId ? [ne(scheduleEventsTable.id, excludeEventId)] : []),
+        ),
+      );
+
+    for (const row of rows) {
+      const key = `${resourceType}:${row.resourceId}`;
+      if (!results.has(key)) results.set(key, []);
+      results.get(key)!.push({ eventId: row.eventId, title: row.title, startTime: row.startTime, endTime: row.endTime });
+    }
+  }
+
+  return results;
 }
 
 // GET /api/schedule/events
@@ -265,10 +288,12 @@ router.post(
 
     // Conflict detection (unless overridden)
     if (!allowConflict && Array.isArray(assignees) && assignees.length > 0) {
+      const resourceRefs = assignees as ResourceRef[];
+      const conflictsByResource = await detectConflictsBatch(req.companyId!, resourceRefs, start, end);
       const allConflicts: Array<{ resource: typeof assignees[0]; conflicts: ConflictResult[] }> = [];
-      for (const a of assignees as Array<{ resourceType: "user" | "equipment"; resourceId: number }>) {
-        const conflicts = await detectConflicts(req.companyId!, a.resourceType, a.resourceId, start, end);
-        if (conflicts.length > 0) allConflicts.push({ resource: a, conflicts });
+      for (const a of resourceRefs) {
+        const conflicts = conflictsByResource.get(`${a.resourceType}:${a.resourceId}`);
+        if (conflicts && conflicts.length > 0) allConflicts.push({ resource: a, conflicts });
       }
       if (allConflicts.length > 0) {
         res.status(409).json({ error: "Scheduling conflict detected", conflicts: allConflicts });
@@ -484,10 +509,11 @@ router.patch(
         .select()
         .from(scheduleEventAssigneesTable)
         .where(eq(scheduleEventAssigneesTable.eventId, id));
-      const checkList = assignees ?? currentAssignees.map((a) => ({ resourceType: a.resourceType, resourceId: a.resourceId }));
-      for (const a of checkList as Array<{ resourceType: "user" | "equipment"; resourceId: number }>) {
-        const conflicts = await detectConflicts(req.companyId!, a.resourceType, a.resourceId, start, end, id);
-        if (conflicts.length > 0) {
+      const checkList = (assignees ?? currentAssignees.map((a) => ({ resourceType: a.resourceType, resourceId: a.resourceId }))) as ResourceRef[];
+      const conflictsByResource = await detectConflictsBatch(req.companyId!, checkList, start, end, id);
+      for (const a of checkList) {
+        const conflicts = conflictsByResource.get(`${a.resourceType}:${a.resourceId}`);
+        if (conflicts && conflicts.length > 0) {
           res.status(409).json({ error: "Scheduling conflict detected", conflicts });
           return;
         }
