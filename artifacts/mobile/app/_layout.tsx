@@ -263,6 +263,10 @@ function RootLayoutNav() {
     }
   }, [isLoaded, isSignedIn]);
 
+  // Terms must be accepted before the user can interact with any app screen.
+  // Keep this above the routing effect so it can gate navigation.
+  const needsTerms = !!me && !me.termsAcceptedAt;
+
   useEffect(() => {
     if (!isLoaded) return;
     const inSignIn = segments[0] === "sign-in";
@@ -278,6 +282,10 @@ function RootLayoutNav() {
     const syncPending = isSignedIn && !synced;
     if (syncPending || meLoading || meFetching) return;
 
+    // If terms are pending, show the terms modal and do not navigate away
+    // from sign-in or onboarding (the modal overlays whatever is current).
+    if (needsTerms) return;
+
     // Phase 2: use activeCompanyId as source of truth; fallback to legacy companyId
     const hasCompany = !!me?.activeCompanyId;
     if (!hasCompany) {
@@ -285,9 +293,7 @@ function RootLayoutNav() {
     } else if (inSignIn || inOnboarding) {
       router.replace("/");
     }
-  }, [isSignedIn, isLoaded, segments, me, meLoading, meFetching, synced, router]);
-
-  const needsTerms = !!me && !me.termsAcceptedAt;
+  }, [isSignedIn, isLoaded, segments, me, meLoading, meFetching, synced, router, needsTerms]);
 
   return (
     <KeyboardProvider>
