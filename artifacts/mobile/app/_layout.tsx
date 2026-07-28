@@ -334,8 +334,14 @@ function RootLayoutNav() {
         <Stack.Screen name="tradehub-jobs" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-messages" options={{ headerShown: false }} />
       </Stack>
+        {/* Only mount the FAB after the user is authenticated and synced.
+            GlobalVoiceCommandFAB calls useAudioRecorder (expo-audio) which
+            initialises AVAudioSession on mount. On iOS with New Architecture
+            this crashes the native runtime when called before auth is ready.
+            Keeping the FAB inside ErrorBoundary means a future FAB crash
+            degrades gracefully instead of killing the whole layout. */}
+        {isSignedIn && synced && <GlobalVoiceCommandFAB />}
         </ErrorBoundary>
-      <GlobalVoiceCommandFAB />
     </View>
     </KeyboardProvider>
   );
