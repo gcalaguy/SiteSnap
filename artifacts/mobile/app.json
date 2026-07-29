@@ -44,7 +44,7 @@
       [
         "expo-router",
         {
-          "origin": "https://sitesnap.replit.app/"
+          "origin": "https://sitesnapdemo.replit.app/"
         }
       ],
       "expo-font",
