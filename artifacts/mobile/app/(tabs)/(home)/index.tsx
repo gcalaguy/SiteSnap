@@ -45,15 +45,6 @@ function isOverdue(dueDate?: string | null): boolean {
   return new Date(dueDate) < new Date();
 }
 
-// Defends against a non-array `data` reaching the .filter() calls below — e.g. a
-// persisted offline-cache entry hydrated before the real fetch resolves, or a
-// transient non-JSON response (HTML interstitial, etc.) from a cold-starting
-// deployment. Either would otherwise throw "X.filter is not a function" and
-// crash the whole dashboard on launch.
-function asArray<T>(value: readonly T[] | null | undefined): T[] {
-  return Array.isArray(value) ? [...value] : [];
-}
-
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -328,29 +319,26 @@ export default function DashboardScreen() {
 
   const perms = usePermissions();
 
-  const { data: myTasksData, refetch: refetchTasks } = useQuery<MyTask[]>({
+  const { data: myTasks = [], refetch: refetchTasks } = useQuery<MyTask[]>({
     queryKey: ["my-tasks"],
     // limit=200 is the endpoint's max — without it the default cap (100) can
     // silently undercount this tile for companies with many open tasks.
     queryFn: () => customFetch<MyTask[]>("/api/dashboard/my-tasks?limit=200"),
   });
-  const myTasks = asArray<MyTask>(myTasksData);
   const overdueTaskCount = myTasks.filter((t) => t.status !== "done" && isOverdue(t.dueDate)).length;
 
-  const { data: inspectionRowsData } = useQuery<InspectionRow[]>({
+  const { data: inspectionRows = [] } = useQuery<InspectionRow[]>({
     queryKey: ["inspections-mobile", null],
     queryFn: () => customFetch<InspectionRow[]>("/api/inspections"),
     enabled: perms.viewInspectTab,
   });
-  const inspectionRows = asArray<InspectionRow>(inspectionRowsData);
   const inspectionsDueCount = inspectionRows.filter((r) => r.inspection.status === "draft").length;
 
-  const { data: directivesData } = useQuery<Directive[]>({
+  const { data: directives = [] } = useQuery<Directive[]>({
     queryKey: ["compliance-directives", "all"],
     queryFn: () => customFetch<Directive[]>("/api/compliance/directives?status=PENDING"),
     staleTime: 60_000,
   });
-  const directives = asArray<Directive>(directivesData);
 
   const refreshing = summaryLoading || activityLoading || projectsLoading;
   const qc = useQueryClient();
@@ -372,7 +360,7 @@ export default function DashboardScreen() {
     me?.company?.name ??
     me?.memberships?.find((m) => m.companyId === me?.activeCompanyId)?.companyName ??
     null;
-  const allProjects = asArray(projects);
+  const allProjects = projects ?? [];
   const activeProjects = allProjects.filter((p) => p.status === "active" || p.status === "planning");
   const spotlightProjects = isWorker ? allProjects : activeProjects;
   const spotlight = spotlightProjects[0];
