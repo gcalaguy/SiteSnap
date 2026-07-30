@@ -159,7 +159,9 @@
       "Bash(gh extension *)",
       "Bash(gh --version)",
       "Bash(mkdir -p /tmp/claude-1000/-home-runner-workspace/2ae4c47d-07ae-4cf0-822d-6f9ff8726a96/scratchpad1)",
-      "Bash(replit --help)"
+      "Bash(replit --help)",
+      "Bash(xargs -I{} sh -c 'echo \"== {} ==\"; grep -m1 \"\\\\\"name\\\\\"\" {}')",
+      "Bash(awk 'NR>1 {print $2}')"
     ]
   }
 }
