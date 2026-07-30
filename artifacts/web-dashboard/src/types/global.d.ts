@@ -1,3 +1,5 @@
+/// <reference types="vite-plugin-pwa/client" />
+
 /**
  * Type augmentations for browser APIs and third-party libraries that lack
  * complete TypeScript definitions out-of-the-box.
