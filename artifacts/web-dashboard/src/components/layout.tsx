@@ -28,6 +28,7 @@ import {
   Menu,
   X,
   Package,
+  Download,
   DollarSign,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +44,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 
@@ -148,6 +151,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const markOne = useMarkNotificationRead();
 
   const unreadCount = unreadData?.count ?? 0;
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   const handleMarkAll = () => {
     markAll.mutate(undefined, {
@@ -618,6 +622,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {canInstall && (
+                <DropdownMenuItem onClick={promptInstall} className="cursor-pointer">
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>Install App</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => signOut({ redirectUrl: basePath || "/" })}
                 className="text-destructive focus:text-destructive cursor-pointer"
@@ -631,6 +641,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        <OfflineBanner />
         {/* Mobile header */}
         <header className="flex md:hidden h-14 items-center justify-between gap-3 px-4 flex-shrink-0"
           style={{ background: BLACK, borderBottom: `1px solid ${GOLD_BORDER}` }}>
