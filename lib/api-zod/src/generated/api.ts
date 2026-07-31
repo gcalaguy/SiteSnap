@@ -2174,6 +2174,7 @@ export const GetEmailIntegrationsStatusResponse = zod.object({
       syncFrequency: zod.enum(["15min", "hourly", "daily"]),
       lastSyncAt: zod.coerce.date().nullish(),
       lastSyncError: zod.string().nullish(),
+      mailboxType: zod.enum(["personal", "shared"]).optional(),
     }),
   ),
   outlookConfigured: zod.boolean(),
@@ -2183,6 +2184,15 @@ export const GetEmailIntegrationsStatusResponse = zod.object({
 /**
  * @summary Get the OAuth authorization URL to connect an Outlook mailbox
  */
+export const GetEmailIntegrationsOutlookAuthUrlQueryParams = zod.object({
+  sharedMailboxAddress: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "If set, connects this shared mailbox (via the signing-in user's Exchange delegate access) instead of the user's own inbox.",
+    ),
+});
+
 export const GetEmailIntegrationsOutlookAuthUrlResponse = zod.object({
   url: zod.string(),
 });
@@ -2232,6 +2242,7 @@ export const UpdateEmailIntegrationAccountResponse = zod.object({
   syncFrequency: zod.enum(["15min", "hourly", "daily"]),
   lastSyncAt: zod.coerce.date().nullish(),
   lastSyncError: zod.string().nullish(),
+  mailboxType: zod.enum(["personal", "shared"]).optional(),
 });
 
 /**
@@ -2464,6 +2475,22 @@ export const GetProjectCommunicationThreadResponse = zod.object({
             filename: zod.string(),
             contentType: zod.string().nullish(),
             sizeBytes: zod.number().nullish(),
+            category: zod
+              .union([
+                zod.literal("pdf"),
+                zod.literal("word"),
+                zod.literal("excel"),
+                zod.literal("image"),
+                zod.literal("cad"),
+                zod.literal("blueprint"),
+                zod.literal("quote"),
+                zod.literal("invoice"),
+                zod.literal("inspection_report"),
+                zod.literal("permit"),
+                zod.literal("other"),
+                zod.literal(null),
+              ])
+              .nullish(),
           }),
         )
         .optional(),
@@ -2509,6 +2536,134 @@ export const GetProjectCommunicationAttachmentUrlResponse = zod.object({
   url: zod.string(),
   filename: zod.string(),
   contentType: zod.string().nullable(),
+});
+
+/**
+ * @summary List categorized email attachments across a project's threads
+ */
+export const ListProjectCommunicationAttachmentsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectCommunicationAttachmentsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListProjectCommunicationAttachmentsResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        filename: zod.string(),
+        contentType: zod.string().nullish(),
+        sizeBytes: zod.number().nullish(),
+        category: zod
+          .union([
+            zod.literal("pdf"),
+            zod.literal("word"),
+            zod.literal("excel"),
+            zod.literal("image"),
+            zod.literal("cad"),
+            zod.literal("blueprint"),
+            zod.literal("quote"),
+            zod.literal("invoice"),
+            zod.literal("inspection_report"),
+            zod.literal("permit"),
+            zod.literal("other"),
+            zod.literal(null),
+          ])
+          .nullish(),
+      })
+      .and(
+        zod.object({
+          threadId: zod.number(),
+          documentId: zod
+            .number()
+            .nullable()
+            .describe(
+              "Set once this attachment has been promoted into the project's document library.",
+            ),
+        }),
+      ),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary AI summaries feed for a project's synced emails
+ */
+export const ListProjectCommunicationSummariesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectCommunicationSummariesQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListProjectCommunicationSummariesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      thread_id: zod.number(),
+      subject: zod.string().nullish(),
+      from_email: zod.string().nullish(),
+      from_name: zod.string().nullish(),
+      sent_at: zod.coerce.date(),
+      ai_summary: zod.string(),
+      ai_trade: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary AI-derived chronological project events, each linking back to its source email
+ */
+export const ListProjectCommunicationTimelineParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectCommunicationTimelineQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+  eventType: zod.coerce.string().optional(),
+});
+
+export const ListProjectCommunicationTimelineResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number().optional(),
+      projectId: zod.number().nullish(),
+      threadId: zod.number(),
+      messageId: zod
+        .number()
+        .describe("Links this event back to its source email."),
+      eventType: zod.enum([
+        "permit_submitted",
+        "permit_approved",
+        "permit_rejected",
+        "inspection_scheduled",
+        "inspection_passed",
+        "inspection_failed",
+        "change_order_received",
+        "change_order_approved",
+        "invoice_sent",
+        "invoice_paid",
+        "payment_requested",
+        "quote_sent",
+        "quote_accepted",
+        "other",
+      ]),
+      eventDate: zod.coerce.date().nullish(),
+      description: zod.string(),
+      confidence: zod.number().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
 });
 
 /**
@@ -2562,6 +2717,12 @@ export const ListUncategorizedEmailsQueryParams = zod.object({
     ),
   limit: zod.coerce.number().optional(),
   offset: zod.coerce.number().optional(),
+  suggestedProjectId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      'Phase 4 — scope to threads the matching engine suggested for this one project (used by the mobile per-project \"Suggested Matches\" tab).',
+    ),
 });
 
 export const ListUncategorizedEmailsResponse = zod.object({
@@ -3025,12 +3186,97 @@ export const SearchCommunicationsBody = zod.object({
   dateFrom: zod.string().optional(),
   dateTo: zod.string().optional(),
   attachmentTypes: zod
-    .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+    .array(
+      zod.enum([
+        "pdf",
+        "word",
+        "excel",
+        "image",
+        "cad",
+        "blueprint",
+        "quote",
+        "invoice",
+        "inspection_report",
+        "permit",
+        "other",
+      ]),
+    )
     .optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   flagged: zod.boolean().optional(),
   hasConversation: zod.boolean().optional(),
   projectId: zod.number().nullish(),
+  conditionTree: zod
+    .object({
+      logic: zod.enum(["AND", "OR"]),
+      conditions: zod.array(
+        zod.union([
+          zod.object({
+            field: zod.enum([
+              "subject",
+              "from_email",
+              "from_name",
+              "to_emails",
+              "cc_emails",
+              "body_text",
+              "thread_category",
+              "priority",
+              "flagged",
+              "attachment_type",
+              "project_number",
+              "date_sent",
+            ]),
+            operator: zod.enum([
+              "contains",
+              "not_contains",
+              "equals",
+              "starts_with",
+              "before",
+              "after",
+              "is_true",
+              "is_false",
+            ]),
+            value: zod.string().optional(),
+          }),
+          zod.object({
+            logic: zod.enum(["AND", "OR"]),
+            conditions: zod.array(
+              zod.object({
+                field: zod.enum([
+                  "subject",
+                  "from_email",
+                  "from_name",
+                  "to_emails",
+                  "cc_emails",
+                  "body_text",
+                  "thread_category",
+                  "priority",
+                  "flagged",
+                  "attachment_type",
+                  "project_number",
+                  "date_sent",
+                ]),
+                operator: zod.enum([
+                  "contains",
+                  "not_contains",
+                  "equals",
+                  "starts_with",
+                  "before",
+                  "after",
+                  "is_true",
+                  "is_false",
+                ]),
+                value: zod.string().optional(),
+              }),
+            ),
+          }),
+        ]),
+      ),
+    })
+    .optional()
+    .describe(
+      "Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.",
+    ),
 });
 
 export const SearchCommunicationsResponse = zod.object({
@@ -3069,12 +3315,97 @@ export const ListCommunicationSearchTemplatesResponse = zod.object({
         dateFrom: zod.string().optional(),
         dateTo: zod.string().optional(),
         attachmentTypes: zod
-          .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+          .array(
+            zod.enum([
+              "pdf",
+              "word",
+              "excel",
+              "image",
+              "cad",
+              "blueprint",
+              "quote",
+              "invoice",
+              "inspection_report",
+              "permit",
+              "other",
+            ]),
+          )
           .optional(),
         priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
         flagged: zod.boolean().optional(),
         hasConversation: zod.boolean().optional(),
         projectId: zod.number().nullish(),
+        conditionTree: zod
+          .object({
+            logic: zod.enum(["AND", "OR"]),
+            conditions: zod.array(
+              zod.union([
+                zod.object({
+                  field: zod.enum([
+                    "subject",
+                    "from_email",
+                    "from_name",
+                    "to_emails",
+                    "cc_emails",
+                    "body_text",
+                    "thread_category",
+                    "priority",
+                    "flagged",
+                    "attachment_type",
+                    "project_number",
+                    "date_sent",
+                  ]),
+                  operator: zod.enum([
+                    "contains",
+                    "not_contains",
+                    "equals",
+                    "starts_with",
+                    "before",
+                    "after",
+                    "is_true",
+                    "is_false",
+                  ]),
+                  value: zod.string().optional(),
+                }),
+                zod.object({
+                  logic: zod.enum(["AND", "OR"]),
+                  conditions: zod.array(
+                    zod.object({
+                      field: zod.enum([
+                        "subject",
+                        "from_email",
+                        "from_name",
+                        "to_emails",
+                        "cc_emails",
+                        "body_text",
+                        "thread_category",
+                        "priority",
+                        "flagged",
+                        "attachment_type",
+                        "project_number",
+                        "date_sent",
+                      ]),
+                      operator: zod.enum([
+                        "contains",
+                        "not_contains",
+                        "equals",
+                        "starts_with",
+                        "before",
+                        "after",
+                        "is_true",
+                        "is_false",
+                      ]),
+                      value: zod.string().optional(),
+                    }),
+                  ),
+                }),
+              ]),
+            ),
+          })
+          .optional()
+          .describe(
+            "Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.",
+          ),
       }),
       createdAt: zod.coerce.date().optional(),
       updatedAt: zod.coerce.date().optional(),
@@ -3099,12 +3430,97 @@ export const CreateCommunicationSearchTemplateBody = zod.object({
     dateFrom: zod.string().optional(),
     dateTo: zod.string().optional(),
     attachmentTypes: zod
-      .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+      .array(
+        zod.enum([
+          "pdf",
+          "word",
+          "excel",
+          "image",
+          "cad",
+          "blueprint",
+          "quote",
+          "invoice",
+          "inspection_report",
+          "permit",
+          "other",
+        ]),
+      )
       .optional(),
     priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
     flagged: zod.boolean().optional(),
     hasConversation: zod.boolean().optional(),
     projectId: zod.number().nullish(),
+    conditionTree: zod
+      .object({
+        logic: zod.enum(["AND", "OR"]),
+        conditions: zod.array(
+          zod.union([
+            zod.object({
+              field: zod.enum([
+                "subject",
+                "from_email",
+                "from_name",
+                "to_emails",
+                "cc_emails",
+                "body_text",
+                "thread_category",
+                "priority",
+                "flagged",
+                "attachment_type",
+                "project_number",
+                "date_sent",
+              ]),
+              operator: zod.enum([
+                "contains",
+                "not_contains",
+                "equals",
+                "starts_with",
+                "before",
+                "after",
+                "is_true",
+                "is_false",
+              ]),
+              value: zod.string().optional(),
+            }),
+            zod.object({
+              logic: zod.enum(["AND", "OR"]),
+              conditions: zod.array(
+                zod.object({
+                  field: zod.enum([
+                    "subject",
+                    "from_email",
+                    "from_name",
+                    "to_emails",
+                    "cc_emails",
+                    "body_text",
+                    "thread_category",
+                    "priority",
+                    "flagged",
+                    "attachment_type",
+                    "project_number",
+                    "date_sent",
+                  ]),
+                  operator: zod.enum([
+                    "contains",
+                    "not_contains",
+                    "equals",
+                    "starts_with",
+                    "before",
+                    "after",
+                    "is_true",
+                    "is_false",
+                  ]),
+                  value: zod.string().optional(),
+                }),
+              ),
+            }),
+          ]),
+        ),
+      })
+      .optional()
+      .describe(
+        "Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.",
+      ),
   }),
 });
 
@@ -4786,14 +5202,32 @@ export const ListDocumentsParams = zod.object({
 export const ListDocumentsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
-  uploadedByUserId: zod.number(),
+  companyId: zod.number(),
+  uploadedByUserId: zod
+    .number()
+    .nullable()
+    .describe(
+      "Null when this document was auto-promoted from a synced email attachment rather than manually uploaded.",
+    ),
   filename: zod.string(),
   fileType: zod.string(),
   objectPath: zod.string(),
   fileSize: zod.number().nullish(),
-  status: zod.enum(["pending", "processing", "ready", "failed"]),
+  status: zod.enum([
+    "pending",
+    "processing",
+    "processing_ocr",
+    "ready",
+    "failed",
+  ]),
   extractedData: zod.record(zod.string(), zod.unknown()).nullish(),
   aiSummary: zod.string().nullish(),
+  sourceEmailAttachmentId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Set when this document was promoted from an email attachment (Phase 4) — links back to the original email.",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);
@@ -4837,14 +5271,32 @@ export const ExtractDocumentParams = zod.object({
 export const ExtractDocumentResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
-  uploadedByUserId: zod.number(),
+  companyId: zod.number(),
+  uploadedByUserId: zod
+    .number()
+    .nullable()
+    .describe(
+      "Null when this document was auto-promoted from a synced email attachment rather than manually uploaded.",
+    ),
   filename: zod.string(),
   fileType: zod.string(),
   objectPath: zod.string(),
   fileSize: zod.number().nullish(),
-  status: zod.enum(["pending", "processing", "ready", "failed"]),
+  status: zod.enum([
+    "pending",
+    "processing",
+    "processing_ocr",
+    "ready",
+    "failed",
+  ]),
   extractedData: zod.record(zod.string(), zod.unknown()).nullish(),
   aiSummary: zod.string().nullish(),
+  sourceEmailAttachmentId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Set when this document was promoted from an email attachment (Phase 4) — links back to the original email.",
+    ),
   createdAt: zod.coerce.date(),
 });
 

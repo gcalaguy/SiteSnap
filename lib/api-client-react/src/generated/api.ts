@@ -142,6 +142,7 @@ import type {
   FinancialSummary,
   FormSubmissionRecord,
   FormTemplateRecord,
+  GetEmailIntegrationsOutlookAuthUrlParams,
   GetFormSubmission200,
   GetProjectCommunicationAttachmentUrl200,
   GetProjectCommunicationThread200,
@@ -172,8 +173,14 @@ import type {
   ListFilesParams,
   ListFormSubmissionsParams,
   ListInspectionsParams,
+  ListProjectCommunicationAttachments200,
+  ListProjectCommunicationAttachmentsParams,
+  ListProjectCommunicationSummaries200,
+  ListProjectCommunicationSummariesParams,
   ListProjectCommunicationThreads200,
   ListProjectCommunicationThreadsParams,
+  ListProjectCommunicationTimeline200,
+  ListProjectCommunicationTimelineParams,
   ListProjectMatchKeywords200,
   ListRFIsParams,
   ListSafetySignoffsParams,
@@ -6902,15 +6909,30 @@ export function useGetEmailIntegrationsStatus<
 /**
  * @summary Get the OAuth authorization URL to connect an Outlook mailbox
  */
-export const getGetEmailIntegrationsOutlookAuthUrlUrl = () => {
-  return `/api/email-integrations/outlook/auth-url`;
+export const getGetEmailIntegrationsOutlookAuthUrlUrl = (
+  params?: GetEmailIntegrationsOutlookAuthUrlParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/email-integrations/outlook/auth-url?${stringifiedParams}`
+    : `/api/email-integrations/outlook/auth-url`;
 };
 
 export const getEmailIntegrationsOutlookAuthUrl = async (
+  params?: GetEmailIntegrationsOutlookAuthUrlParams,
   options?: RequestInit,
 ): Promise<EmailIntegrationAuthUrl> => {
   return customFetch<EmailIntegrationAuthUrl>(
-    getGetEmailIntegrationsOutlookAuthUrlUrl(),
+    getGetEmailIntegrationsOutlookAuthUrlUrl(params),
     {
       ...options,
       method: "GET",
@@ -6918,30 +6940,39 @@ export const getEmailIntegrationsOutlookAuthUrl = async (
   );
 };
 
-export const getGetEmailIntegrationsOutlookAuthUrlQueryKey = () => {
-  return [`/api/email-integrations/outlook/auth-url`] as const;
+export const getGetEmailIntegrationsOutlookAuthUrlQueryKey = (
+  params?: GetEmailIntegrationsOutlookAuthUrlParams,
+) => {
+  return [
+    `/api/email-integrations/outlook/auth-url`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetEmailIntegrationsOutlookAuthUrlQueryOptions = <
   TData = Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
   TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetEmailIntegrationsOutlookAuthUrlParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetEmailIntegrationsOutlookAuthUrlQueryKey();
+    queryOptions?.queryKey ??
+    getGetEmailIntegrationsOutlookAuthUrlQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>
   > = ({ signal }) =>
-    getEmailIntegrationsOutlookAuthUrl({ signal, ...requestOptions });
+    getEmailIntegrationsOutlookAuthUrl(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
@@ -6962,16 +6993,21 @@ export type GetEmailIntegrationsOutlookAuthUrlQueryError = ErrorType<void>;
 export function useGetEmailIntegrationsOutlookAuthUrl<
   TData = Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
   TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions =
-    getGetEmailIntegrationsOutlookAuthUrlQueryOptions(options);
+>(
+  params?: GetEmailIntegrationsOutlookAuthUrlParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmailIntegrationsOutlookAuthUrlQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -7967,6 +8003,378 @@ export function useGetProjectCommunicationAttachmentUrl<
   const queryOptions = getGetProjectCommunicationAttachmentUrlQueryOptions(
     projectId,
     attachmentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List categorized email attachments across a project's threads
+ */
+export const getListProjectCommunicationAttachmentsUrl = (
+  projectId: number,
+  params?: ListProjectCommunicationAttachmentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/communications/attachments?${stringifiedParams}`
+    : `/api/projects/${projectId}/communications/attachments`;
+};
+
+export const listProjectCommunicationAttachments = async (
+  projectId: number,
+  params?: ListProjectCommunicationAttachmentsParams,
+  options?: RequestInit,
+): Promise<ListProjectCommunicationAttachments200> => {
+  return customFetch<ListProjectCommunicationAttachments200>(
+    getListProjectCommunicationAttachmentsUrl(projectId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectCommunicationAttachmentsQueryKey = (
+  projectId: number,
+  params?: ListProjectCommunicationAttachmentsParams,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/attachments`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListProjectCommunicationAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectCommunicationAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationAttachmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListProjectCommunicationAttachmentsQueryKey(projectId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectCommunicationAttachments>>
+  > = ({ signal }) =>
+    listProjectCommunicationAttachments(projectId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectCommunicationAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectCommunicationAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectCommunicationAttachments>>
+>;
+export type ListProjectCommunicationAttachmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List categorized email attachments across a project's threads
+ */
+
+export function useListProjectCommunicationAttachments<
+  TData = Awaited<ReturnType<typeof listProjectCommunicationAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationAttachmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectCommunicationAttachmentsQueryOptions(
+    projectId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI summaries feed for a project's synced emails
+ */
+export const getListProjectCommunicationSummariesUrl = (
+  projectId: number,
+  params?: ListProjectCommunicationSummariesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/communications/summaries?${stringifiedParams}`
+    : `/api/projects/${projectId}/communications/summaries`;
+};
+
+export const listProjectCommunicationSummaries = async (
+  projectId: number,
+  params?: ListProjectCommunicationSummariesParams,
+  options?: RequestInit,
+): Promise<ListProjectCommunicationSummaries200> => {
+  return customFetch<ListProjectCommunicationSummaries200>(
+    getListProjectCommunicationSummariesUrl(projectId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectCommunicationSummariesQueryKey = (
+  projectId: number,
+  params?: ListProjectCommunicationSummariesParams,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/summaries`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListProjectCommunicationSummariesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectCommunicationSummaries>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationSummariesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationSummaries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListProjectCommunicationSummariesQueryKey(projectId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectCommunicationSummaries>>
+  > = ({ signal }) =>
+    listProjectCommunicationSummaries(projectId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectCommunicationSummaries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectCommunicationSummariesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectCommunicationSummaries>>
+>;
+export type ListProjectCommunicationSummariesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary AI summaries feed for a project's synced emails
+ */
+
+export function useListProjectCommunicationSummaries<
+  TData = Awaited<ReturnType<typeof listProjectCommunicationSummaries>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationSummariesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationSummaries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectCommunicationSummariesQueryOptions(
+    projectId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI-derived chronological project events, each linking back to its source email
+ */
+export const getListProjectCommunicationTimelineUrl = (
+  projectId: number,
+  params?: ListProjectCommunicationTimelineParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/communications/timeline?${stringifiedParams}`
+    : `/api/projects/${projectId}/communications/timeline`;
+};
+
+export const listProjectCommunicationTimeline = async (
+  projectId: number,
+  params?: ListProjectCommunicationTimelineParams,
+  options?: RequestInit,
+): Promise<ListProjectCommunicationTimeline200> => {
+  return customFetch<ListProjectCommunicationTimeline200>(
+    getListProjectCommunicationTimelineUrl(projectId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectCommunicationTimelineQueryKey = (
+  projectId: number,
+  params?: ListProjectCommunicationTimelineParams,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/timeline`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListProjectCommunicationTimelineQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectCommunicationTimeline>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationTimelineParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationTimeline>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListProjectCommunicationTimelineQueryKey(projectId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectCommunicationTimeline>>
+  > = ({ signal }) =>
+    listProjectCommunicationTimeline(projectId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectCommunicationTimeline>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectCommunicationTimelineQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectCommunicationTimeline>>
+>;
+export type ListProjectCommunicationTimelineQueryError = ErrorType<unknown>;
+
+/**
+ * @summary AI-derived chronological project events, each linking back to its source email
+ */
+
+export function useListProjectCommunicationTimeline<
+  TData = Awaited<ReturnType<typeof listProjectCommunicationTimeline>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationTimelineParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationTimeline>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectCommunicationTimelineQueryOptions(
+    projectId,
+    params,
     options,
   );
 

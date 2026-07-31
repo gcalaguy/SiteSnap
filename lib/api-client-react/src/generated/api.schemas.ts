@@ -841,6 +841,7 @@ export type ProjectDocumentStatus =
 export const ProjectDocumentStatus = {
   pending: "pending",
   processing: "processing",
+  processing_ocr: "processing_ocr",
   ready: "ready",
   failed: "failed",
 } as const;
@@ -850,7 +851,12 @@ export type ProjectDocumentExtractedData = { [key: string]: unknown } | null;
 export interface ProjectDocument {
   id: number;
   projectId: number;
-  uploadedByUserId: number;
+  companyId: number;
+  /**
+   * Null when this document was auto-promoted from a synced email attachment rather than manually uploaded.
+   * @nullable
+   */
+  uploadedByUserId: number | null;
   filename: string;
   fileType: string;
   objectPath: string;
@@ -858,6 +864,11 @@ export interface ProjectDocument {
   status: ProjectDocumentStatus;
   extractedData?: ProjectDocumentExtractedData;
   aiSummary?: string | null;
+  /**
+   * Set when this document was promoted from an email attachment (Phase 4) — links back to the original email.
+   * @nullable
+   */
+  sourceEmailAttachmentId?: number | null;
   createdAt: string;
 }
 
@@ -3144,6 +3155,14 @@ export const EmailAccountSyncFrequency = {
   daily: "daily",
 } as const;
 
+export type EmailAccountMailboxType =
+  (typeof EmailAccountMailboxType)[keyof typeof EmailAccountMailboxType];
+
+export const EmailAccountMailboxType = {
+  personal: "personal",
+  shared: "shared",
+} as const;
+
 export interface EmailAccount {
   id: number;
   provider: EmailAccountProvider;
@@ -3157,6 +3176,7 @@ export interface EmailAccount {
   lastSyncAt?: string | null;
   /** @nullable */
   lastSyncError?: string | null;
+  mailboxType?: EmailAccountMailboxType;
 }
 
 export interface EmailIntegrationsStatus {
@@ -3287,6 +3307,27 @@ export interface EmailAiEntities {
   actionItems?: string[];
 }
 
+/**
+ * @nullable
+ */
+export type EmailAttachmentCategory =
+  | (typeof EmailAttachmentCategory)[keyof typeof EmailAttachmentCategory]
+  | null;
+
+export const EmailAttachmentCategory = {
+  pdf: "pdf",
+  word: "word",
+  excel: "excel",
+  image: "image",
+  cad: "cad",
+  blueprint: "blueprint",
+  quote: "quote",
+  invoice: "invoice",
+  inspection_report: "inspection_report",
+  permit: "permit",
+  other: "other",
+} as const;
+
 export interface EmailAttachment {
   id: number;
   filename: string;
@@ -3294,6 +3335,8 @@ export interface EmailAttachment {
   contentType?: string | null;
   /** @nullable */
   sizeBytes?: number | null;
+  /** @nullable */
+  category?: EmailAttachmentCategory;
 }
 
 export interface EmailMessage {
@@ -3339,6 +3382,67 @@ export interface AiSearchResult {
   ai_summary?: string | null;
   /** @nullable */
   ai_trade?: string | null;
+}
+
+export type ProjectAttachment = EmailAttachment & {
+  threadId: number;
+  /**
+   * Set once this attachment has been promoted into the project's document library.
+   * @nullable
+   */
+  documentId: number | null;
+};
+
+export interface MessageSummary {
+  id: number;
+  thread_id: number;
+  /** @nullable */
+  subject?: string | null;
+  /** @nullable */
+  from_email?: string | null;
+  /** @nullable */
+  from_name?: string | null;
+  sent_at: string;
+  ai_summary: string;
+  /** @nullable */
+  ai_trade?: string | null;
+}
+
+export type CommunicationTimelineEventEventType =
+  (typeof CommunicationTimelineEventEventType)[keyof typeof CommunicationTimelineEventEventType];
+
+export const CommunicationTimelineEventEventType = {
+  permit_submitted: "permit_submitted",
+  permit_approved: "permit_approved",
+  permit_rejected: "permit_rejected",
+  inspection_scheduled: "inspection_scheduled",
+  inspection_passed: "inspection_passed",
+  inspection_failed: "inspection_failed",
+  change_order_received: "change_order_received",
+  change_order_approved: "change_order_approved",
+  invoice_sent: "invoice_sent",
+  invoice_paid: "invoice_paid",
+  payment_requested: "payment_requested",
+  quote_sent: "quote_sent",
+  quote_accepted: "quote_accepted",
+  other: "other",
+} as const;
+
+export interface CommunicationTimelineEvent {
+  id: number;
+  companyId?: number;
+  /** @nullable */
+  projectId?: number | null;
+  threadId: number;
+  /** Links this event back to its source email. */
+  messageId: number;
+  eventType: CommunicationTimelineEventEventType;
+  /** @nullable */
+  eventDate?: string | null;
+  description: string;
+  /** @nullable */
+  confidence?: number | null;
+  createdAt: string;
 }
 
 export interface EmailSearchResult {
@@ -3442,6 +3546,73 @@ export interface EmailFilingRule {
   updatedAt?: string;
 }
 
+export type SearchConditionField =
+  (typeof SearchConditionField)[keyof typeof SearchConditionField];
+
+export const SearchConditionField = {
+  subject: "subject",
+  from_email: "from_email",
+  from_name: "from_name",
+  to_emails: "to_emails",
+  cc_emails: "cc_emails",
+  body_text: "body_text",
+  thread_category: "thread_category",
+  priority: "priority",
+  flagged: "flagged",
+  attachment_type: "attachment_type",
+  project_number: "project_number",
+  date_sent: "date_sent",
+} as const;
+
+export type SearchConditionOperator =
+  (typeof SearchConditionOperator)[keyof typeof SearchConditionOperator];
+
+export const SearchConditionOperator = {
+  contains: "contains",
+  not_contains: "not_contains",
+  equals: "equals",
+  starts_with: "starts_with",
+  before: "before",
+  after: "after",
+  is_true: "is_true",
+  is_false: "is_false",
+} as const;
+
+export interface SearchCondition {
+  field: SearchConditionField;
+  operator: SearchConditionOperator;
+  value?: string;
+}
+
+export type SearchConditionLeafGroupLogic =
+  (typeof SearchConditionLeafGroupLogic)[keyof typeof SearchConditionLeafGroupLogic];
+
+export const SearchConditionLeafGroupLogic = {
+  AND: "AND",
+  OR: "OR",
+} as const;
+
+export interface SearchConditionLeafGroup {
+  logic: SearchConditionLeafGroupLogic;
+  conditions: SearchCondition[];
+}
+
+export type SearchConditionGroupLogic =
+  (typeof SearchConditionGroupLogic)[keyof typeof SearchConditionGroupLogic];
+
+export const SearchConditionGroupLogic = {
+  AND: "AND",
+  OR: "OR",
+} as const;
+
+/**
+ * Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.
+ */
+export interface SearchConditionGroup {
+  logic: SearchConditionGroupLogic;
+  conditions: (SearchCondition | SearchConditionLeafGroup)[];
+}
+
 export type CommunicationSearchCriteriaAttachmentTypesItem =
   (typeof CommunicationSearchCriteriaAttachmentTypesItem)[keyof typeof CommunicationSearchCriteriaAttachmentTypesItem];
 
@@ -3451,6 +3622,12 @@ export const CommunicationSearchCriteriaAttachmentTypesItem = {
   excel: "excel",
   image: "image",
   cad: "cad",
+  blueprint: "blueprint",
+  quote: "quote",
+  invoice: "invoice",
+  inspection_report: "inspection_report",
+  permit: "permit",
+  other: "other",
 } as const;
 
 export type CommunicationSearchCriteriaPriority =
@@ -3480,6 +3657,7 @@ export interface CommunicationSearchCriteria {
   hasConversation?: boolean;
   /** @nullable */
   projectId?: number | null;
+  conditionTree?: SearchConditionGroup;
 }
 
 export interface CommunicationSearchTemplate {
@@ -3553,6 +3731,13 @@ export type DisconnectQuickBooks200 = {
   ok: boolean;
 };
 
+export type GetEmailIntegrationsOutlookAuthUrlParams = {
+  /**
+   * If set, connects this shared mailbox (via the signing-in user's Exchange delegate access) instead of the user's own inbox.
+   */
+  sharedMailboxAddress?: string;
+};
+
 export type ListEmailIntegrationFolders200 = {
   folders: EmailMailFolder[];
 };
@@ -3593,6 +3778,37 @@ export type GetProjectCommunicationAttachmentUrl200 = {
   contentType: string | null;
 };
 
+export type ListProjectCommunicationAttachmentsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListProjectCommunicationAttachments200 = {
+  data: ProjectAttachment[];
+  total: number;
+};
+
+export type ListProjectCommunicationSummariesParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListProjectCommunicationSummaries200 = {
+  data: MessageSummary[];
+  total: number;
+};
+
+export type ListProjectCommunicationTimelineParams = {
+  limit?: number;
+  offset?: number;
+  eventType?: string;
+};
+
+export type ListProjectCommunicationTimeline200 = {
+  data: CommunicationTimelineEvent[];
+  total: number;
+};
+
 export type ListProjectMatchKeywords200 = {
   data: ProjectMatchKeyword[];
 };
@@ -3608,6 +3824,10 @@ export type ListUncategorizedEmailsParams = {
   status?: string;
   limit?: number;
   offset?: number;
+  /**
+   * Phase 4 — scope to threads the matching engine suggested for this one project (used by the mobile per-project "Suggested Matches" tab).
+   */
+  suggestedProjectId?: number;
 };
 
 export type ListUncategorizedEmails200 = {
