@@ -21,16 +21,36 @@ export function verifyOAuthState(payload: string, sig: string, secret: string): 
   }
 }
 
+export interface OAuthStateInitiator {
+  userId: number;
+  userName: string;
+  userRole: string;
+}
+
 /**
- * Encodes {companyId, ts, sharedMailboxAddress?} into the base64url `state`
- * param sent to the provider. sharedMailboxAddress (Phase 4, Outlook shared
- * mailboxes only) must be chosen before the OAuth redirect and carried
+ * Encodes {companyId, ts, sharedMailboxAddress?, initiator} into the base64url
+ * `state` param sent to the provider. sharedMailboxAddress (Phase 4, Outlook
+ * shared mailboxes only) must be chosen before the OAuth redirect and carried
  * through here — Microsoft's consent screen has no way to surface it, and
  * the callback needs it to know which mailbox to connect (as opposed to the
- * connecting user's own).
+ * connecting user's own). `initiator` carries the connecting admin's identity
+ * across the redirect the same way — the callback is unauthenticated (no
+ * Clerk session survives the round trip to Microsoft/Google and back), so
+ * this is the only way it can attribute the connected account / audit log
+ * entry to the user who actually clicked "Connect" rather than leaving it
+ * anonymous.
  */
-export function buildOAuthState(companyId: number, secret: string, sharedMailboxAddress?: string): string {
-  const payload = JSON.stringify({ companyId, ts: Date.now(), sharedMailboxAddress: sharedMailboxAddress ?? null });
+export function buildOAuthState(
+  companyId: number,
+  secret: string,
+  opts?: { sharedMailboxAddress?: string; initiator?: OAuthStateInitiator },
+): string {
+  const payload = JSON.stringify({
+    companyId,
+    ts: Date.now(),
+    sharedMailboxAddress: opts?.sharedMailboxAddress ?? null,
+    initiator: opts?.initiator ?? null,
+  });
   const sig = signOAuthState(payload, secret);
   return Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
 }
@@ -39,13 +59,17 @@ export function buildOAuthState(companyId: number, secret: string, sharedMailbox
 export function parseOAuthState(
   state: string,
   secret: string,
-): { companyId: number; sharedMailboxAddress: string | null } {
+): { companyId: number; sharedMailboxAddress: string | null; initiator: OAuthStateInitiator | null } {
   const outer = JSON.parse(Buffer.from(state, "base64url").toString());
   if (!outer.payload || !outer.sig) throw new Error("malformed_state");
   if (!verifyOAuthState(outer.payload, outer.sig, secret)) throw new Error("invalid_signature");
   const decoded = JSON.parse(outer.payload);
   if (!decoded.companyId) throw new Error("missing_company");
-  return { companyId: decoded.companyId, sharedMailboxAddress: decoded.sharedMailboxAddress ?? null };
+  return {
+    companyId: decoded.companyId,
+    sharedMailboxAddress: decoded.sharedMailboxAddress ?? null,
+    initiator: decoded.initiator ?? null,
+  };
 }
 
 /**

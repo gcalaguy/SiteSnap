@@ -5,7 +5,7 @@ import { requireFeature } from "../lib/featureGate";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { BadRequestError, NotFoundError } from "../lib/errors";
-import { buildOAuthState, parseOAuthState, getOAuthRedirectUri, getAppBaseUrl } from "../lib/oauthState";
+import { buildOAuthState, parseOAuthState, getOAuthRedirectUri, getAppBaseUrl, type OAuthStateInitiator } from "../lib/oauthState";
 import {
   listEmailAccounts,
   getEmailAccount,
@@ -31,7 +31,7 @@ import {
   listGmailLabels,
 } from "../services/emailOAuthService";
 import { syncEmailAccount } from "../services/emailSyncService";
-import { logAuditEventFromRequest } from "../utils/logger";
+import { logAuditEventFromRequest, logAuditEvent } from "../utils/logger";
 import { assertProjectInCompany } from "../lib/projectAccess";
 
 const router = Router();
@@ -90,7 +90,10 @@ router.get(
     // flow before this redirect — see the "My Inbox"/"Shared Mailbox" toggle
     // in app/email-integrations.tsx.
     const sharedMailboxAddress = (req.query.sharedMailboxAddress as string | undefined)?.trim() || undefined;
-    const state = buildOAuthState(req.companyId!, getStateSecret(), sharedMailboxAddress);
+    const state = buildOAuthState(req.companyId!, getStateSecret(), {
+      sharedMailboxAddress,
+      initiator: { userId: req.userId!, userName: req.userDisplayName || "", userRole: req.userRole ?? "unknown" },
+    });
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID ?? "",
       scope: MICROSOFT_SCOPES,
@@ -115,7 +118,9 @@ router.get(
       res.status(503).json({ error: "Gmail integration not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
       return;
     }
-    const state = buildOAuthState(req.companyId!, getStateSecret());
+    const state = buildOAuthState(req.companyId!, getStateSecret(), {
+      initiator: { userId: req.userId!, userName: req.userDisplayName || "", userRole: req.userRole ?? "unknown" },
+    });
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID ?? "",
       scope: GOOGLE_SCOPES,
@@ -143,8 +148,9 @@ router.get(
     }
     let companyId: number;
     let sharedMailboxAddress: string | null;
+    let initiator: OAuthStateInitiator | null;
     try {
-      ({ companyId, sharedMailboxAddress } = parseOAuthState(state, getStateSecret()));
+      ({ companyId, sharedMailboxAddress, initiator } = parseOAuthState(state, getStateSecret()));
     } catch {
       res.redirect(`${basePath}/settings?email=error&provider=outlook&reason=invalid_state`);
       return;
@@ -155,7 +161,7 @@ router.get(
       const profile = await fetchOutlookProfile(tokens.accessToken);
       await createOrUpdateEmailAccount({
         companyId,
-        connectedByUserId: null,
+        connectedByUserId: initiator?.userId ?? null,
         provider: "outlook",
         // Shared mailbox: the connected account IS the shared mailbox, not the
         // connecting user's own identity — the delegate's token is still used
@@ -176,6 +182,16 @@ router.get(
         lastSyncError: null,
         nextSyncDueAt: new Date(),
       });
+      if (initiator) {
+        logAuditEvent({
+          userId: initiator.userId.toString(),
+          userName: initiator.userName || initiator.userId.toString(),
+          userRole: initiator.userRole,
+          action: "Email Integration Connected",
+          details: `Connected Outlook account ${sharedMailboxAddress ?? profile.email}${sharedMailboxAddress ? " (shared mailbox)" : ""}`,
+          companyId: companyId.toString(),
+        }).catch(() => {});
+      }
       res.redirect(`${basePath}/settings?email=connected&provider=outlook`);
     } catch (err: any) {
       res.redirect(`${basePath}/settings?email=error&provider=outlook&reason=${encodeURIComponent(err?.message ?? "token_exchange_failed")}`);
@@ -193,8 +209,9 @@ router.get(
       return;
     }
     let companyId: number;
+    let initiator: OAuthStateInitiator | null;
     try {
-      ({ companyId } = parseOAuthState(state, getStateSecret()));
+      ({ companyId, initiator } = parseOAuthState(state, getStateSecret()));
     } catch {
       res.redirect(`${basePath}/settings?email=error&provider=gmail&reason=invalid_state`);
       return;
@@ -205,7 +222,7 @@ router.get(
       const profile = await fetchGoogleProfile(tokens.accessToken);
       await createOrUpdateEmailAccount({
         companyId,
-        connectedByUserId: null,
+        connectedByUserId: initiator?.userId ?? null,
         provider: "gmail",
         emailAddress: profile.email,
         displayName: profile.displayName,
@@ -221,6 +238,16 @@ router.get(
         lastSyncError: null,
         nextSyncDueAt: new Date(),
       });
+      if (initiator) {
+        logAuditEvent({
+          userId: initiator.userId.toString(),
+          userName: initiator.userName || initiator.userId.toString(),
+          userRole: initiator.userRole,
+          action: "Email Integration Connected",
+          details: `Connected Gmail account ${profile.email}`,
+          companyId: companyId.toString(),
+        }).catch(() => {});
+      }
       res.redirect(`${basePath}/settings?email=connected&provider=gmail`);
     } catch (err: any) {
       res.redirect(`${basePath}/settings?email=error&provider=gmail&reason=${encodeURIComponent(err?.message ?? "token_exchange_failed")}`);
@@ -313,6 +340,7 @@ router.post(
     if (account.status === "disconnected") throw new BadRequestError("Account is disconnected");
 
     const result = await syncEmailAccount(account);
+    logAuditEventFromRequest(req, "Email Integration Sync Triggered", `Manually synced ${account.emailAddress} (account ${accountId})`).catch(() => {});
     res.json(result);
   }),
 );

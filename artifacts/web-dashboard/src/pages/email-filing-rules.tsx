@@ -334,10 +334,14 @@ export default function EmailFilingRulesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
-  const isOwner = me?.role === "owner" || me?.systemRole === "super_admin";
+  const hasPerm = (key: string): boolean => {
+    if (!me?.permissions) return true;
+    return (me.permissions as Record<string, boolean>)[key] !== false;
+  };
+  const canManage = hasPerm("manageFilingRules");
 
   const { data, isLoading } = useListEmailFilingRules({
-    query: { queryKey: getListEmailFilingRulesQueryKey(), enabled: isOwner },
+    query: { queryKey: getListEmailFilingRulesQueryKey(), enabled: canManage },
   });
   const { data: projects = [] } = useListProjects();
 
@@ -347,11 +351,11 @@ export default function EmailFilingRulesPage() {
   const [editingRule, setEditingRule] = useState<EmailFilingRule | null>(null);
   const [deleting, setDeleting] = useState<EmailFilingRule | null>(null);
 
-  if (!isOwner) {
+  if (!canManage) {
     return (
       <div className="py-16 flex flex-col items-center text-center">
         <AlertTriangle className="w-10 h-10 text-amber-400 mb-3" />
-        <p className="text-sm font-medium">Only company owners can manage Automatic Filing Rules.</p>
+        <p className="text-sm font-medium">You don't have permission to manage Automatic Filing Rules.</p>
       </div>
     );
   }
