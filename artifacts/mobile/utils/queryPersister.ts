@@ -36,7 +36,12 @@ export async function hydrateQueryCache(queryClient: QueryClient): Promise<void>
     for (const entry of parsed.entries) {
       const existing = queryClient.getQueryState(entry.queryKey);
       if (existing?.status !== "success") {
-        queryClient.setQueryData(entry.queryKey, entry.data);
+        // Preserve the original fetch time instead of stamping "now" — otherwise
+        // setQueryData marks hydrated data as fresh for a full staleTime window
+        // (e.g. 30s for getMe), so routing decisions (like the has-company check
+        // in app/_layout.tsx) can act on outdated data instead of triggering an
+        // immediate background refetch on mount.
+        queryClient.setQueryData(entry.queryKey, entry.data, { updatedAt: parsed.timestamp });
       }
     }
   } catch {

@@ -1,4 +1,9 @@
-const CACHE_NAME = 'sitesnap-v1';
+// Bumped to evict caches from the old cache-first-forever strategy below,
+// which served /api/* GET responses (e.g. /api/v1/users/me) from cache
+// indefinitely — never revalidating, so server-side state changes (like a
+// newly-linked company) never reached clients until they manually cleared
+// site data.
+const CACHE_NAME = 'sitesnap-v2';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -36,6 +41,13 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+  // Never cache API responses — they reflect live server/DB state (auth,
+  // company membership, etc.) and must always hit the network.
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 
