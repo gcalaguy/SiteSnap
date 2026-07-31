@@ -31,6 +31,7 @@ export * from "./voiceInspection";
 export * from "./backup";
 export * from "./psi";
 export * from "./documentTemplates";
+export * from "./communications";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -159,6 +160,9 @@ export const memberPermissionsSchema = z.object({
   viewEstimator: z.boolean().optional(),
   viewTradeHub: z.boolean().optional(),
   viewAskAI: z.boolean().optional(),
+  manageEmailIntegrations: z.boolean().optional(),
+  viewProjectCommunications: z.boolean().optional(),
+  manageFilingRules: z.boolean().optional(),
 });
 export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
 
@@ -237,10 +241,20 @@ export const projectsTable = pgTable("projects", {
   endDate: date("end_date"),
   budget: numeric("budget", { precision: 12, scale: 2 }),
   description: text("description"),
+  // Added for the Project Communications Hub's matching engine (Phase 2), which
+  // scores inbound emails against these identifiers. Nullable/free-text since
+  // orgs assign their own numbering schemes.
+  projectNumber: text("project_number"),
+  poNumber: text("po_number"),
+  primaryContactId: integer("primary_contact_id").references(() => contactsTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_projects_company_id").on(t.companyId),
   index("idx_projects_company_id_id").on(t.companyId, t.id),
+  index("idx_projects_primary_contact").on(t.primaryContactId),
+  uniqueIndex("uq_projects_company_project_number").on(t.companyId, t.projectNumber),
 ]);
 
 export const insertProjectSchema = createInsertSchema(projectsTable).omit({

@@ -65,6 +65,12 @@ import corRouter from "./cor";
 import psiRouter from "./psi";
 import safetyScanRouter from "./safetyScan";
 import voiceInspectionRouter from "./voiceInspection";
+import emailIntegrationsRouter from "./emailIntegrations";
+import projectCommunicationsRouter from "./projectCommunications";
+import uncategorizedEmailsRouter from "./uncategorizedEmails";
+import emailFilingRulesRouter from "./emailFilingRules";
+import communicationSearchRouter from "./communicationSearch";
+import communicationsAiSearchRouter from "./communicationsAiSearch";
 
 const router: IRouter = Router();
 
@@ -147,5 +153,11 @@ router.use(corRouter);
 router.use(psiRouter);
 router.use(safetyScanRouter);
 router.use(voiceInspectionRouter);
+router.use(emailIntegrationsRouter);
+router.use("/projects/:projectId/communications", projectCommunicationsRouter);
+router.use(uncategorizedEmailsRouter);
+router.use(emailFilingRulesRouter);
+router.use(communicationSearchRouter);
+router.use(communicationsAiSearchRouter);
 
 export default router;

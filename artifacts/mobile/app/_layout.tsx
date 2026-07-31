@@ -335,6 +335,10 @@ function RootLayoutNav() {
         <Stack.Screen name="calculators" options={{ headerShown: false }} />
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="email-integrations" options={{ headerShown: false }} />
+        <Stack.Screen name="uncategorized-emails" options={{ headerShown: false }} />
+        <Stack.Screen name="email-filing-rules" options={{ headerShown: false }} />
+        <Stack.Screen name="communications-search" options={{ headerShown: false }} />
         <Stack.Screen name="permits" options={{ headerShown: false }} />
         <Stack.Screen name="expenses" options={{ headerShown: false }} />
         <Stack.Screen name="vault" options={{ headerShown: false }} />

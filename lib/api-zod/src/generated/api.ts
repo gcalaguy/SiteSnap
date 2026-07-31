@@ -2160,6 +2160,962 @@ export const SyncQuickBooksCostsResponse = zod.object({
 });
 
 /**
+ * @summary List connected Outlook/Gmail accounts and provider configuration status
+ */
+export const GetEmailIntegrationsStatusResponse = zod.object({
+  accounts: zod.array(
+    zod.object({
+      id: zod.number(),
+      provider: zod.enum(["outlook", "gmail"]),
+      emailAddress: zod.string(),
+      displayName: zod.string().nullish(),
+      status: zod.enum(["active", "disconnected", "error", "reauth_required"]),
+      selectedFolders: zod.array(zod.string()).nullish(),
+      syncFrequency: zod.enum(["15min", "hourly", "daily"]),
+      lastSyncAt: zod.coerce.date().nullish(),
+      lastSyncError: zod.string().nullish(),
+    }),
+  ),
+  outlookConfigured: zod.boolean(),
+  gmailConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Get the OAuth authorization URL to connect an Outlook mailbox
+ */
+export const GetEmailIntegrationsOutlookAuthUrlResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Get the OAuth authorization URL to connect a Gmail mailbox
+ */
+export const GetEmailIntegrationsGmailAuthUrlResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary List mail folders/labels available on a connected account, for the folder-selection picker
+ */
+export const ListEmailIntegrationFoldersParams = zod.object({
+  accountId: zod.coerce.number(),
+});
+
+export const ListEmailIntegrationFoldersResponse = zod.object({
+  folders: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update folder selection and/or sync frequency for a connected account
+ */
+export const UpdateEmailIntegrationAccountParams = zod.object({
+  accountId: zod.coerce.number(),
+});
+
+export const UpdateEmailIntegrationAccountBody = zod.object({
+  selectedFolders: zod.array(zod.string()).optional(),
+  syncFrequency: zod.enum(["15min", "hourly", "daily"]).optional(),
+});
+
+export const UpdateEmailIntegrationAccountResponse = zod.object({
+  id: zod.number(),
+  provider: zod.enum(["outlook", "gmail"]),
+  emailAddress: zod.string(),
+  displayName: zod.string().nullish(),
+  status: zod.enum(["active", "disconnected", "error", "reauth_required"]),
+  selectedFolders: zod.array(zod.string()).nullish(),
+  syncFrequency: zod.enum(["15min", "hourly", "daily"]),
+  lastSyncAt: zod.coerce.date().nullish(),
+  lastSyncError: zod.string().nullish(),
+});
+
+/**
+ * @summary Disconnect a connected email account (soft — history is retained)
+ */
+export const DisconnectEmailIntegrationAccountParams = zod.object({
+  accountId: zod.coerce.number(),
+});
+
+/**
+ * @summary Manually trigger an immediate sync pass for a connected account
+ */
+export const SyncEmailIntegrationAccountNowParams = zod.object({
+  accountId: zod.coerce.number(),
+});
+
+export const SyncEmailIntegrationAccountNowResponse = zod.object({
+  synced: zod.number(),
+  error: zod.string().optional(),
+});
+
+/**
+ * @summary Manually assign (or unassign) an email thread to a project
+ */
+export const AssignEmailThreadToProjectParams = zod.object({
+  threadId: zod.coerce.number(),
+});
+
+export const AssignEmailThreadToProjectBody = zod.object({
+  projectId: zod.number().nullable(),
+});
+
+export const AssignEmailThreadToProjectResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number().nullish(),
+  providerThreadId: zod.string(),
+  subject: zod.string().nullish(),
+  participantEmails: zod.array(zod.string()).nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
+  messageCount: zod.number(),
+  triageStatus: zod.enum([
+    "unassigned",
+    "suggested",
+    "assigned",
+    "archived",
+    "ignored",
+    "merged",
+  ]),
+  suggestedProjectId: zod.number().nullish(),
+  matchConfidence: zod.number().nullish(),
+  matchReasons: zod
+    .array(
+      zod.object({
+        signal: zod.string(),
+        value: zod.string(),
+        points: zod.number(),
+      }),
+    )
+    .nullish(),
+  matchSource: zod
+    .union([
+      zod.literal("engine"),
+      zod.literal("rule"),
+      zod.literal("manual"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  category: zod.string().nullish(),
+  flagged: zod.boolean(),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  mergedIntoThreadId: zod.number().nullish(),
+  latestAiSummary: zod.string().nullish(),
+  latestAiTrade: zod.string().nullish(),
+});
+
+/**
+ * @summary List email threads assigned to a project
+ */
+export const ListProjectCommunicationThreadsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectCommunicationThreadsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListProjectCommunicationThreadsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectId: zod.number().nullish(),
+      providerThreadId: zod.string(),
+      subject: zod.string().nullish(),
+      participantEmails: zod.array(zod.string()).nullish(),
+      lastMessageAt: zod.coerce.date().nullish(),
+      messageCount: zod.number(),
+      triageStatus: zod.enum([
+        "unassigned",
+        "suggested",
+        "assigned",
+        "archived",
+        "ignored",
+        "merged",
+      ]),
+      suggestedProjectId: zod.number().nullish(),
+      matchConfidence: zod.number().nullish(),
+      matchReasons: zod
+        .array(
+          zod.object({
+            signal: zod.string(),
+            value: zod.string(),
+            points: zod.number(),
+          }),
+        )
+        .nullish(),
+      matchSource: zod
+        .union([
+          zod.literal("engine"),
+          zod.literal("rule"),
+          zod.literal("manual"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      category: zod.string().nullish(),
+      flagged: zod.boolean(),
+      priority: zod.enum(["low", "medium", "high", "urgent"]),
+      mergedIntoThreadId: zod.number().nullish(),
+      latestAiSummary: zod.string().nullish(),
+      latestAiTrade: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get a thread and its messages
+ */
+export const GetProjectCommunicationThreadParams = zod.object({
+  projectId: zod.coerce.number(),
+  threadId: zod.coerce.number(),
+});
+
+export const GetProjectCommunicationThreadResponse = zod.object({
+  thread: zod.object({
+    id: zod.number(),
+    projectId: zod.number().nullish(),
+    providerThreadId: zod.string(),
+    subject: zod.string().nullish(),
+    participantEmails: zod.array(zod.string()).nullish(),
+    lastMessageAt: zod.coerce.date().nullish(),
+    messageCount: zod.number(),
+    triageStatus: zod.enum([
+      "unassigned",
+      "suggested",
+      "assigned",
+      "archived",
+      "ignored",
+      "merged",
+    ]),
+    suggestedProjectId: zod.number().nullish(),
+    matchConfidence: zod.number().nullish(),
+    matchReasons: zod
+      .array(
+        zod.object({
+          signal: zod.string(),
+          value: zod.string(),
+          points: zod.number(),
+        }),
+      )
+      .nullish(),
+    matchSource: zod
+      .union([
+        zod.literal("engine"),
+        zod.literal("rule"),
+        zod.literal("manual"),
+        zod.literal(null),
+      ])
+      .nullish(),
+    category: zod.string().nullish(),
+    flagged: zod.boolean(),
+    priority: zod.enum(["low", "medium", "high", "urgent"]),
+    mergedIntoThreadId: zod.number().nullish(),
+    latestAiSummary: zod.string().nullish(),
+    latestAiTrade: zod.string().nullish(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      threadId: zod.number(),
+      fromEmail: zod.string().nullish(),
+      fromName: zod.string().nullish(),
+      toEmails: zod.array(zod.string()).nullish(),
+      ccEmails: zod.array(zod.string()).nullish(),
+      subject: zod.string().nullish(),
+      bodyText: zod.string().nullish(),
+      bodyHtml: zod.string().nullish(),
+      hasAttachments: zod.boolean(),
+      sentAt: zod.coerce.date(),
+      aiTrade: zod.string().nullish(),
+      aiSummary: zod.string().nullish(),
+      aiEntities: zod
+        .object({
+          projectMentions: zod.array(zod.string()).optional(),
+          clientMentions: zod.array(zod.string()).optional(),
+          vendorMentions: zod.array(zod.string()).optional(),
+          inspectionMentioned: zod.boolean().optional(),
+          permitNumbers: zod.array(zod.string()).optional(),
+          invoiceNumbers: zod.array(zod.string()).optional(),
+          quoteNumbers: zod.array(zod.string()).optional(),
+          poNumbers: zod.array(zod.string()).optional(),
+          changeOrderMentions: zod.array(zod.string()).optional(),
+          deadlines: zod
+            .array(
+              zod.object({
+                description: zod.string(),
+                date: zod.string().nullable(),
+              }),
+            )
+            .optional(),
+          risks: zod.array(zod.string()).optional(),
+          actionItems: zod.array(zod.string()).optional(),
+        })
+        .nullish(),
+      aiExtractedAt: zod.coerce.date().nullish(),
+      attachments: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            filename: zod.string(),
+            contentType: zod.string().nullish(),
+            sizeBytes: zod.number().nullish(),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Keyword search over a project's synced emails
+ */
+export const SearchProjectCommunicationsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const SearchProjectCommunicationsQueryParams = zod.object({
+  q: zod.coerce.string(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const SearchProjectCommunicationsResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      id: zod.number(),
+      thread_id: zod.number(),
+      subject: zod.string().nullish(),
+      from_email: zod.string().nullish(),
+      from_name: zod.string().nullish(),
+      sent_at: zod.coerce.date(),
+      rank: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a short-lived signed read URL for an email attachment
+ */
+export const GetProjectCommunicationAttachmentUrlParams = zod.object({
+  projectId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
+
+export const GetProjectCommunicationAttachmentUrlResponse = zod.object({
+  url: zod.string(),
+  filename: zod.string(),
+  contentType: zod.string().nullable(),
+});
+
+/**
+ * @summary List user-defined keywords the matching engine scores this project against
+ */
+export const ListProjectMatchKeywordsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectMatchKeywordsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      projectId: zod.number(),
+      keyword: zod.string(),
+      createdByUserId: zod.number().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a user-defined matching keyword to a project
+ */
+export const AddProjectMatchKeywordParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AddProjectMatchKeywordBody = zod.object({
+  keyword: zod.string(),
+});
+
+/**
+ * @summary Remove a user-defined matching keyword from a project
+ */
+export const RemoveProjectMatchKeywordParams = zod.object({
+  projectId: zod.coerce.number(),
+  keywordId: zod.coerce.number(),
+});
+
+/**
+ * @summary List email threads the matching engine couldn't confidently file (the global inbox)
+ */
+export const ListUncategorizedEmailsQueryParams = zod.object({
+  status: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated triage statuses to include (default unassigned,suggested)",
+    ),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListUncategorizedEmailsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectId: zod.number().nullish(),
+      providerThreadId: zod.string(),
+      subject: zod.string().nullish(),
+      participantEmails: zod.array(zod.string()).nullish(),
+      lastMessageAt: zod.coerce.date().nullish(),
+      messageCount: zod.number(),
+      triageStatus: zod.enum([
+        "unassigned",
+        "suggested",
+        "assigned",
+        "archived",
+        "ignored",
+        "merged",
+      ]),
+      suggestedProjectId: zod.number().nullish(),
+      matchConfidence: zod.number().nullish(),
+      matchReasons: zod
+        .array(
+          zod.object({
+            signal: zod.string(),
+            value: zod.string(),
+            points: zod.number(),
+          }),
+        )
+        .nullish(),
+      matchSource: zod
+        .union([
+          zod.literal("engine"),
+          zod.literal("rule"),
+          zod.literal("manual"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      category: zod.string().nullish(),
+      flagged: zod.boolean(),
+      priority: zod.enum(["low", "medium", "high", "urgent"]),
+      mergedIntoThreadId: zod.number().nullish(),
+      latestAiSummary: zod.string().nullish(),
+      latestAiTrade: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Archive an uncategorized thread
+ */
+export const ArchiveUncategorizedEmailParams = zod.object({
+  threadId: zod.coerce.number(),
+});
+
+export const ArchiveUncategorizedEmailResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number().nullish(),
+  providerThreadId: zod.string(),
+  subject: zod.string().nullish(),
+  participantEmails: zod.array(zod.string()).nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
+  messageCount: zod.number(),
+  triageStatus: zod.enum([
+    "unassigned",
+    "suggested",
+    "assigned",
+    "archived",
+    "ignored",
+    "merged",
+  ]),
+  suggestedProjectId: zod.number().nullish(),
+  matchConfidence: zod.number().nullish(),
+  matchReasons: zod
+    .array(
+      zod.object({
+        signal: zod.string(),
+        value: zod.string(),
+        points: zod.number(),
+      }),
+    )
+    .nullish(),
+  matchSource: zod
+    .union([
+      zod.literal("engine"),
+      zod.literal("rule"),
+      zod.literal("manual"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  category: zod.string().nullish(),
+  flagged: zod.boolean(),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  mergedIntoThreadId: zod.number().nullish(),
+  latestAiSummary: zod.string().nullish(),
+  latestAiTrade: zod.string().nullish(),
+});
+
+/**
+ * @summary Ignore an uncategorized thread
+ */
+export const IgnoreUncategorizedEmailParams = zod.object({
+  threadId: zod.coerce.number(),
+});
+
+export const IgnoreUncategorizedEmailResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number().nullish(),
+  providerThreadId: zod.string(),
+  subject: zod.string().nullish(),
+  participantEmails: zod.array(zod.string()).nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
+  messageCount: zod.number(),
+  triageStatus: zod.enum([
+    "unassigned",
+    "suggested",
+    "assigned",
+    "archived",
+    "ignored",
+    "merged",
+  ]),
+  suggestedProjectId: zod.number().nullish(),
+  matchConfidence: zod.number().nullish(),
+  matchReasons: zod
+    .array(
+      zod.object({
+        signal: zod.string(),
+        value: zod.string(),
+        points: zod.number(),
+      }),
+    )
+    .nullish(),
+  matchSource: zod
+    .union([
+      zod.literal("engine"),
+      zod.literal("rule"),
+      zod.literal("manual"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  category: zod.string().nullish(),
+  flagged: zod.boolean(),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  mergedIntoThreadId: zod.number().nullish(),
+  latestAiSummary: zod.string().nullish(),
+  latestAiTrade: zod.string().nullish(),
+});
+
+/**
+ * @summary Assign multiple uncategorized threads to a project at once
+ */
+export const BulkAssignUncategorizedEmailsBody = zod.object({
+  threadIds: zod.array(zod.number()),
+  projectId: zod.number(),
+});
+
+export const BulkAssignUncategorizedEmailsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectId: zod.number().nullish(),
+      providerThreadId: zod.string(),
+      subject: zod.string().nullish(),
+      participantEmails: zod.array(zod.string()).nullish(),
+      lastMessageAt: zod.coerce.date().nullish(),
+      messageCount: zod.number(),
+      triageStatus: zod.enum([
+        "unassigned",
+        "suggested",
+        "assigned",
+        "archived",
+        "ignored",
+        "merged",
+      ]),
+      suggestedProjectId: zod.number().nullish(),
+      matchConfidence: zod.number().nullish(),
+      matchReasons: zod
+        .array(
+          zod.object({
+            signal: zod.string(),
+            value: zod.string(),
+            points: zod.number(),
+          }),
+        )
+        .nullish(),
+      matchSource: zod
+        .union([
+          zod.literal("engine"),
+          zod.literal("rule"),
+          zod.literal("manual"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      category: zod.string().nullish(),
+      flagged: zod.boolean(),
+      priority: zod.enum(["low", "medium", "high", "urgent"]),
+      mergedIntoThreadId: zod.number().nullish(),
+      latestAiSummary: zod.string().nullish(),
+      latestAiTrade: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Merge one thread's messages into another (same real conversation, two provider threads)
+ */
+export const MergeUncategorizedEmailThreadsBody = zod.object({
+  sourceThreadId: zod.number(),
+  targetThreadId: zod.number(),
+});
+
+export const MergeUncategorizedEmailThreadsResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number().nullish(),
+  providerThreadId: zod.string(),
+  subject: zod.string().nullish(),
+  participantEmails: zod.array(zod.string()).nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
+  messageCount: zod.number(),
+  triageStatus: zod.enum([
+    "unassigned",
+    "suggested",
+    "assigned",
+    "archived",
+    "ignored",
+    "merged",
+  ]),
+  suggestedProjectId: zod.number().nullish(),
+  matchConfidence: zod.number().nullish(),
+  matchReasons: zod
+    .array(
+      zod.object({
+        signal: zod.string(),
+        value: zod.string(),
+        points: zod.number(),
+      }),
+    )
+    .nullish(),
+  matchSource: zod
+    .union([
+      zod.literal("engine"),
+      zod.literal("rule"),
+      zod.literal("manual"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  category: zod.string().nullish(),
+  flagged: zod.boolean(),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  mergedIntoThreadId: zod.number().nullish(),
+  latestAiSummary: zod.string().nullish(),
+  latestAiTrade: zod.string().nullish(),
+});
+
+/**
+ * @summary Create a new project from an uncategorized thread and assign it
+ */
+export const CreateProjectAndAssignUncategorizedEmailParams = zod.object({
+  threadId: zod.coerce.number(),
+});
+
+export const CreateProjectAndAssignUncategorizedEmailBody = zod.object({
+  name: zod.string(),
+  address: zod.string(),
+  city: zod.string(),
+  province: zod.string(),
+});
+
+/**
+ * @summary List automatic filing rules, priority-ordered
+ */
+export const ListEmailFilingRulesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number().optional(),
+      name: zod.string(),
+      isEnabled: zod.boolean(),
+      priority: zod.number(),
+      conditionLogic: zod.enum(["AND", "OR"]),
+      conditions: zod.array(
+        zod.object({
+          field: zod.enum([
+            "subject",
+            "from_email",
+            "from_name",
+            "to_emails",
+            "cc_emails",
+            "body_text",
+          ]),
+          operator: zod.enum(["contains", "equals", "starts_with"]),
+          value: zod.string(),
+        }),
+      ),
+      actions: zod.array(
+        zod.object({
+          type: zod.enum(["move_to_project", "assign_category"]),
+          projectId: zod.number().optional(),
+          category: zod.string().optional(),
+        }),
+      ),
+      createdByUserId: zod.number().nullish(),
+      createdAt: zod.coerce.date().optional(),
+      updatedAt: zod.coerce.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an automatic filing rule
+ */
+export const CreateEmailFilingRuleBody = zod.object({
+  name: zod.string(),
+  isEnabled: zod.boolean().optional(),
+  priority: zod.number().optional(),
+  conditionLogic: zod.enum(["AND", "OR"]).optional(),
+  conditions: zod.array(
+    zod.object({
+      field: zod.enum([
+        "subject",
+        "from_email",
+        "from_name",
+        "to_emails",
+        "cc_emails",
+        "body_text",
+      ]),
+      operator: zod.enum(["contains", "equals", "starts_with"]),
+      value: zod.string(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      type: zod.enum(["move_to_project", "assign_category"]),
+      projectId: zod.number().optional(),
+      category: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update an automatic filing rule
+ */
+export const UpdateEmailFilingRuleParams = zod.object({
+  ruleId: zod.coerce.number(),
+});
+
+export const UpdateEmailFilingRuleBody = zod.object({
+  name: zod.string().optional(),
+  isEnabled: zod.boolean().optional(),
+  priority: zod.number().optional(),
+  conditionLogic: zod.enum(["AND", "OR"]).optional(),
+  conditions: zod
+    .array(
+      zod.object({
+        field: zod.enum([
+          "subject",
+          "from_email",
+          "from_name",
+          "to_emails",
+          "cc_emails",
+          "body_text",
+        ]),
+        operator: zod.enum(["contains", "equals", "starts_with"]),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
+  actions: zod
+    .array(
+      zod.object({
+        type: zod.enum(["move_to_project", "assign_category"]),
+        projectId: zod.number().optional(),
+        category: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const UpdateEmailFilingRuleResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number().optional(),
+  name: zod.string(),
+  isEnabled: zod.boolean(),
+  priority: zod.number(),
+  conditionLogic: zod.enum(["AND", "OR"]),
+  conditions: zod.array(
+    zod.object({
+      field: zod.enum([
+        "subject",
+        "from_email",
+        "from_name",
+        "to_emails",
+        "cc_emails",
+        "body_text",
+      ]),
+      operator: zod.enum(["contains", "equals", "starts_with"]),
+      value: zod.string(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      type: zod.enum(["move_to_project", "assign_category"]),
+      projectId: zod.number().optional(),
+      category: zod.string().optional(),
+    }),
+  ),
+  createdByUserId: zod.number().nullish(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Delete an automatic filing rule
+ */
+export const DeleteEmailFilingRuleParams = zod.object({
+  ruleId: zod.coerce.number(),
+});
+
+/**
+ * @summary Natural-language search over synced emails ("Show all plumbing emails", "What invoices arrived this month?")
+ */
+export const SearchCommunicationsAiBody = zod.object({
+  query: zod.string(),
+});
+
+export const SearchCommunicationsAiResponse = zod.object({
+  answer: zod.string().nullable(),
+  results: zod.array(
+    zod.object({
+      id: zod.number(),
+      thread_id: zod.number(),
+      subject: zod.string().nullish(),
+      from_email: zod.string().nullish(),
+      from_name: zod.string().nullish(),
+      sent_at: zod.coerce.date(),
+      project_id: zod.number().nullish(),
+      ai_summary: zod.string().nullish(),
+      ai_trade: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Structured, company-wide email search (Search Builder)
+ */
+export const SearchCommunicationsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+});
+
+export const SearchCommunicationsBody = zod.object({
+  keywords: zod.string().optional(),
+  subject: zod.string().optional(),
+  sender: zod.string().optional(),
+  recipient: zod.string().optional(),
+  client: zod.string().optional(),
+  vendor: zod.string().optional(),
+  address: zod.string().optional(),
+  projectNumber: zod.string().optional(),
+  dateFrom: zod.string().optional(),
+  dateTo: zod.string().optional(),
+  attachmentTypes: zod
+    .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+    .optional(),
+  priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
+  flagged: zod.boolean().optional(),
+  hasConversation: zod.boolean().optional(),
+  projectId: zod.number().nullish(),
+});
+
+export const SearchCommunicationsResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      id: zod.number(),
+      thread_id: zod.number(),
+      subject: zod.string().nullish(),
+      from_email: zod.string().nullish(),
+      from_name: zod.string().nullish(),
+      sent_at: zod.coerce.date(),
+      project_id: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary List saved search templates
+ */
+export const ListCommunicationSearchTemplatesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number().optional(),
+      createdByUserId: zod.number().nullish(),
+      name: zod.string(),
+      criteria: zod.object({
+        keywords: zod.string().optional(),
+        subject: zod.string().optional(),
+        sender: zod.string().optional(),
+        recipient: zod.string().optional(),
+        client: zod.string().optional(),
+        vendor: zod.string().optional(),
+        address: zod.string().optional(),
+        projectNumber: zod.string().optional(),
+        dateFrom: zod.string().optional(),
+        dateTo: zod.string().optional(),
+        attachmentTypes: zod
+          .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+          .optional(),
+        priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
+        flagged: zod.boolean().optional(),
+        hasConversation: zod.boolean().optional(),
+        projectId: zod.number().nullish(),
+      }),
+      createdAt: zod.coerce.date().optional(),
+      updatedAt: zod.coerce.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save a search as a reusable named template
+ */
+export const CreateCommunicationSearchTemplateBody = zod.object({
+  name: zod.string(),
+  criteria: zod.object({
+    keywords: zod.string().optional(),
+    subject: zod.string().optional(),
+    sender: zod.string().optional(),
+    recipient: zod.string().optional(),
+    client: zod.string().optional(),
+    vendor: zod.string().optional(),
+    address: zod.string().optional(),
+    projectNumber: zod.string().optional(),
+    dateFrom: zod.string().optional(),
+    dateTo: zod.string().optional(),
+    attachmentTypes: zod
+      .array(zod.enum(["pdf", "word", "excel", "image", "cad"]))
+      .optional(),
+    priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
+    flagged: zod.boolean().optional(),
+    hasConversation: zod.boolean().optional(),
+    projectId: zod.number().nullish(),
+  }),
+});
+
+/**
+ * @summary Delete a saved search template
+ */
+export const DeleteCommunicationSearchTemplateParams = zod.object({
+  templateId: zod.coerce.number(),
+});
+
+/**
  * @summary Get document numbering and terms settings for a company
  */
 export const GetCompanySettingsParams = zod.object({
@@ -2661,6 +3617,12 @@ export const ListProjectsResponseItem = zod.object({
     })
     .nullish(),
   complianceAlert: zod.boolean().nullish(),
+  coverPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
@@ -2721,6 +3683,12 @@ export const GetProjectResponse = zod.object({
     })
     .nullish(),
   complianceAlert: zod.boolean().nullish(),
+  coverPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+    ),
   createdAt: zod.coerce.date(),
 });
 
@@ -2777,6 +3745,12 @@ export const UpdateProjectResponse = zod.object({
     })
     .nullish(),
   complianceAlert: zod.boolean().nullish(),
+  coverPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+    ),
   createdAt: zod.coerce.date(),
 });
 
@@ -7770,6 +8744,12 @@ export const GetComplianceDashboardResponseItem = zod.object({
       })
       .nullish(),
     complianceAlert: zod.boolean().nullish(),
+    coverPhotoUrl: zod
+      .string()
+      .nullish()
+      .describe(
+        "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+      ),
     createdAt: zod.coerce.date(),
   }),
   pending: zod.number(),

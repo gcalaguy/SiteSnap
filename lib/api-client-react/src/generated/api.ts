@@ -28,6 +28,7 @@ import type {
   AcceptInvitation410,
   ActivityItem,
   AddPhotoBody,
+  AddProjectMatchKeywordBody,
   AddProjectMemberBody,
   AddTradehubCommentBody,
   AddonBody,
@@ -35,15 +36,20 @@ import type {
   ApplyToTradehubJobBody,
   ApproveProposalBody,
   ApproveTimesheetBody,
+  AssignEmailThreadToProjectBody,
   AssignInvoiceBody,
   BillingSeats,
   BuilderEstimate,
   BuilderEstimateItem,
   BuilderEstimateWithItems,
+  BulkAssignUncategorizedEmails200,
+  BulkAssignUncategorizedEmailsBody,
   BulkImportCostCatalog201,
   BulkImportCostCatalogBody,
   CalendarEventBody,
   ChangeOrderRecord,
+  CommunicationSearchCriteria,
+  CommunicationSearchTemplate,
   Company,
   CompanyDocumentSettingsUpdate,
   CompanyLogoUpdate,
@@ -69,11 +75,13 @@ import type {
   CreateActivityBody,
   CreateBuilderEstimateBody,
   CreateChangeOrderBody,
+  CreateCommunicationSearchTemplateBody,
   CreateCompanyBody,
   CreateContactBody,
   CreateCostAnalysisBody,
   CreateDailyLogBody,
   CreateDailyReportBody,
+  CreateEmailFilingRuleBody,
   CreateEstimateTemplateBody,
   CreateFormBody,
   CreateFormSubmissionBody,
@@ -82,6 +90,8 @@ import type {
   CreateInvoiceBody,
   CreateInvoiceFromProposal201,
   CreateLeadBody,
+  CreateProjectAndAssignUncategorizedEmail201,
+  CreateProjectAndAssignUncategorizedEmailBody,
   CreateProjectBody,
   CreateQuoteBody,
   CreateRFIBody,
@@ -114,7 +124,14 @@ import type {
   DocumentTemplatePreviewBody,
   DocumentTemplateResetResponse,
   DocumentTemplateType,
+  EmailAccount,
   EmailConfig,
+  EmailFilingRule,
+  EmailIntegrationAccountUpdate,
+  EmailIntegrationAuthUrl,
+  EmailIntegrationsStatus,
+  EmailSyncResult,
+  EmailThread,
   ErrorEnvelope,
   EstimateItemBody,
   EstimateTemplate,
@@ -126,6 +143,8 @@ import type {
   FormSubmissionRecord,
   FormTemplateRecord,
   GetFormSubmission200,
+  GetProjectCommunicationAttachmentUrl200,
+  GetProjectCommunicationThread200,
   GetTradeReviewSummaryParams,
   GoogleCalendarEventResponse,
   HealthStatus,
@@ -144,12 +163,18 @@ import type {
   ListAllQuotesParams,
   ListAllRFIsParams,
   ListChangeOrdersParams,
+  ListCommunicationSearchTemplates200,
   ListComplianceDirectivesParams,
   ListContactsParams,
   ListDailyLogsParams,
+  ListEmailFilingRules200,
+  ListEmailIntegrationFolders200,
   ListFilesParams,
   ListFormSubmissionsParams,
   ListInspectionsParams,
+  ListProjectCommunicationThreads200,
+  ListProjectCommunicationThreadsParams,
+  ListProjectMatchKeywords200,
   ListRFIsParams,
   ListSafetySignoffsParams,
   ListSitePhotosParams,
@@ -158,6 +183,8 @@ import type {
   ListTradeReviewsParams,
   ListTradehubFeedParams,
   ListTradehubJobsParams,
+  ListUncategorizedEmails200,
+  ListUncategorizedEmailsParams,
   MarkAllInspectionAlertsRead200,
   MarkAllNotificationsRead200,
   MarkAllTradehubNotificationsRead200,
@@ -169,12 +196,14 @@ import type {
   MediaHubPresignedUrlResponse,
   MediaHubSavePhotoRequest,
   MemberPermissions,
+  MergeUncategorizedEmailThreadsBody,
   Notification,
   NotificationUnreadCount,
   OutlookCalendarEventResponse,
   PaymentRecord,
   Project,
   ProjectDocument,
+  ProjectMatchKeyword,
   ProjectMember,
   ProjectMemberRecord,
   ProjectSummary,
@@ -197,6 +226,12 @@ import type {
   ScheduleAssignment,
   ScopeExtractBody,
   ScopeExtractResponse,
+  SearchCommunications200,
+  SearchCommunicationsAi200,
+  SearchCommunicationsAiBody,
+  SearchCommunicationsParams,
+  SearchProjectCommunications200,
+  SearchProjectCommunicationsParams,
   SearchTradehubUsersParams,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
@@ -231,6 +266,7 @@ import type {
   UpdateChangeOrderBody,
   UpdateDailyLogBody,
   UpdateEmailConfig,
+  UpdateEmailFilingRuleBody,
   UpdateFormSubmissionStatusBody,
   UpdateInvitationBody,
   UpdateInvoiceBody,
@@ -6782,6 +6818,2809 @@ export const useSyncQuickBooksCosts = <
   TContext
 > => {
   return useMutation(getSyncQuickBooksCostsMutationOptions(options));
+};
+
+/**
+ * @summary List connected Outlook/Gmail accounts and provider configuration status
+ */
+export const getGetEmailIntegrationsStatusUrl = () => {
+  return `/api/email-integrations/status`;
+};
+
+export const getEmailIntegrationsStatus = async (
+  options?: RequestInit,
+): Promise<EmailIntegrationsStatus> => {
+  return customFetch<EmailIntegrationsStatus>(
+    getGetEmailIntegrationsStatusUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEmailIntegrationsStatusQueryKey = () => {
+  return [`/api/email-integrations/status`] as const;
+};
+
+export const getGetEmailIntegrationsStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEmailIntegrationsStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmailIntegrationsStatus>>
+  > = ({ signal }) => getEmailIntegrationsStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmailIntegrationsStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmailIntegrationsStatus>>
+>;
+export type GetEmailIntegrationsStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List connected Outlook/Gmail accounts and provider configuration status
+ */
+
+export function useGetEmailIntegrationsStatus<
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmailIntegrationsStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the OAuth authorization URL to connect an Outlook mailbox
+ */
+export const getGetEmailIntegrationsOutlookAuthUrlUrl = () => {
+  return `/api/email-integrations/outlook/auth-url`;
+};
+
+export const getEmailIntegrationsOutlookAuthUrl = async (
+  options?: RequestInit,
+): Promise<EmailIntegrationAuthUrl> => {
+  return customFetch<EmailIntegrationAuthUrl>(
+    getGetEmailIntegrationsOutlookAuthUrlUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEmailIntegrationsOutlookAuthUrlQueryKey = () => {
+  return [`/api/email-integrations/outlook/auth-url`] as const;
+};
+
+export const getGetEmailIntegrationsOutlookAuthUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEmailIntegrationsOutlookAuthUrlQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>
+  > = ({ signal }) =>
+    getEmailIntegrationsOutlookAuthUrl({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmailIntegrationsOutlookAuthUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>
+>;
+export type GetEmailIntegrationsOutlookAuthUrlQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the OAuth authorization URL to connect an Outlook mailbox
+ */
+
+export function useGetEmailIntegrationsOutlookAuthUrl<
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsOutlookAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions =
+    getGetEmailIntegrationsOutlookAuthUrlQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the OAuth authorization URL to connect a Gmail mailbox
+ */
+export const getGetEmailIntegrationsGmailAuthUrlUrl = () => {
+  return `/api/email-integrations/gmail/auth-url`;
+};
+
+export const getEmailIntegrationsGmailAuthUrl = async (
+  options?: RequestInit,
+): Promise<EmailIntegrationAuthUrl> => {
+  return customFetch<EmailIntegrationAuthUrl>(
+    getGetEmailIntegrationsGmailAuthUrlUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEmailIntegrationsGmailAuthUrlQueryKey = () => {
+  return [`/api/email-integrations/gmail/auth-url`] as const;
+};
+
+export const getGetEmailIntegrationsGmailAuthUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEmailIntegrationsGmailAuthUrlQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>
+  > = ({ signal }) =>
+    getEmailIntegrationsGmailAuthUrl({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmailIntegrationsGmailAuthUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>
+>;
+export type GetEmailIntegrationsGmailAuthUrlQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the OAuth authorization URL to connect a Gmail mailbox
+ */
+
+export function useGetEmailIntegrationsGmailAuthUrl<
+  TData = Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailIntegrationsGmailAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmailIntegrationsGmailAuthUrlQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List mail folders/labels available on a connected account, for the folder-selection picker
+ */
+export const getListEmailIntegrationFoldersUrl = (accountId: number) => {
+  return `/api/email-integrations/${accountId}/folders`;
+};
+
+export const listEmailIntegrationFolders = async (
+  accountId: number,
+  options?: RequestInit,
+): Promise<ListEmailIntegrationFolders200> => {
+  return customFetch<ListEmailIntegrationFolders200>(
+    getListEmailIntegrationFoldersUrl(accountId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEmailIntegrationFoldersQueryKey = (accountId: number) => {
+  return [`/api/email-integrations/${accountId}/folders`] as const;
+};
+
+export const getListEmailIntegrationFoldersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmailIntegrationFolders>>,
+  TError = ErrorType<unknown>,
+>(
+  accountId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmailIntegrationFolders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEmailIntegrationFoldersQueryKey(accountId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmailIntegrationFolders>>
+  > = ({ signal }) =>
+    listEmailIntegrationFolders(accountId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!accountId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmailIntegrationFolders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmailIntegrationFoldersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmailIntegrationFolders>>
+>;
+export type ListEmailIntegrationFoldersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List mail folders/labels available on a connected account, for the folder-selection picker
+ */
+
+export function useListEmailIntegrationFolders<
+  TData = Awaited<ReturnType<typeof listEmailIntegrationFolders>>,
+  TError = ErrorType<unknown>,
+>(
+  accountId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmailIntegrationFolders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmailIntegrationFoldersQueryOptions(
+    accountId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update folder selection and/or sync frequency for a connected account
+ */
+export const getUpdateEmailIntegrationAccountUrl = (accountId: number) => {
+  return `/api/email-integrations/${accountId}`;
+};
+
+export const updateEmailIntegrationAccount = async (
+  accountId: number,
+  emailIntegrationAccountUpdate: EmailIntegrationAccountUpdate,
+  options?: RequestInit,
+): Promise<EmailAccount> => {
+  return customFetch<EmailAccount>(
+    getUpdateEmailIntegrationAccountUrl(accountId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(emailIntegrationAccountUpdate),
+    },
+  );
+};
+
+export const getUpdateEmailIntegrationAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailIntegrationAccount>>,
+    TError,
+    { accountId: number; data: BodyType<EmailIntegrationAccountUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmailIntegrationAccount>>,
+  TError,
+  { accountId: number; data: BodyType<EmailIntegrationAccountUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateEmailIntegrationAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmailIntegrationAccount>>,
+    { accountId: number; data: BodyType<EmailIntegrationAccountUpdate> }
+  > = (props) => {
+    const { accountId, data } = props ?? {};
+
+    return updateEmailIntegrationAccount(accountId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmailIntegrationAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmailIntegrationAccount>>
+>;
+export type UpdateEmailIntegrationAccountMutationBody =
+  BodyType<EmailIntegrationAccountUpdate>;
+export type UpdateEmailIntegrationAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update folder selection and/or sync frequency for a connected account
+ */
+export const useUpdateEmailIntegrationAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailIntegrationAccount>>,
+    TError,
+    { accountId: number; data: BodyType<EmailIntegrationAccountUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmailIntegrationAccount>>,
+  TError,
+  { accountId: number; data: BodyType<EmailIntegrationAccountUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateEmailIntegrationAccountMutationOptions(options));
+};
+
+/**
+ * @summary Disconnect a connected email account (soft — history is retained)
+ */
+export const getDisconnectEmailIntegrationAccountUrl = (accountId: number) => {
+  return `/api/email-integrations/${accountId}`;
+};
+
+export const disconnectEmailIntegrationAccount = async (
+  accountId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDisconnectEmailIntegrationAccountUrl(accountId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDisconnectEmailIntegrationAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>,
+    TError,
+    { accountId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>,
+  TError,
+  { accountId: number },
+  TContext
+> => {
+  const mutationKey = ["disconnectEmailIntegrationAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>,
+    { accountId: number }
+  > = (props) => {
+    const { accountId } = props ?? {};
+
+    return disconnectEmailIntegrationAccount(accountId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisconnectEmailIntegrationAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>
+>;
+
+export type DisconnectEmailIntegrationAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disconnect a connected email account (soft — history is retained)
+ */
+export const useDisconnectEmailIntegrationAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>,
+    TError,
+    { accountId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disconnectEmailIntegrationAccount>>,
+  TError,
+  { accountId: number },
+  TContext
+> => {
+  return useMutation(
+    getDisconnectEmailIntegrationAccountMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Manually trigger an immediate sync pass for a connected account
+ */
+export const getSyncEmailIntegrationAccountNowUrl = (accountId: number) => {
+  return `/api/email-integrations/${accountId}/sync-now`;
+};
+
+export const syncEmailIntegrationAccountNow = async (
+  accountId: number,
+  options?: RequestInit,
+): Promise<EmailSyncResult> => {
+  return customFetch<EmailSyncResult>(
+    getSyncEmailIntegrationAccountNowUrl(accountId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSyncEmailIntegrationAccountNowMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>,
+    TError,
+    { accountId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>,
+  TError,
+  { accountId: number },
+  TContext
+> => {
+  const mutationKey = ["syncEmailIntegrationAccountNow"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>,
+    { accountId: number }
+  > = (props) => {
+    const { accountId } = props ?? {};
+
+    return syncEmailIntegrationAccountNow(accountId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncEmailIntegrationAccountNowMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>
+>;
+
+export type SyncEmailIntegrationAccountNowMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually trigger an immediate sync pass for a connected account
+ */
+export const useSyncEmailIntegrationAccountNow = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>,
+    TError,
+    { accountId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncEmailIntegrationAccountNow>>,
+  TError,
+  { accountId: number },
+  TContext
+> => {
+  return useMutation(getSyncEmailIntegrationAccountNowMutationOptions(options));
+};
+
+/**
+ * @summary Manually assign (or unassign) an email thread to a project
+ */
+export const getAssignEmailThreadToProjectUrl = (threadId: number) => {
+  return `/api/email-integrations/threads/${threadId}/assign-project`;
+};
+
+export const assignEmailThreadToProject = async (
+  threadId: number,
+  assignEmailThreadToProjectBody: AssignEmailThreadToProjectBody,
+  options?: RequestInit,
+): Promise<EmailThread> => {
+  return customFetch<EmailThread>(getAssignEmailThreadToProjectUrl(threadId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assignEmailThreadToProjectBody),
+  });
+};
+
+export const getAssignEmailThreadToProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignEmailThreadToProject>>,
+    TError,
+    { threadId: number; data: BodyType<AssignEmailThreadToProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignEmailThreadToProject>>,
+  TError,
+  { threadId: number; data: BodyType<AssignEmailThreadToProjectBody> },
+  TContext
+> => {
+  const mutationKey = ["assignEmailThreadToProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignEmailThreadToProject>>,
+    { threadId: number; data: BodyType<AssignEmailThreadToProjectBody> }
+  > = (props) => {
+    const { threadId, data } = props ?? {};
+
+    return assignEmailThreadToProject(threadId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignEmailThreadToProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignEmailThreadToProject>>
+>;
+export type AssignEmailThreadToProjectMutationBody =
+  BodyType<AssignEmailThreadToProjectBody>;
+export type AssignEmailThreadToProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually assign (or unassign) an email thread to a project
+ */
+export const useAssignEmailThreadToProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignEmailThreadToProject>>,
+    TError,
+    { threadId: number; data: BodyType<AssignEmailThreadToProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignEmailThreadToProject>>,
+  TError,
+  { threadId: number; data: BodyType<AssignEmailThreadToProjectBody> },
+  TContext
+> => {
+  return useMutation(getAssignEmailThreadToProjectMutationOptions(options));
+};
+
+/**
+ * @summary List email threads assigned to a project
+ */
+export const getListProjectCommunicationThreadsUrl = (
+  projectId: number,
+  params?: ListProjectCommunicationThreadsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/communications/threads?${stringifiedParams}`
+    : `/api/projects/${projectId}/communications/threads`;
+};
+
+export const listProjectCommunicationThreads = async (
+  projectId: number,
+  params?: ListProjectCommunicationThreadsParams,
+  options?: RequestInit,
+): Promise<ListProjectCommunicationThreads200> => {
+  return customFetch<ListProjectCommunicationThreads200>(
+    getListProjectCommunicationThreadsUrl(projectId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectCommunicationThreadsQueryKey = (
+  projectId: number,
+  params?: ListProjectCommunicationThreadsParams,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/threads`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListProjectCommunicationThreadsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectCommunicationThreads>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListProjectCommunicationThreadsQueryKey(projectId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectCommunicationThreads>>
+  > = ({ signal }) =>
+    listProjectCommunicationThreads(projectId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectCommunicationThreads>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectCommunicationThreadsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectCommunicationThreads>>
+>;
+export type ListProjectCommunicationThreadsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List email threads assigned to a project
+ */
+
+export function useListProjectCommunicationThreads<
+  TData = Awaited<ReturnType<typeof listProjectCommunicationThreads>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params?: ListProjectCommunicationThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectCommunicationThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectCommunicationThreadsQueryOptions(
+    projectId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a thread and its messages
+ */
+export const getGetProjectCommunicationThreadUrl = (
+  projectId: number,
+  threadId: number,
+) => {
+  return `/api/projects/${projectId}/communications/threads/${threadId}`;
+};
+
+export const getProjectCommunicationThread = async (
+  projectId: number,
+  threadId: number,
+  options?: RequestInit,
+): Promise<GetProjectCommunicationThread200> => {
+  return customFetch<GetProjectCommunicationThread200>(
+    getGetProjectCommunicationThreadUrl(projectId, threadId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetProjectCommunicationThreadQueryKey = (
+  projectId: number,
+  threadId: number,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/threads/${threadId}`,
+  ] as const;
+};
+
+export const getGetProjectCommunicationThreadQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProjectCommunicationThread>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  threadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectCommunicationThread>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetProjectCommunicationThreadQueryKey(projectId, threadId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProjectCommunicationThread>>
+  > = ({ signal }) =>
+    getProjectCommunicationThread(projectId, threadId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && threadId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProjectCommunicationThread>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProjectCommunicationThreadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProjectCommunicationThread>>
+>;
+export type GetProjectCommunicationThreadQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a thread and its messages
+ */
+
+export function useGetProjectCommunicationThread<
+  TData = Awaited<ReturnType<typeof getProjectCommunicationThread>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  threadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectCommunicationThread>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProjectCommunicationThreadQueryOptions(
+    projectId,
+    threadId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Keyword search over a project's synced emails
+ */
+export const getSearchProjectCommunicationsUrl = (
+  projectId: number,
+  params: SearchProjectCommunicationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/communications/search?${stringifiedParams}`
+    : `/api/projects/${projectId}/communications/search`;
+};
+
+export const searchProjectCommunications = async (
+  projectId: number,
+  params: SearchProjectCommunicationsParams,
+  options?: RequestInit,
+): Promise<SearchProjectCommunications200> => {
+  return customFetch<SearchProjectCommunications200>(
+    getSearchProjectCommunicationsUrl(projectId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getSearchProjectCommunicationsQueryKey = (
+  projectId: number,
+  params?: SearchProjectCommunicationsParams,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/search`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSearchProjectCommunicationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchProjectCommunications>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params: SearchProjectCommunicationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchProjectCommunications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getSearchProjectCommunicationsQueryKey(projectId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchProjectCommunications>>
+  > = ({ signal }) =>
+    searchProjectCommunications(projectId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchProjectCommunications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchProjectCommunicationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchProjectCommunications>>
+>;
+export type SearchProjectCommunicationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Keyword search over a project's synced emails
+ */
+
+export function useSearchProjectCommunications<
+  TData = Awaited<ReturnType<typeof searchProjectCommunications>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  params: SearchProjectCommunicationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchProjectCommunications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchProjectCommunicationsQueryOptions(
+    projectId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a short-lived signed read URL for an email attachment
+ */
+export const getGetProjectCommunicationAttachmentUrlUrl = (
+  projectId: number,
+  attachmentId: number,
+) => {
+  return `/api/projects/${projectId}/communications/attachments/${attachmentId}/url`;
+};
+
+export const getProjectCommunicationAttachmentUrl = async (
+  projectId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<GetProjectCommunicationAttachmentUrl200> => {
+  return customFetch<GetProjectCommunicationAttachmentUrl200>(
+    getGetProjectCommunicationAttachmentUrlUrl(projectId, attachmentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetProjectCommunicationAttachmentUrlQueryKey = (
+  projectId: number,
+  attachmentId: number,
+) => {
+  return [
+    `/api/projects/${projectId}/communications/attachments/${attachmentId}/url`,
+  ] as const;
+};
+
+export const getGetProjectCommunicationAttachmentUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  attachmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetProjectCommunicationAttachmentUrlQueryKey(projectId, attachmentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>
+  > = ({ signal }) =>
+    getProjectCommunicationAttachmentUrl(projectId, attachmentId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && attachmentId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProjectCommunicationAttachmentUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>
+>;
+export type GetProjectCommunicationAttachmentUrlQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a short-lived signed read URL for an email attachment
+ */
+
+export function useGetProjectCommunicationAttachmentUrl<
+  TData = Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  attachmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectCommunicationAttachmentUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProjectCommunicationAttachmentUrlQueryOptions(
+    projectId,
+    attachmentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List user-defined keywords the matching engine scores this project against
+ */
+export const getListProjectMatchKeywordsUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/communications/match-keywords`;
+};
+
+export const listProjectMatchKeywords = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<ListProjectMatchKeywords200> => {
+  return customFetch<ListProjectMatchKeywords200>(
+    getListProjectMatchKeywordsUrl(projectId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectMatchKeywordsQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/communications/match-keywords`] as const;
+};
+
+export const getListProjectMatchKeywordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectMatchKeywords>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectMatchKeywords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListProjectMatchKeywordsQueryKey(projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectMatchKeywords>>
+  > = ({ signal }) =>
+    listProjectMatchKeywords(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectMatchKeywords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectMatchKeywordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectMatchKeywords>>
+>;
+export type ListProjectMatchKeywordsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List user-defined keywords the matching engine scores this project against
+ */
+
+export function useListProjectMatchKeywords<
+  TData = Awaited<ReturnType<typeof listProjectMatchKeywords>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectMatchKeywords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectMatchKeywordsQueryOptions(
+    projectId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a user-defined matching keyword to a project
+ */
+export const getAddProjectMatchKeywordUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/communications/match-keywords`;
+};
+
+export const addProjectMatchKeyword = async (
+  projectId: number,
+  addProjectMatchKeywordBody: AddProjectMatchKeywordBody,
+  options?: RequestInit,
+): Promise<ProjectMatchKeyword> => {
+  return customFetch<ProjectMatchKeyword>(
+    getAddProjectMatchKeywordUrl(projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addProjectMatchKeywordBody),
+    },
+  );
+};
+
+export const getAddProjectMatchKeywordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addProjectMatchKeyword>>,
+    TError,
+    { projectId: number; data: BodyType<AddProjectMatchKeywordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addProjectMatchKeyword>>,
+  TError,
+  { projectId: number; data: BodyType<AddProjectMatchKeywordBody> },
+  TContext
+> => {
+  const mutationKey = ["addProjectMatchKeyword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addProjectMatchKeyword>>,
+    { projectId: number; data: BodyType<AddProjectMatchKeywordBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return addProjectMatchKeyword(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddProjectMatchKeywordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addProjectMatchKeyword>>
+>;
+export type AddProjectMatchKeywordMutationBody =
+  BodyType<AddProjectMatchKeywordBody>;
+export type AddProjectMatchKeywordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a user-defined matching keyword to a project
+ */
+export const useAddProjectMatchKeyword = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addProjectMatchKeyword>>,
+    TError,
+    { projectId: number; data: BodyType<AddProjectMatchKeywordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addProjectMatchKeyword>>,
+  TError,
+  { projectId: number; data: BodyType<AddProjectMatchKeywordBody> },
+  TContext
+> => {
+  return useMutation(getAddProjectMatchKeywordMutationOptions(options));
+};
+
+/**
+ * @summary Remove a user-defined matching keyword from a project
+ */
+export const getRemoveProjectMatchKeywordUrl = (
+  projectId: number,
+  keywordId: number,
+) => {
+  return `/api/projects/${projectId}/communications/match-keywords/${keywordId}`;
+};
+
+export const removeProjectMatchKeyword = async (
+  projectId: number,
+  keywordId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getRemoveProjectMatchKeywordUrl(projectId, keywordId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveProjectMatchKeywordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeProjectMatchKeyword>>,
+    TError,
+    { projectId: number; keywordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeProjectMatchKeyword>>,
+  TError,
+  { projectId: number; keywordId: number },
+  TContext
+> => {
+  const mutationKey = ["removeProjectMatchKeyword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeProjectMatchKeyword>>,
+    { projectId: number; keywordId: number }
+  > = (props) => {
+    const { projectId, keywordId } = props ?? {};
+
+    return removeProjectMatchKeyword(projectId, keywordId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveProjectMatchKeywordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeProjectMatchKeyword>>
+>;
+
+export type RemoveProjectMatchKeywordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a user-defined matching keyword from a project
+ */
+export const useRemoveProjectMatchKeyword = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeProjectMatchKeyword>>,
+    TError,
+    { projectId: number; keywordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeProjectMatchKeyword>>,
+  TError,
+  { projectId: number; keywordId: number },
+  TContext
+> => {
+  return useMutation(getRemoveProjectMatchKeywordMutationOptions(options));
+};
+
+/**
+ * @summary List email threads the matching engine couldn't confidently file (the global inbox)
+ */
+export const getListUncategorizedEmailsUrl = (
+  params?: ListUncategorizedEmailsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/uncategorized-emails?${stringifiedParams}`
+    : `/api/uncategorized-emails`;
+};
+
+export const listUncategorizedEmails = async (
+  params?: ListUncategorizedEmailsParams,
+  options?: RequestInit,
+): Promise<ListUncategorizedEmails200> => {
+  return customFetch<ListUncategorizedEmails200>(
+    getListUncategorizedEmailsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListUncategorizedEmailsQueryKey = (
+  params?: ListUncategorizedEmailsParams,
+) => {
+  return [`/api/uncategorized-emails`, ...(params ? [params] : [])] as const;
+};
+
+export const getListUncategorizedEmailsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUncategorizedEmails>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUncategorizedEmailsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUncategorizedEmails>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListUncategorizedEmailsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listUncategorizedEmails>>
+  > = ({ signal }) =>
+    listUncategorizedEmails(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUncategorizedEmails>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUncategorizedEmailsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUncategorizedEmails>>
+>;
+export type ListUncategorizedEmailsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List email threads the matching engine couldn't confidently file (the global inbox)
+ */
+
+export function useListUncategorizedEmails<
+  TData = Awaited<ReturnType<typeof listUncategorizedEmails>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUncategorizedEmailsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUncategorizedEmails>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUncategorizedEmailsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Archive an uncategorized thread
+ */
+export const getArchiveUncategorizedEmailUrl = (threadId: number) => {
+  return `/api/uncategorized-emails/${threadId}/archive`;
+};
+
+export const archiveUncategorizedEmail = async (
+  threadId: number,
+  options?: RequestInit,
+): Promise<EmailThread> => {
+  return customFetch<EmailThread>(getArchiveUncategorizedEmailUrl(threadId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getArchiveUncategorizedEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveUncategorizedEmail>>,
+    TError,
+    { threadId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveUncategorizedEmail>>,
+  TError,
+  { threadId: number },
+  TContext
+> => {
+  const mutationKey = ["archiveUncategorizedEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveUncategorizedEmail>>,
+    { threadId: number }
+  > = (props) => {
+    const { threadId } = props ?? {};
+
+    return archiveUncategorizedEmail(threadId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveUncategorizedEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveUncategorizedEmail>>
+>;
+
+export type ArchiveUncategorizedEmailMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive an uncategorized thread
+ */
+export const useArchiveUncategorizedEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveUncategorizedEmail>>,
+    TError,
+    { threadId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveUncategorizedEmail>>,
+  TError,
+  { threadId: number },
+  TContext
+> => {
+  return useMutation(getArchiveUncategorizedEmailMutationOptions(options));
+};
+
+/**
+ * @summary Ignore an uncategorized thread
+ */
+export const getIgnoreUncategorizedEmailUrl = (threadId: number) => {
+  return `/api/uncategorized-emails/${threadId}/ignore`;
+};
+
+export const ignoreUncategorizedEmail = async (
+  threadId: number,
+  options?: RequestInit,
+): Promise<EmailThread> => {
+  return customFetch<EmailThread>(getIgnoreUncategorizedEmailUrl(threadId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getIgnoreUncategorizedEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ignoreUncategorizedEmail>>,
+    TError,
+    { threadId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ignoreUncategorizedEmail>>,
+  TError,
+  { threadId: number },
+  TContext
+> => {
+  const mutationKey = ["ignoreUncategorizedEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ignoreUncategorizedEmail>>,
+    { threadId: number }
+  > = (props) => {
+    const { threadId } = props ?? {};
+
+    return ignoreUncategorizedEmail(threadId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IgnoreUncategorizedEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ignoreUncategorizedEmail>>
+>;
+
+export type IgnoreUncategorizedEmailMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Ignore an uncategorized thread
+ */
+export const useIgnoreUncategorizedEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ignoreUncategorizedEmail>>,
+    TError,
+    { threadId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ignoreUncategorizedEmail>>,
+  TError,
+  { threadId: number },
+  TContext
+> => {
+  return useMutation(getIgnoreUncategorizedEmailMutationOptions(options));
+};
+
+/**
+ * @summary Assign multiple uncategorized threads to a project at once
+ */
+export const getBulkAssignUncategorizedEmailsUrl = () => {
+  return `/api/uncategorized-emails/bulk-assign`;
+};
+
+export const bulkAssignUncategorizedEmails = async (
+  bulkAssignUncategorizedEmailsBody: BulkAssignUncategorizedEmailsBody,
+  options?: RequestInit,
+): Promise<BulkAssignUncategorizedEmails200> => {
+  return customFetch<BulkAssignUncategorizedEmails200>(
+    getBulkAssignUncategorizedEmailsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkAssignUncategorizedEmailsBody),
+    },
+  );
+};
+
+export const getBulkAssignUncategorizedEmailsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>,
+    TError,
+    { data: BodyType<BulkAssignUncategorizedEmailsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>,
+  TError,
+  { data: BodyType<BulkAssignUncategorizedEmailsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkAssignUncategorizedEmails"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>,
+    { data: BodyType<BulkAssignUncategorizedEmailsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkAssignUncategorizedEmails(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkAssignUncategorizedEmailsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>
+>;
+export type BulkAssignUncategorizedEmailsMutationBody =
+  BodyType<BulkAssignUncategorizedEmailsBody>;
+export type BulkAssignUncategorizedEmailsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign multiple uncategorized threads to a project at once
+ */
+export const useBulkAssignUncategorizedEmails = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>,
+    TError,
+    { data: BodyType<BulkAssignUncategorizedEmailsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkAssignUncategorizedEmails>>,
+  TError,
+  { data: BodyType<BulkAssignUncategorizedEmailsBody> },
+  TContext
+> => {
+  return useMutation(getBulkAssignUncategorizedEmailsMutationOptions(options));
+};
+
+/**
+ * @summary Merge one thread's messages into another (same real conversation, two provider threads)
+ */
+export const getMergeUncategorizedEmailThreadsUrl = () => {
+  return `/api/uncategorized-emails/merge`;
+};
+
+export const mergeUncategorizedEmailThreads = async (
+  mergeUncategorizedEmailThreadsBody: MergeUncategorizedEmailThreadsBody,
+  options?: RequestInit,
+): Promise<EmailThread> => {
+  return customFetch<EmailThread>(getMergeUncategorizedEmailThreadsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mergeUncategorizedEmailThreadsBody),
+  });
+};
+
+export const getMergeUncategorizedEmailThreadsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>,
+    TError,
+    { data: BodyType<MergeUncategorizedEmailThreadsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>,
+  TError,
+  { data: BodyType<MergeUncategorizedEmailThreadsBody> },
+  TContext
+> => {
+  const mutationKey = ["mergeUncategorizedEmailThreads"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>,
+    { data: BodyType<MergeUncategorizedEmailThreadsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return mergeUncategorizedEmailThreads(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MergeUncategorizedEmailThreadsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>
+>;
+export type MergeUncategorizedEmailThreadsMutationBody =
+  BodyType<MergeUncategorizedEmailThreadsBody>;
+export type MergeUncategorizedEmailThreadsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Merge one thread's messages into another (same real conversation, two provider threads)
+ */
+export const useMergeUncategorizedEmailThreads = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>,
+    TError,
+    { data: BodyType<MergeUncategorizedEmailThreadsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mergeUncategorizedEmailThreads>>,
+  TError,
+  { data: BodyType<MergeUncategorizedEmailThreadsBody> },
+  TContext
+> => {
+  return useMutation(getMergeUncategorizedEmailThreadsMutationOptions(options));
+};
+
+/**
+ * @summary Create a new project from an uncategorized thread and assign it
+ */
+export const getCreateProjectAndAssignUncategorizedEmailUrl = (
+  threadId: number,
+) => {
+  return `/api/uncategorized-emails/${threadId}/create-project-and-assign`;
+};
+
+export const createProjectAndAssignUncategorizedEmail = async (
+  threadId: number,
+  createProjectAndAssignUncategorizedEmailBody: CreateProjectAndAssignUncategorizedEmailBody,
+  options?: RequestInit,
+): Promise<CreateProjectAndAssignUncategorizedEmail201> => {
+  return customFetch<CreateProjectAndAssignUncategorizedEmail201>(
+    getCreateProjectAndAssignUncategorizedEmailUrl(threadId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createProjectAndAssignUncategorizedEmailBody),
+    },
+  );
+};
+
+export const getCreateProjectAndAssignUncategorizedEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>,
+    TError,
+    {
+      threadId: number;
+      data: BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>,
+  TError,
+  {
+    threadId: number;
+    data: BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectAndAssignUncategorizedEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>,
+    {
+      threadId: number;
+      data: BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+    }
+  > = (props) => {
+    const { threadId, data } = props ?? {};
+
+    return createProjectAndAssignUncategorizedEmail(
+      threadId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectAndAssignUncategorizedEmailMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>
+  >;
+export type CreateProjectAndAssignUncategorizedEmailMutationBody =
+  BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+export type CreateProjectAndAssignUncategorizedEmailMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Create a new project from an uncategorized thread and assign it
+ */
+export const useCreateProjectAndAssignUncategorizedEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>,
+    TError,
+    {
+      threadId: number;
+      data: BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectAndAssignUncategorizedEmail>>,
+  TError,
+  {
+    threadId: number;
+    data: BodyType<CreateProjectAndAssignUncategorizedEmailBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateProjectAndAssignUncategorizedEmailMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List automatic filing rules, priority-ordered
+ */
+export const getListEmailFilingRulesUrl = () => {
+  return `/api/email-filing-rules`;
+};
+
+export const listEmailFilingRules = async (
+  options?: RequestInit,
+): Promise<ListEmailFilingRules200> => {
+  return customFetch<ListEmailFilingRules200>(getListEmailFilingRulesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEmailFilingRulesQueryKey = () => {
+  return [`/api/email-filing-rules`] as const;
+};
+
+export const getListEmailFilingRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmailFilingRules>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmailFilingRules>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEmailFilingRulesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmailFilingRules>>
+  > = ({ signal }) => listEmailFilingRules({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmailFilingRules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmailFilingRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmailFilingRules>>
+>;
+export type ListEmailFilingRulesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List automatic filing rules, priority-ordered
+ */
+
+export function useListEmailFilingRules<
+  TData = Awaited<ReturnType<typeof listEmailFilingRules>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmailFilingRules>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmailFilingRulesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an automatic filing rule
+ */
+export const getCreateEmailFilingRuleUrl = () => {
+  return `/api/email-filing-rules`;
+};
+
+export const createEmailFilingRule = async (
+  createEmailFilingRuleBody: CreateEmailFilingRuleBody,
+  options?: RequestInit,
+): Promise<EmailFilingRule> => {
+  return customFetch<EmailFilingRule>(getCreateEmailFilingRuleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createEmailFilingRuleBody),
+  });
+};
+
+export const getCreateEmailFilingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmailFilingRule>>,
+    TError,
+    { data: BodyType<CreateEmailFilingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmailFilingRule>>,
+  TError,
+  { data: BodyType<CreateEmailFilingRuleBody> },
+  TContext
+> => {
+  const mutationKey = ["createEmailFilingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmailFilingRule>>,
+    { data: BodyType<CreateEmailFilingRuleBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEmailFilingRule(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmailFilingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmailFilingRule>>
+>;
+export type CreateEmailFilingRuleMutationBody =
+  BodyType<CreateEmailFilingRuleBody>;
+export type CreateEmailFilingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an automatic filing rule
+ */
+export const useCreateEmailFilingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmailFilingRule>>,
+    TError,
+    { data: BodyType<CreateEmailFilingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmailFilingRule>>,
+  TError,
+  { data: BodyType<CreateEmailFilingRuleBody> },
+  TContext
+> => {
+  return useMutation(getCreateEmailFilingRuleMutationOptions(options));
+};
+
+/**
+ * @summary Update an automatic filing rule
+ */
+export const getUpdateEmailFilingRuleUrl = (ruleId: number) => {
+  return `/api/email-filing-rules/${ruleId}`;
+};
+
+export const updateEmailFilingRule = async (
+  ruleId: number,
+  updateEmailFilingRuleBody: UpdateEmailFilingRuleBody,
+  options?: RequestInit,
+): Promise<EmailFilingRule> => {
+  return customFetch<EmailFilingRule>(getUpdateEmailFilingRuleUrl(ruleId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEmailFilingRuleBody),
+  });
+};
+
+export const getUpdateEmailFilingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailFilingRule>>,
+    TError,
+    { ruleId: number; data: BodyType<UpdateEmailFilingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmailFilingRule>>,
+  TError,
+  { ruleId: number; data: BodyType<UpdateEmailFilingRuleBody> },
+  TContext
+> => {
+  const mutationKey = ["updateEmailFilingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmailFilingRule>>,
+    { ruleId: number; data: BodyType<UpdateEmailFilingRuleBody> }
+  > = (props) => {
+    const { ruleId, data } = props ?? {};
+
+    return updateEmailFilingRule(ruleId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmailFilingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmailFilingRule>>
+>;
+export type UpdateEmailFilingRuleMutationBody =
+  BodyType<UpdateEmailFilingRuleBody>;
+export type UpdateEmailFilingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an automatic filing rule
+ */
+export const useUpdateEmailFilingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailFilingRule>>,
+    TError,
+    { ruleId: number; data: BodyType<UpdateEmailFilingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmailFilingRule>>,
+  TError,
+  { ruleId: number; data: BodyType<UpdateEmailFilingRuleBody> },
+  TContext
+> => {
+  return useMutation(getUpdateEmailFilingRuleMutationOptions(options));
+};
+
+/**
+ * @summary Delete an automatic filing rule
+ */
+export const getDeleteEmailFilingRuleUrl = (ruleId: number) => {
+  return `/api/email-filing-rules/${ruleId}`;
+};
+
+export const deleteEmailFilingRule = async (
+  ruleId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteEmailFilingRuleUrl(ruleId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteEmailFilingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmailFilingRule>>,
+    TError,
+    { ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteEmailFilingRule>>,
+  TError,
+  { ruleId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteEmailFilingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteEmailFilingRule>>,
+    { ruleId: number }
+  > = (props) => {
+    const { ruleId } = props ?? {};
+
+    return deleteEmailFilingRule(ruleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteEmailFilingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteEmailFilingRule>>
+>;
+
+export type DeleteEmailFilingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an automatic filing rule
+ */
+export const useDeleteEmailFilingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmailFilingRule>>,
+    TError,
+    { ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteEmailFilingRule>>,
+  TError,
+  { ruleId: number },
+  TContext
+> => {
+  return useMutation(getDeleteEmailFilingRuleMutationOptions(options));
+};
+
+/**
+ * @summary Natural-language search over synced emails ("Show all plumbing emails", "What invoices arrived this month?")
+ */
+export const getSearchCommunicationsAiUrl = () => {
+  return `/api/communications/ai-search`;
+};
+
+export const searchCommunicationsAi = async (
+  searchCommunicationsAiBody: SearchCommunicationsAiBody,
+  options?: RequestInit,
+): Promise<SearchCommunicationsAi200> => {
+  return customFetch<SearchCommunicationsAi200>(
+    getSearchCommunicationsAiUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(searchCommunicationsAiBody),
+    },
+  );
+};
+
+export const getSearchCommunicationsAiMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchCommunicationsAi>>,
+    TError,
+    { data: BodyType<SearchCommunicationsAiBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchCommunicationsAi>>,
+  TError,
+  { data: BodyType<SearchCommunicationsAiBody> },
+  TContext
+> => {
+  const mutationKey = ["searchCommunicationsAi"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchCommunicationsAi>>,
+    { data: BodyType<SearchCommunicationsAiBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return searchCommunicationsAi(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchCommunicationsAiMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchCommunicationsAi>>
+>;
+export type SearchCommunicationsAiMutationBody =
+  BodyType<SearchCommunicationsAiBody>;
+export type SearchCommunicationsAiMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Natural-language search over synced emails ("Show all plumbing emails", "What invoices arrived this month?")
+ */
+export const useSearchCommunicationsAi = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchCommunicationsAi>>,
+    TError,
+    { data: BodyType<SearchCommunicationsAiBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof searchCommunicationsAi>>,
+  TError,
+  { data: BodyType<SearchCommunicationsAiBody> },
+  TContext
+> => {
+  return useMutation(getSearchCommunicationsAiMutationOptions(options));
+};
+
+/**
+ * @summary Structured, company-wide email search (Search Builder)
+ */
+export const getSearchCommunicationsUrl = (
+  params?: SearchCommunicationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/communications/search?${stringifiedParams}`
+    : `/api/communications/search`;
+};
+
+export const searchCommunications = async (
+  communicationSearchCriteria: CommunicationSearchCriteria,
+  params?: SearchCommunicationsParams,
+  options?: RequestInit,
+): Promise<SearchCommunications200> => {
+  return customFetch<SearchCommunications200>(
+    getSearchCommunicationsUrl(params),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(communicationSearchCriteria),
+    },
+  );
+};
+
+export const getSearchCommunicationsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchCommunications>>,
+    TError,
+    {
+      data: BodyType<CommunicationSearchCriteria>;
+      params?: SearchCommunicationsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchCommunications>>,
+  TError,
+  {
+    data: BodyType<CommunicationSearchCriteria>;
+    params?: SearchCommunicationsParams;
+  },
+  TContext
+> => {
+  const mutationKey = ["searchCommunications"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchCommunications>>,
+    {
+      data: BodyType<CommunicationSearchCriteria>;
+      params?: SearchCommunicationsParams;
+    }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return searchCommunications(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchCommunicationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchCommunications>>
+>;
+export type SearchCommunicationsMutationBody =
+  BodyType<CommunicationSearchCriteria>;
+export type SearchCommunicationsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Structured, company-wide email search (Search Builder)
+ */
+export const useSearchCommunications = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchCommunications>>,
+    TError,
+    {
+      data: BodyType<CommunicationSearchCriteria>;
+      params?: SearchCommunicationsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof searchCommunications>>,
+  TError,
+  {
+    data: BodyType<CommunicationSearchCriteria>;
+    params?: SearchCommunicationsParams;
+  },
+  TContext
+> => {
+  return useMutation(getSearchCommunicationsMutationOptions(options));
+};
+
+/**
+ * @summary List saved search templates
+ */
+export const getListCommunicationSearchTemplatesUrl = () => {
+  return `/api/communications/search-templates`;
+};
+
+export const listCommunicationSearchTemplates = async (
+  options?: RequestInit,
+): Promise<ListCommunicationSearchTemplates200> => {
+  return customFetch<ListCommunicationSearchTemplates200>(
+    getListCommunicationSearchTemplatesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCommunicationSearchTemplatesQueryKey = () => {
+  return [`/api/communications/search-templates`] as const;
+};
+
+export const getListCommunicationSearchTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCommunicationSearchTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommunicationSearchTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCommunicationSearchTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCommunicationSearchTemplates>>
+  > = ({ signal }) =>
+    listCommunicationSearchTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCommunicationSearchTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCommunicationSearchTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCommunicationSearchTemplates>>
+>;
+export type ListCommunicationSearchTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List saved search templates
+ */
+
+export function useListCommunicationSearchTemplates<
+  TData = Awaited<ReturnType<typeof listCommunicationSearchTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommunicationSearchTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCommunicationSearchTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a search as a reusable named template
+ */
+export const getCreateCommunicationSearchTemplateUrl = () => {
+  return `/api/communications/search-templates`;
+};
+
+export const createCommunicationSearchTemplate = async (
+  createCommunicationSearchTemplateBody: CreateCommunicationSearchTemplateBody,
+  options?: RequestInit,
+): Promise<CommunicationSearchTemplate> => {
+  return customFetch<CommunicationSearchTemplate>(
+    getCreateCommunicationSearchTemplateUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCommunicationSearchTemplateBody),
+    },
+  );
+};
+
+export const getCreateCommunicationSearchTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCommunicationSearchTemplate>>,
+    TError,
+    { data: BodyType<CreateCommunicationSearchTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCommunicationSearchTemplate>>,
+  TError,
+  { data: BodyType<CreateCommunicationSearchTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createCommunicationSearchTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCommunicationSearchTemplate>>,
+    { data: BodyType<CreateCommunicationSearchTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCommunicationSearchTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCommunicationSearchTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCommunicationSearchTemplate>>
+>;
+export type CreateCommunicationSearchTemplateMutationBody =
+  BodyType<CreateCommunicationSearchTemplateBody>;
+export type CreateCommunicationSearchTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a search as a reusable named template
+ */
+export const useCreateCommunicationSearchTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCommunicationSearchTemplate>>,
+    TError,
+    { data: BodyType<CreateCommunicationSearchTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCommunicationSearchTemplate>>,
+  TError,
+  { data: BodyType<CreateCommunicationSearchTemplateBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateCommunicationSearchTemplateMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete a saved search template
+ */
+export const getDeleteCommunicationSearchTemplateUrl = (templateId: number) => {
+  return `/api/communications/search-templates/${templateId}`;
+};
+
+export const deleteCommunicationSearchTemplate = async (
+  templateId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteCommunicationSearchTemplateUrl(templateId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteCommunicationSearchTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>,
+    TError,
+    { templateId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>,
+  TError,
+  { templateId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCommunicationSearchTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>,
+    { templateId: number }
+  > = (props) => {
+    const { templateId } = props ?? {};
+
+    return deleteCommunicationSearchTemplate(templateId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCommunicationSearchTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>
+>;
+
+export type DeleteCommunicationSearchTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a saved search template
+ */
+export const useDeleteCommunicationSearchTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>,
+    TError,
+    { templateId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCommunicationSearchTemplate>>,
+  TError,
+  { templateId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteCommunicationSearchTemplateMutationOptions(options),
+  );
 };
 
 /**

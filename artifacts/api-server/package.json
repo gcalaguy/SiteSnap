@@ -49,6 +49,7 @@
     "pino-http": "^10",
     "pngjs": "^7.0.0",
     "resend": "^6.12.2",
+    "sanitize-html": "^2.15.0",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -61,6 +62,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.18.0",
     "@types/pngjs": "^6.0.5",
+    "@types/sanitize-html": "^2.16.0",
     "esbuild": "0.28.1",
     "esbuild-plugin-pino": "^2.3.3",
     "nodemon": "^3.1.10",
