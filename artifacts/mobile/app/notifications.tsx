@@ -72,7 +72,7 @@ function NotificationRow({
         <Feather name={icon as any} size={18} color={colors.primary} />
       </View>
       <View style={styles.rowContent}>
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: item.isRead ? "Inter_400Regular" : "Inter_600SemiBold" }]}>
+        <Text style={[styles.title, { color: colors.foreground, fontFamily: item.isRead ? "NunitoSans_400Regular" : "NunitoSans_600SemiBold" }]}>
           {item.title}
         </Text>
         <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={2}>
@@ -145,7 +145,7 @@ export default function NotificationsScreen() {
             disabled={markAllRead.isPending}
             style={styles.markAllBtn}
           >
-            <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+            <Text style={{ color: colors.primary, fontFamily: "NunitoSans_500Medium", fontSize: 14 }}>
               Mark all read
             </Text>
           </Pressable>
@@ -159,10 +159,10 @@ export default function NotificationsScreen() {
       ) : notifications.length === 0 ? (
         <View style={styles.center}>
           <Feather name="bell-off" size={40} color={colors.mutedForeground} style={{ marginBottom: 12 }} />
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 15 }}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_400Regular", fontSize: 15 }}>
             No notifications yet
           </Text>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 4, textAlign: "center" }}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_400Regular", fontSize: 13, marginTop: 4, textAlign: "center" }}>
             You'll be notified when tasks or RFIs are assigned to you.
           </Text>
         </View>
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 26, fontFamily: "Inter_700Bold" },
+  headerTitle: { fontSize: 26, fontFamily: "NunitoSans_700Bold" },
   markAllBtn: { paddingBottom: 3 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
   row: {
@@ -222,13 +222,13 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   rowContent: { flex: 1 },
   title: { fontSize: 15, marginBottom: 2 },
-  body: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, marginBottom: 4 },
-  time: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  body: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 18, marginBottom: 4 },
+  time: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
 });

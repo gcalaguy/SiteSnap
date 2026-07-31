@@ -573,7 +573,7 @@ export default function AllReportsScreen() {
             </ScrollView>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, { borderColor: colors.border }]} onPress={() => setEditingReport(null)}>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium" }}>Cancel</Text>
+                <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium" }}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[styles.modalBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
@@ -583,7 +583,7 @@ export default function AllReportsScreen() {
                 {updateReport.isPending ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold" }}>Save</Text>
+                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold" }}>Save</Text>
                 )}
               </Pressable>
             </View>
@@ -601,72 +601,72 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingBottom: 12 },
   backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
-  title: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  countText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  title: { fontSize: 28, fontFamily: "NunitoSans_700Bold" },
+  countText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
 
   searchWrap: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_400Regular", paddingVertical: 0 },
 
   filterRow: { flexDirection: "row", gap: 8, paddingBottom: 4 },
   filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-  filterPillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  filterPillText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
 
   updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 4 },
-  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
+  updatedText: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "#9CA3AF" },
   listContainer: { paddingHorizontal: 16, paddingTop: 8 },
   listItemWrap: { paddingHorizontal: 16 },
   loader: { paddingVertical: 40 },
 
   row: {
     flexDirection: "row", alignItems: "flex-start", gap: 12,
-    padding: 14, marginBottom: 10, borderRadius: 12, borderWidth: 1,
+    padding: 14, marginBottom: 10, borderRadius: 16, borderWidth: 1,
   },
-  iconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  iconWrap: { width: 38, height: 38, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 1 },
 
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 6, marginBottom: 6 },
-  subject: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
-  date: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  subject: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_500Medium", lineHeight: 20 },
+  date: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
 
   rowMeta: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 },
   projectChip: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16, borderWidth: 1,
   },
-  projectChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", maxWidth: 120 },
-  meta: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  projectChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", maxWidth: 120 },
+  meta: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
   metaDot: { fontSize: 12 },
 
-  notesPreview: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 4 },
+  notesPreview: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 18, marginTop: 4 },
 
   issueRow: {
     marginTop: 6, paddingLeft: 8, borderLeftWidth: 2,
   },
-  issueText: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  issueText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 16 },
 
   emptyContainer: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
-  emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
-  emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6, lineHeight: 20 },
+  emptyText: { fontSize: 16, fontFamily: "NunitoSans_500Medium", textAlign: "center", marginTop: 12 },
+  emptySubText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", marginTop: 6, lineHeight: 20 },
 
   dateFilterLabel: {
-    width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center",
+    width: 28, height: 28, borderRadius: 16, alignItems: "center", justifyContent: "center",
   },
   customDateRow: {
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8,
   },
   dateInput: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9,
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 9,
   },
-  dateSep: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  dateSep: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   activeDateChip: {
     flexDirection: "row", alignItems: "center", gap: 5,
     alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20, borderWidth: 1,
   },
-  activeDateChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  activeDateChipText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
 
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000066" },
   modalSheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 20 },
@@ -674,13 +674,13 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB",
   },
-  modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
-  modalTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  modalDone: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  modalCancel: { fontSize: 15, fontFamily: "NunitoSans_400Regular" },
+  modalTitle: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
+  modalDone: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
 
   modalCard: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: 28 },
-  modalLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 12, marginBottom: 6 },
-  modalInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 14, fontFamily: "Inter_400Regular", textAlignVertical: "top" },
+  modalLabel: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", marginTop: 12, marginBottom: 6 },
+  modalInput: { borderWidth: 1, borderRadius: 16, padding: 10, fontSize: 14, fontFamily: "NunitoSans_400Regular", textAlignVertical: "top" },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
-  modalBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
+  modalBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 16, borderWidth: 1 },
 });

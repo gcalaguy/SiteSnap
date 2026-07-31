@@ -51,12 +51,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 20 },
   backBtn: { marginBottom: 8, alignSelf: "flex-start" },
-  title: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 4 },
+  title: { fontSize: 28, fontFamily: "NunitoSans_700Bold" },
+  subtitle: { fontSize: 14, fontFamily: "NunitoSans_400Regular", marginTop: 4 },
   section: { paddingHorizontal: 20, marginBottom: 20 },
   label: {
     fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -68,64 +68,64 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  projectChipText: { fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 },
+  projectChipText: { fontSize: 14, fontFamily: "NunitoSans_500Medium", flex: 1 },
   row: { flexDirection: "row", gap: 12 },
   inputBox: {
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     flex: 1,
   },
   textArea: {
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     minHeight: 100,
     textAlignVertical: "top",
   },
   aiBox: {
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderStyle: "dashed",
     padding: 16,
     minHeight: 80,
   },
-  aiText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  aiText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
   aiButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
     marginTop: 10,
     justifyContent: "center",
   },
-  aiButtonText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  aiButtonText: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
   submitButton: {
     marginHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
     marginBottom: 12,
   },
-  submitText: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  noProjectsText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+  submitText: { fontSize: 16, fontFamily: "NunitoSans_700Bold" },
+  noProjectsText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingVertical: 20 },
   divider: { height: 1, marginHorizontal: 20, marginBottom: 20 },
   micButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   photoThumb: {
     width: 80,
     height: 80,
-    borderRadius: 10,
+    borderRadius: 16,
     overflow: "hidden",
     position: "relative",
   },
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     right: 4,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: "rgba(0,0,0,0.6)",
     alignItems: "center",
     justifyContent: "center",
@@ -178,18 +178,18 @@ const styles = StyleSheet.create({
   addPhotoBtn: {
     width: 80,
     height: 80,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
   },
-  addPhotoBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  addPhotoBtnText: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
   banner: {
     marginHorizontal: 20,
     marginBottom: 14,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -197,8 +197,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  bannerText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
-  bannerAction: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  bannerText: { fontSize: 13, fontFamily: "NunitoSans_500Medium", flex: 1 },
+  bannerAction: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
 });
 
 export default function LogScreen() {
@@ -589,7 +589,7 @@ export default function LogScreen() {
       {submitted === "online" && (
         <View style={[styles.banner, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
           <Feather name="check-circle" size={18} color="#22C55E" />
-          <Text style={[styles.bannerText, { color: "#166534", fontFamily: "Inter_600SemiBold" }]}>
+          <Text style={[styles.bannerText, { color: "#166534", fontFamily: "NunitoSans_600SemiBold" }]}>
             Report submitted!
           </Text>
         </View>
@@ -597,7 +597,7 @@ export default function LogScreen() {
       {submitted === "offline" && (
         <View style={[styles.banner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
           <Feather name="save" size={18} color="#D97706" />
-          <Text style={[styles.bannerText, { color: "#92400E", fontFamily: "Inter_600SemiBold" }]}>
+          <Text style={[styles.bannerText, { color: "#92400E", fontFamily: "NunitoSans_600SemiBold" }]}>
             Saved offline — will sync when connected
           </Text>
         </View>
@@ -730,7 +730,7 @@ export default function LogScreen() {
         {voice.state === "recording" && (
           <View style={[styles.recordingBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
             <View style={styles.recordingDot} />
-            <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+            <Text style={{ color: "#DC2626", fontFamily: "NunitoSans_500Medium", fontSize: 13 }}>
               Recording… tap mic to stop & transcribe
             </Text>
           </View>
@@ -740,7 +740,7 @@ export default function LogScreen() {
             style={{
               color: colors.destructive,
               fontSize: 12,
-              fontFamily: "Inter_400Regular",
+              fontFamily: "NunitoSans_400Regular",
               marginBottom: 6,
             }}
           >
@@ -799,7 +799,7 @@ export default function LogScreen() {
                           backgroundColor: active ? colors.primary : colors.muted,
                         }}
                       >
-                        <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: active ? "#FFFFFF" : colors.mutedForeground }}>
+                        <Text style={{ fontSize: 9, fontFamily: "NunitoSans_600SemiBold", color: active ? "#FFFFFF" : colors.mutedForeground }}>
                           {c.label}
                         </Text>
                       </TouchableOpacity>
@@ -867,7 +867,7 @@ export default function LogScreen() {
                 <Text style={[styles.aiText, { color: colors.foreground }]}>{aiSummary}</Text>
                 <TouchableOpacity onPress={() => setAiSummary("")} style={{ marginTop: 8 }}>
                   <Text
-                    style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}
+                    style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "NunitoSans_400Regular" }}
                   >
                     Remove
                   </Text>

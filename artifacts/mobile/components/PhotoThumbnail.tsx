@@ -25,7 +25,7 @@ export function CategoryPill({ category }: { category?: PhotoCategory | null }) 
   const key = category ?? "progress";
   return (
     <View style={{ backgroundColor: CATEGORY_COLORS[key], paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4 }}>
-      <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" }}>{CATEGORY_LABELS[key]}</Text>
+      <Text style={{ fontSize: 9, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" }}>{CATEGORY_LABELS[key]}</Text>
     </View>
   );
 }
@@ -49,7 +49,7 @@ export function PhotoThumbnail({ objectPath, category, size = 80, onPress, style
         {
           width: size,
           height: size,
-          borderRadius: 8,
+          borderRadius: 16,
           borderWidth: 1,
           borderColor: colors.border,
           overflow: "hidden",
@@ -132,7 +132,7 @@ export function PhotoLightbox({ objectPath, visible, onClose, category, uploader
             )}
             <Image
               source={{ uri: signedUrl }}
-              style={{ width: "95%", height: "75%", borderRadius: 10 }}
+              style={{ width: "95%", height: "75%", borderRadius: 16 }}
               contentFit="contain"
               onLoad={() => setLoading(false)}
             />
@@ -176,13 +176,13 @@ export function PhotoLightbox({ objectPath, visible, onClose, category, uploader
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               {category && <CategoryPill category={category} />}
               {uploaderName && (
-                <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Inter_500Medium" }}>
+                <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "NunitoSans_500Medium" }}>
                   {uploaderName}
                 </Text>
               )}
             </View>
             {uploadedAt && (
-              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter_400Regular" }}>
+              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "NunitoSans_400Regular" }}>
                 {new Date(uploadedAt).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}
               </Text>
             )}

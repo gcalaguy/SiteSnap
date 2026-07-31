@@ -9,6 +9,7 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
+import { fontFamily } from "@/constants/theme";
 
 function NativeTabLayout() {
   return (
@@ -73,6 +74,7 @@ function ClassicTabLayout() {
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
         tabBarHideOnKeyboard: true,
+        tabBarLabelStyle: { fontFamily: fontFamily.semibold, fontSize: 11, letterSpacing: 0.3 },
         tabBarStyle: {
           position: "absolute",
           backgroundColor: isIOS ? "transparent" : colors.background,
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     right: -8,
     minWidth: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: 16,
     backgroundColor: "#EF4444",
     alignItems: "center",
     justifyContent: "center",
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 10,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "NunitoSans_700Bold",
     color: "#FFFFFF",
     lineHeight: 13,
   },

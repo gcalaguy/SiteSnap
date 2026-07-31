@@ -387,7 +387,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                   <Feather name="chevron-left" size={18} color={colors.foreground} />
                 </Pressable>
               )}
-              <View style={[s.weekDisplay, { backgroundColor: editingTimesheet ? colors.muted : "transparent", borderRadius: 8 }]}>
+              <View style={[s.weekDisplay, { backgroundColor: editingTimesheet ? colors.muted : "transparent", borderRadius: 16 }]}>
                 <Feather name="calendar" size={14} color={colors.primary} />
                 <Text style={[s.weekText, { color: colors.foreground }]}>{weekLabel(weekISO)}</Text>
               </View>
@@ -654,20 +654,20 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                 {isAuthorized && ts.status === "submitted" && (
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                     <Pressable
-                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#DCFCE7", borderRadius: 8, borderWidth: 1, borderColor: "#86EFAC" }}
+                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#DCFCE7", borderRadius: 16, borderWidth: 1, borderColor: "#86EFAC" }}
                       onPress={() => debouncedApprove(ts.id)}
                       disabled={approveTimesheetMutation.isPending || !!debounceTimers[ts.id]}
                     >
                       {approveTimesheetMutation.isPending ? <ActivityIndicator color="#16A34A" size="small" /> : <Feather name="check-circle" size={14} color="#16A34A" />}
-                      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#16A34A" }}>Approve</Text>
+                      <Text style={{ fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#16A34A" }}>Approve</Text>
                     </Pressable>
                     <Pressable
-                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#FEF2F2", borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}
+                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#FEF2F2", borderRadius: 16, borderWidth: 1, borderColor: "#FECACA" }}
                       onPress={() => debouncedDeny(ts.id)}
                       disabled={denyTimesheetMutation.isPending || !!debounceTimers[ts.id]}
                     >
                       {denyTimesheetMutation.isPending ? <ActivityIndicator color="#DC2626" size="small" /> : <Feather name="x-circle" size={14} color="#DC2626" />}
-                      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#DC2626" }}>Deny</Text>
+                      <Text style={{ fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#DC2626" }}>Deny</Text>
                     </Pressable>
                   </View>
                 )}
@@ -685,69 +685,69 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
 const s = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingBottom: 48, paddingTop: 4 },
   headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 },
-  sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
-  sectionSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 3 },
+  sectionTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
+  sectionSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 3 },
   newBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  newBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  newBtnText: { color: "#fff", fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
 
   // Form
-  form: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 28 },
-  formTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 14 },
-  formLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
-  optional: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  form: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 28 },
+  formTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", marginBottom: 14 },
+  formLabel: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginBottom: 6 },
+  optional: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
 
   weekPicker: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
-  weekArrow: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  weekArrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   weekDisplay: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  weekText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  weekText: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
 
-  alreadyBadge: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 8, borderWidth: 1, padding: 10, marginTop: 8 },
-  alreadyText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  alreadyBadge: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 16, borderWidth: 1, padding: 10, marginTop: 8 },
+  alreadyText: { flex: 1, fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 17 },
 
-  entriesBlock: { borderRadius: 10, borderWidth: 1, padding: 12, marginTop: 12 },
+  entriesBlock: { borderRadius: 16, borderWidth: 1, padding: 12, marginTop: 12 },
   entriesBlockHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  entriesBlockTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", flex: 1 },
+  entriesBlockTitle: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", flex: 1 },
   entryRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 3 },
-  entryDate: { fontSize: 12, fontFamily: "Inter_500Medium", minWidth: 90 },
-  entryHours: { fontSize: 12, fontFamily: "Inter_700Bold", minWidth: 36 },
-  entryDesc: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1 },
-  autoFillNote: { fontSize: 11, fontFamily: "Inter_400Regular", marginBottom: 6, fontStyle: "italic" },
+  entryDate: { fontSize: 12, fontFamily: "NunitoSans_500Medium", minWidth: 90 },
+  entryHours: { fontSize: 12, fontFamily: "NunitoSans_700Bold", minWidth: 36 },
+  entryDesc: { fontSize: 11, fontFamily: "NunitoSans_400Regular", flex: 1 },
+  autoFillNote: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginBottom: 6, fontStyle: "italic" },
 
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "Inter_400Regular" },
+  input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "NunitoSans_400Regular" },
   multiline: { minHeight: 90, textAlignVertical: "top", paddingTop: 10 },
-  error: { color: "#EF4444", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
-  earningsRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, padding: 10, marginTop: 12 },
-  earningsText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, borderRadius: 10, paddingVertical: 13 },
-  submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  error: { color: "#EF4444", fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 4 },
+  earningsRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 16, padding: 10, marginTop: 12 },
+  earningsText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, borderRadius: 16, paddingVertical: 13 },
+  submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "NunitoSans_700Bold" },
 
-  histLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
+  histLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
   empty: { alignItems: "center", paddingVertical: 48, gap: 10 },
-  emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  emptySub: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", maxWidth: 260 },
+  emptyTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  emptySub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", maxWidth: 260 },
 
-  card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 12 },
+  card: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
-  calIcon: { width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  cardWeek: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  cardSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  calIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  cardWeek: { fontSize: 13, fontFamily: "NunitoSans_700Bold" },
+  cardSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  editCardBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
-  editCardBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  statsRow: { flexDirection: "row", gap: 0, marginBottom: 10, borderRadius: 10, overflow: "hidden" },
+  statusText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  editCardBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16, borderWidth: 1 },
+  editCardBtnText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  statsRow: { flexDirection: "row", gap: 0, marginBottom: 10, borderRadius: 16, overflow: "hidden" },
   statItem: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
-  statValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  statValue: { fontSize: 14, fontFamily: "NunitoSans_700Bold" },
+  statLabel: { fontSize: 10, fontFamily: "NunitoSans_400Regular" },
 
   linkedEntries: { borderTopWidth: 1, paddingTop: 10, marginBottom: 10 },
   linkedHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
-  linkedTitle: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  linkedTitle: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
   linkedRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 2 },
-  linkedDate: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  linkedHours: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  linkedDate: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
+  linkedHours: { fontSize: 12, fontFamily: "NunitoSans_700Bold" },
 
-  cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginBottom: 8 },
-  notesRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 8, borderWidth: 1, padding: 10, marginTop: 4 },
-  notesText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  cardDesc: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 18, marginBottom: 8 },
+  notesRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 16, borderWidth: 1, padding: 10, marginTop: 4 },
+  notesText: { flex: 1, fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 17 },
 });

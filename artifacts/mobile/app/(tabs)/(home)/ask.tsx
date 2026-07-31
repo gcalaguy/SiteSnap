@@ -706,16 +706,16 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 2,
     flexShrink: 0,
   },
   headerCenter: { flex: 1 },
-  title: { fontSize: 19, fontFamily: "Inter_700Bold" },
+  title: { fontSize: 19, fontFamily: "NunitoSans_700Bold" },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 },
-  statusText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.55)" },
+  statusText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.55)" },
   statusDot: {
     width: 6,
     height: 6,
@@ -730,27 +730,27 @@ const styles = StyleSheet.create({
   avatar: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  bubble: { maxWidth: "78%", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble: { maxWidth: "78%", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   bubbleUser: { borderBottomRightRadius: 4 },
   bubbleAssistant: { borderBottomLeftRadius: 4, borderWidth: 1 },
-  bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  bubbleText: { fontSize: 15, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
   typingDots: { flexDirection: "row", gap: 5, alignItems: "center" },
   dot: { width: 7, height: 7, borderRadius: 3.5, opacity: 0.6 },
 
   // Action-oriented empty state
   emptyScrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   greetingRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  greetingTitle: { fontSize: 19, fontFamily: "Inter_700Bold" },
-  greetingSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 18 },
+  greetingTitle: { fontSize: 19, fontFamily: "NunitoSans_700Bold" },
+  greetingSubtitle: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginTop: 4, lineHeight: 18 },
 
   sectionLabel: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginTop: 18,
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 8,
   },
-  clearRecentText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  clearRecentText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
 
   // Voice CTA
   voiceCard: {
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 14,
     marginTop: 14,
   },
@@ -783,8 +783,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  voiceTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  voiceSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  voiceTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  voiceSubtitle: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
 
   // Quick actions
   quickActionsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -794,10 +794,10 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  quickActionLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  quickActionLabel: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
 
   // Recent questions
   recentRow: {
@@ -805,11 +805,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  recentText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+  recentText: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular" },
 
   chipsScrollContent: { gap: 8, paddingBottom: 4 },
   chip: {
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexShrink: 0,
   },
-  chipText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  chipText: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxHeight: 120,
   },
-  input: { fontSize: 15, fontFamily: "Inter_400Regular" },
+  input: { fontSize: 15, fontFamily: "NunitoSans_400Regular" },
   sendButton: {
     width: 42,
     height: 42,
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
   clearButton: { padding: 6, marginBottom: 2 },
   charCounter: {
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     textAlign: "right",
     marginTop: 2,
     paddingRight: 4,
@@ -873,24 +873,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 16,
   },
   errorBannerText: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     color: "#EF4444",
     flex: 1,
   },
   chatErrorBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     gap: 10,
     marginHorizontal: 12,
     marginBottom: 4,
   },
   chatErrorTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  chatErrorMsg: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C", lineHeight: 19 },
-  chatRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
-  chatRetryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  chatErrorMsg: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "#B91C1C", lineHeight: 19 },
+  chatRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 9, paddingHorizontal: 14 },
+  chatRetryBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
 });

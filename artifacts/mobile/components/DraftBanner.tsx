@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -43,11 +43,11 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
   },
   action: {
     fontSize: 13,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "NunitoSans_700Bold",
     textDecorationLine: "underline",
   },
 });

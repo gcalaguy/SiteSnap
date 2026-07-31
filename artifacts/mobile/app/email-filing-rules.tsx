@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { ChipRow, ConditionBuilder } from "@/components/ConditionBuilder";
 import {
   useGetMe,
   useListEmailFilingRules,
@@ -52,38 +53,6 @@ const OPERATOR_OPTIONS: { value: OperatorOption; label: string }[] = [
 
 function emptyCondition(): FilingRuleCondition {
   return { field: "subject", operator: "contains", value: "" };
-}
-
-function ChipRow<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  const colors = useColors();
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: "row", gap: 6 }}>
-        {options.map((opt) => (
-          <Pressable
-            key={opt.value}
-            onPress={() => onChange(opt.value)}
-            style={[
-              s.chip,
-              { backgroundColor: value === opt.value ? colors.primary : colors.muted, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[s.chipText, { color: value === opt.value ? "#FFFFFF" : colors.foreground }]}>
-              {opt.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </ScrollView>
-  );
 }
 
 function RuleEditorModal({
@@ -184,10 +153,6 @@ function RuleEditorModal({
     }
   }
 
-  function updateCondition(index: number, patch: Partial<FilingRuleCondition>) {
-    setConditions((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  }
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -227,42 +192,14 @@ function RuleEditorModal({
             />
           </View>
 
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={[s.fieldLabel, { color: colors.foreground }]}>Conditions</Text>
-              <ChipRow
-                options={[{ value: "AND", label: "Match ALL (AND)" }, { value: "OR", label: "Match ANY (OR)" }]}
-                value={conditionLogic}
-                onChange={setConditionLogic}
-              />
-            </View>
-            {conditions.map((cond, i) => (
-              <View key={i} style={[s.conditionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>IF</Text>
-                  {conditions.length > 1 && (
-                    <Pressable onPress={() => setConditions((prev) => prev.filter((_, idx) => idx !== i))} hitSlop={8}>
-                      <Feather name="x" size={16} color={colors.mutedForeground} />
-                    </Pressable>
-                  )}
-                </View>
-                <ChipRow options={FIELD_OPTIONS} value={cond.field} onChange={(v) => updateCondition(i, { field: v })} />
-                <ChipRow options={OPERATOR_OPTIONS} value={cond.operator} onChange={(v) => updateCondition(i, { operator: v })} />
-                <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  value={cond.value}
-                  onChangeText={(v) => updateCondition(i, { value: v })}
-                  placeholder="Value to match"
-                  placeholderTextColor={colors.mutedForeground}
-                  autoCapitalize="none"
-                />
-              </View>
-            ))}
-            <Pressable onPress={() => setConditions((prev) => [...prev, emptyCondition()])} style={s.addRow}>
-              <Feather name="plus" size={14} color={colors.primary} />
-              <Text style={[s.addRowText, { color: colors.primary }]}>Add condition</Text>
-            </Pressable>
-          </View>
+          <ConditionBuilder
+            conditions={conditions}
+            onChange={setConditions}
+            fieldOptions={FIELD_OPTIONS}
+            operatorOptions={OPERATOR_OPTIONS}
+            logic={conditionLogic}
+            onLogicChange={setConditionLogic}
+          />
 
           <View style={{ gap: 8 }}>
             <Text style={[s.fieldLabel, { color: colors.foreground }]}>THEN</Text>

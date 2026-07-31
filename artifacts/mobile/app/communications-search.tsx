@@ -18,6 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ConditionBuilder, type ConditionRow } from "@/components/ConditionBuilder";
 import {
   useSearchCommunications,
   useSearchCommunicationsAi,
@@ -29,9 +30,41 @@ import {
   type CommunicationSearchTemplate,
   type StructuredEmailSearchResult,
   type AiSearchResult,
+  type SearchConditionField,
+  type SearchConditionOperator,
 } from "@workspace/api-client-react";
 
-type SearchMode = "build" | "ask";
+type SearchMode = "build" | "advanced" | "ask";
+
+const CONDITION_FIELD_OPTIONS: { value: SearchConditionField; label: string }[] = [
+  { value: "subject", label: "Subject" },
+  { value: "from_email", label: "Sender email" },
+  { value: "from_name", label: "Sender name" },
+  { value: "to_emails", label: "Recipients (to)" },
+  { value: "cc_emails", label: "Recipients (cc)" },
+  { value: "body_text", label: "Body" },
+  { value: "thread_category", label: "Category tag" },
+  { value: "priority", label: "Priority" },
+  { value: "flagged", label: "Flagged" },
+  { value: "attachment_type", label: "Attachment type" },
+  { value: "project_number", label: "Project number" },
+  { value: "date_sent", label: "Date sent" },
+];
+
+const CONDITION_OPERATOR_OPTIONS: { value: SearchConditionOperator; label: string }[] = [
+  { value: "contains", label: "contains" },
+  { value: "not_contains", label: "doesn't contain" },
+  { value: "equals", label: "equals" },
+  { value: "starts_with", label: "starts with" },
+  { value: "before", label: "before" },
+  { value: "after", label: "after" },
+  { value: "is_true", label: "is true" },
+  { value: "is_false", label: "is false" },
+];
+
+function emptyAdvancedCondition(): ConditionRow<SearchConditionField, SearchConditionOperator> {
+  return { field: "subject", operator: "contains", value: "" };
+}
 
 const ATTACHMENT_TYPES: { value: NonNullable<CommunicationSearchCriteria["attachmentTypes"]>[number]; label: string }[] = [
   { value: "pdf", label: "PDF" },
@@ -139,6 +172,11 @@ export default function CommunicationsSearchScreen() {
   const [results, setResults] = React.useState<StructuredEmailSearchResult[] | null>(null);
   const [showSaveModal, setShowSaveModal] = React.useState(false);
 
+  const [advancedLogic, setAdvancedLogic] = React.useState<"AND" | "OR">("AND");
+  const [advancedConditions, setAdvancedConditions] = React.useState<
+    ConditionRow<SearchConditionField, SearchConditionOperator>[]
+  >([emptyAdvancedCondition()]);
+
   const [aiQuery, setAiQuery] = React.useState("");
   const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
   const [aiResults, setAiResults] = React.useState<AiSearchResult[] | null>(null);
@@ -168,6 +206,22 @@ export default function CommunicationsSearchScreen() {
   async function handleSearch() {
     try {
       const result = await runSearch({ data: criteria, params: { limit: 50 } });
+      setResults(result.results);
+    } catch {
+      Alert.alert("Search failed", "Please try again.");
+    }
+  }
+
+  async function handleAdvancedSearch() {
+    const validConditions = advancedConditions.filter(
+      (c) => c.operator === "is_true" || c.operator === "is_false" || c.value.trim().length > 0,
+    );
+    if (validConditions.length === 0) return;
+    try {
+      const result = await runSearch({
+        data: { conditionTree: { logic: advancedLogic, conditions: validConditions } },
+        params: { limit: 50 },
+      });
       setResults(result.results);
     } catch {
       Alert.alert("Search failed", "Please try again.");
@@ -252,6 +306,12 @@ export default function CommunicationsSearchScreen() {
             <Text style={[s.chipText, { color: mode === "build" ? "#FFFFFF" : colors.foreground }]}>Build a Search</Text>
           </Pressable>
           <Pressable
+            onPress={() => setMode("advanced")}
+            style={[s.chip, { flex: 1, alignItems: "center", backgroundColor: mode === "advanced" ? colors.primary : colors.muted, borderColor: colors.border }]}
+          >
+            <Text style={[s.chipText, { color: mode === "advanced" ? "#FFFFFF" : colors.foreground }]}>Advanced</Text>
+          </Pressable>
+          <Pressable
             onPress={() => setMode("ask")}
             style={[s.chip, { flex: 1, alignItems: "center", backgroundColor: mode === "ask" ? colors.primary : colors.muted, borderColor: colors.border }]}
           >
@@ -259,7 +319,44 @@ export default function CommunicationsSearchScreen() {
           </Pressable>
         </View>
 
-        {mode === "ask" ? (
+        {mode === "advanced" ? (
+          <>
+            <ConditionBuilder
+              conditions={advancedConditions}
+              onChange={setAdvancedConditions}
+              fieldOptions={CONDITION_FIELD_OPTIONS}
+              operatorOptions={CONDITION_OPERATOR_OPTIONS}
+              logic={advancedLogic}
+              onLogicChange={setAdvancedLogic}
+            />
+            <Pressable onPress={handleAdvancedSearch} disabled={searching} style={[s.primaryBtn, { backgroundColor: colors.primary }]}>
+              {searching ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={s.primaryBtnText}>Search</Text>}
+            </Pressable>
+
+            {results != null && (
+              <View style={{ gap: 8 }}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>{results.length} result{results.length === 1 ? "" : "s"}</Text>
+                {results.length === 0 ? (
+                  <View style={[s.emptyBox, { borderColor: colors.border }]}>
+                    <Feather name="search" size={22} color={colors.mutedForeground} />
+                    <Text style={[s.emptyTitle, { color: colors.foreground }]}>No matches</Text>
+                  </View>
+                ) : (
+                  results.map((r) => (
+                    <View key={r.id} style={[s.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <Text style={[s.resultSubject, { color: colors.foreground }]} numberOfLines={1}>
+                        {r.subject || "(no subject)"}
+                      </Text>
+                      <Text style={[s.resultMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {r.from_name || r.from_email || ""} · {relativeDateLabel(r.sent_at)}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+          </>
+        ) : mode === "ask" ? (
           <>
             <View style={{ gap: 6 }}>
               <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>

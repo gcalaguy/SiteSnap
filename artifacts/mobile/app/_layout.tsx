@@ -5,7 +5,14 @@ import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
+import {
+  useFonts,
+  NunitoSans_400Regular,
+  NunitoSans_500Medium,
+  NunitoSans_600SemiBold,
+  NunitoSans_700Bold,
+  NunitoSans_800ExtraBold,
+} from "@expo-google-fonts/nunito-sans";
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
@@ -208,10 +215,11 @@ function RootLayoutNav() {
   const segments = useSegments();
 
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    NunitoSans_400Regular,
+    NunitoSans_500Medium,
+    NunitoSans_600SemiBold,
+    NunitoSans_700Bold,
+    NunitoSans_800ExtraBold,
   });
 
   useEffect(() => {

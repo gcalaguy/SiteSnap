@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     backgroundColor: "#1E293B",
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 11,
     paddingHorizontal: 14,
     shadowColor: "#000",
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: "#F1F5F9",
-    fontFamily: "Inter_500Medium",
+    fontFamily: "NunitoSans_500Medium",
   },
   dot: {
     width: 5,

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -94,6 +95,10 @@ function ProviderCard({
   const [connecting, setConnecting] = React.useState(false);
   const [syncing, setSyncing] = React.useState(false);
   const [showFolders, setShowFolders] = React.useState(false);
+  // Phase 4 — Outlook shared mailboxes only (see emailSyncService.ts's
+  // graphMailboxSegment for why Gmail's equivalent isn't supported here).
+  const [mailboxMode, setMailboxMode] = React.useState<"personal" | "shared">("personal");
+  const [sharedAddress, setSharedAddress] = React.useState("");
 
   const { data: folderData, isLoading: foldersLoading } = useListEmailIntegrationFolders(
     account?.id ?? 0,
@@ -107,11 +112,17 @@ function ProviderCard({
   const { mutateAsync: syncNow } = useSyncEmailIntegrationAccountNow();
 
   async function handleConnect() {
+    if (provider === "outlook" && mailboxMode === "shared" && !sharedAddress.trim()) {
+      Alert.alert("Address required", "Enter the shared mailbox's email address first.");
+      return;
+    }
     setConnecting(true);
     try {
       const result =
         provider === "outlook"
-          ? await getEmailIntegrationsOutlookAuthUrl()
+          ? await getEmailIntegrationsOutlookAuthUrl(
+              mailboxMode === "shared" ? { sharedMailboxAddress: sharedAddress.trim() } : undefined,
+            )
           : await getEmailIntegrationsGmailAuthUrl();
       await WebBrowser.openBrowserAsync(result.url);
     } catch {
@@ -186,7 +197,15 @@ function ProviderCard({
           <Feather name={icon} size={16} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>{label}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>{label}</Text>
+            {account?.mailboxType === "shared" && (
+              <View style={[styles.pill, { backgroundColor: colors.muted }]}>
+                <Feather name="users" size={11} color={colors.mutedForeground} />
+                <Text style={[styles.pillText, { color: colors.mutedForeground }]}>Shared</Text>
+              </View>
+            )}
+          </View>
           {account?.emailAddress && (
             <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
               {account.emailAddress}
@@ -307,6 +326,46 @@ function ProviderCard({
         </>
       )}
 
+      {!isConnected && configured && provider === "outlook" && (
+        <>
+          <View style={styles.freqRow}>
+            <Pressable
+              onPress={() => setMailboxMode("personal")}
+              style={[
+                styles.freqChip,
+                { backgroundColor: mailboxMode === "personal" ? colors.primary : colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.freqChipText, { color: mailboxMode === "personal" ? "#FFFFFF" : colors.foreground }]}>
+                My Inbox
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMailboxMode("shared")}
+              style={[
+                styles.freqChip,
+                { backgroundColor: mailboxMode === "shared" ? colors.primary : colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.freqChipText, { color: mailboxMode === "shared" ? "#FFFFFF" : colors.foreground }]}>
+                Shared Mailbox
+              </Text>
+            </Pressable>
+          </View>
+          {mailboxMode === "shared" && (
+            <TextInput
+              style={[styles.sharedInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              value={sharedAddress}
+              onChangeText={setSharedAddress}
+              placeholder="shared-mailbox@yourcompany.com"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          )}
+        </>
+      )}
+
       {!isConnected && configured && (
         <Pressable
           onPress={handleConnect}
@@ -318,7 +377,9 @@ function ProviderCard({
           ) : (
             <>
               <Feather name={icon} size={15} color="#FFFFFF" />
-              <Text style={styles.connectBtnText}>Connect {label}</Text>
+              <Text style={styles.connectBtnText}>
+                Connect {mailboxMode === "shared" && provider === "outlook" ? "Shared Mailbox" : label}
+              </Text>
             </>
           )}
         </Pressable>
@@ -564,6 +625,14 @@ const styles = StyleSheet.create({
   freqChipText: {
     fontSize: 12,
     fontFamily: "NunitoSans_500Medium",
+  },
+  sharedInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "NunitoSans_400Regular",
   },
   foldersToggle: {
     flexDirection: "row",

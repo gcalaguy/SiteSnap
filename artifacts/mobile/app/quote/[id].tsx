@@ -476,7 +476,7 @@ export default function QuoteDetailScreen() {
         {(quote as any).signedAt && (quote as any).signatureData && (
           <Section title="SIGNATURE">
             <View style={{ alignItems: "flex-start", gap: 6 }}>
-              <View style={{ borderWidth: 1, borderColor: colors.border, padding: 8, borderRadius: 6, backgroundColor: "#fff" }}>
+              <View style={{ borderWidth: 1, borderColor: colors.border, padding: 8, borderRadius: 16, backgroundColor: "#fff" }}>
                 <Text style={{ fontSize: 11, color: colors.mutedForeground }}>{(quote as any).signerName ?? "Client signature"}</Text>
               </View>
               <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
@@ -569,7 +569,7 @@ export default function QuoteDetailScreen() {
                     ? <ActivityIndicator color="#FFFFFF" size="small" />
                     : <Feather name="send" size={18} color="#FFFFFF" />
                   }
-                  <Text style={[styles.actionBtnText, { color: "#FFFFFF", fontFamily: "Inter_700Bold" }]}>
+                  <Text style={[styles.actionBtnText, { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold" }]}>
                     Submit to Foreman & Owner
                   </Text>
                 </Pressable>
@@ -655,34 +655,34 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
   backBtn: { width: 36 },
-  headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
+  headerTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
-  titleCard: { borderRadius: 12, padding: 16, borderWidth: 1, gap: 4 },
-  quoteTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  quoteNum: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  updatedLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  submittedBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, padding: 10, borderRadius: 8, borderWidth: 1 },
-  submittedBannerText: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#2563EB", flex: 1 },
-  section: { borderRadius: 12, padding: 16, borderWidth: 1 },
-  sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
+  titleCard: { borderRadius: 16, padding: 16, borderWidth: 1, gap: 4 },
+  quoteTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
+  quoteNum: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
+  updatedLabel: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 4 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
+  statusText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  submittedBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, padding: 10, borderRadius: 16, borderWidth: 1 },
+  submittedBannerText: { fontSize: 12, fontFamily: "NunitoSans_500Medium", color: "#2563EB", flex: 1 },
+  section: { borderRadius: 16, padding: 16, borderWidth: 1 },
+  sectionTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 4 },
-  infoLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
-  infoValue: { fontSize: 13, fontFamily: "Inter_500Medium", textAlign: "right", flex: 1 },
+  infoLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flex: 1 },
+  infoValue: { fontSize: 13, fontFamily: "NunitoSans_500Medium", textAlign: "right", flex: 1 },
   lineItem: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 10 },
-  lineDesc: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  lineMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  lineTotal: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  lineDesc: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
+  lineMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  lineTotal: { fontSize: 14, fontFamily: "NunitoSans_700Bold" },
   divider: { height: 1, marginVertical: 8 },
-  notes: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
-  actionGroup: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
-  actionGroupTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  notes: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
+  actionGroup: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  actionGroupTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   actionRow: { flexDirection: "row" },
   actionCol: { gap: 0 },
   exportBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, flex: 1, borderTopWidth: StyleSheet.hairlineWidth },
-  exportBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  exportBtnText: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
   actionBtnFull: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
-  actionBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  actionBtnText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
 });
