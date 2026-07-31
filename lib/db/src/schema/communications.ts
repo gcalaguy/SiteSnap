@@ -32,6 +32,13 @@ export const emailAccountStatusEnum = pgEnum("email_account_status", [
   "error",
   "reauth_required",
 ]);
+// Phase 4 — Outlook shared mailboxes only (Gmail Workspace delegation/group
+// inboxes need domain-wide admin consent and a structurally different flow —
+// scoped out of this phase). "shared" means the connecting user has Exchange
+// delegate access to sharedMailboxAddress; sync reads that mailbox via
+// Graph's /users/{upn}/... rather than /me/... — see emailSyncService.ts's
+// graphMailboxSegment().
+export const emailMailboxTypeEnum = pgEnum("email_mailbox_type", ["personal", "shared"]);
 
 // ── Project Communications Hub (Phase 2 — Intelligent Project Organization) ───
 
@@ -70,7 +77,55 @@ export type FilingRuleAction =
   | { type: "move_to_project"; projectId: number }
   | { type: "assign_category"; category: string };
 
-export type CommunicationAttachmentType = "pdf" | "word" | "excel" | "image" | "cad";
+// ── Advanced Search Builder v2 (Phase 4) ───────────────────────────────────────
+// Additive extension of CommunicationSearchCriteria below — every existing flat
+// field stays valid; conditionTree, when present on a request, takes
+// precedence over the flat fields for that search. Nesting is capped at one
+// level (SearchConditionGroup can contain a SearchConditionLeafGroup, which
+// cannot itself contain another group) to keep the SQL builder tractable.
+export type SearchField =
+  | FilingRuleField
+  | "thread_category"
+  | "priority"
+  | "flagged"
+  | "attachment_type"
+  | "project_number"
+  | "date_sent";
+export type SearchOperator =
+  | "contains"
+  | "not_contains"
+  | "equals"
+  | "starts_with"
+  | "before"
+  | "after"
+  | "is_true"
+  | "is_false";
+export interface SearchCondition {
+  field: SearchField;
+  operator: SearchOperator;
+  value?: string;
+}
+export interface SearchConditionLeafGroup {
+  logic: "AND" | "OR";
+  conditions: SearchCondition[];
+}
+export interface SearchConditionGroup {
+  logic: "AND" | "OR";
+  conditions: (SearchCondition | SearchConditionLeafGroup)[];
+}
+
+export type CommunicationAttachmentType =
+  | "pdf"
+  | "word"
+  | "excel"
+  | "image"
+  | "cad"
+  | "blueprint"
+  | "quote"
+  | "invoice"
+  | "inspection_report"
+  | "permit"
+  | "other";
 export interface CommunicationSearchCriteria {
   keywords?: string;
   subject?: string;
@@ -87,6 +142,8 @@ export interface CommunicationSearchCriteria {
   flagged?: boolean;
   hasConversation?: boolean;
   projectId?: number | null;
+  // Phase 4: when present, takes precedence over every flat field above.
+  conditionTree?: SearchConditionGroup;
 }
 
 // ── Project Communications Hub (Phase 3 — AI Communications Intelligence) ─────
@@ -116,6 +173,47 @@ export interface EmailAiEntities {
   risks: string[];
   actionItems: string[];
 }
+
+// ── Project Communications Hub (Phase 4 — Attachment Categorization) ──────────
+
+export const emailAttachmentCategoryEnum = pgEnum("email_attachment_category", [
+  "pdf",
+  "word",
+  "excel",
+  "image",
+  "cad",
+  "blueprint",
+  "quote",
+  "invoice",
+  "inspection_report",
+  "permit",
+  "other",
+]);
+// heuristic: filename/content-type rules only. ai_entity_bias: upgraded using
+// the parent message's already-extracted aiEntities (no new LLM call — see
+// attachmentClassifier.ts). manual: a user recategorized it.
+export const emailAttachmentCategorySourceEnum = pgEnum("email_attachment_category_source", [
+  "heuristic",
+  "ai_entity_bias",
+  "manual",
+]);
+
+export const communicationTimelineEventTypeEnum = pgEnum("communication_timeline_event_type", [
+  "permit_submitted",
+  "permit_approved",
+  "permit_rejected",
+  "inspection_scheduled",
+  "inspection_passed",
+  "inspection_failed",
+  "change_order_received",
+  "change_order_approved",
+  "invoice_sent",
+  "invoice_paid",
+  "payment_requested",
+  "quote_sent",
+  "quote_accepted",
+  "other",
+]);
 
 // drizzle-orm's pg-core has no built-in tsvector column type; define one via
 // customType so emailMessagesTable.searchVector can be a proper GENERATED ALWAYS
@@ -150,6 +248,12 @@ export const emailAccountsTable = pgTable(
     deltaCursor: text("delta_cursor"),
     selectedFolders: jsonb("selected_folders"), // string[] of provider folder/label ids
     syncFrequency: emailSyncFrequencyEnum("sync_frequency").notNull().default("hourly"),
+    mailboxType: emailMailboxTypeEnum("mailbox_type").notNull().default("personal"),
+    // Set only when mailboxType is "shared" — the shared mailbox's address,
+    // distinct from the connecting user's own identity (chosen before the
+    // OAuth redirect and carried through the signed state param, since
+    // Microsoft's consent screen has no way to surface it — see oauthState.ts).
+    sharedMailboxAddress: text("shared_mailbox_address"),
     lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
     lastSyncError: text("last_sync_error"),
     nextSyncDueAt: timestamp("next_sync_due_at", { withTimezone: true }),
@@ -306,11 +410,16 @@ export const emailAttachmentsTable = pgTable(
     // GCS object path only — bytes are never stored in the DB, per the convention
     // established by documents.ts / safetyScan.ts.
     objectPath: text("object_path").notNull(),
+    // Nullable: old rows (pre-Phase-4) are backfilled by heuristic where possible
+    // but some genuinely can't be classified. See attachmentClassifier.ts.
+    category: emailAttachmentCategoryEnum("category"),
+    categorySource: emailAttachmentCategorySourceEnum("category_source"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index("idx_email_attachments_company").on(t.companyId),
     index("idx_email_attachments_message").on(t.messageId),
+    index("idx_email_attachments_category").on(t.category),
     pgPolicy("tenant_isolation", {
       as: "permissive",
       using: sql`current_tenant_id() IS NULL OR ${t.companyId} = current_tenant_id()`,
@@ -470,8 +579,53 @@ export const emailThreadCorrectionsTable = pgTable(
   ],
 ).enableRLS();
 
+export const communicationTimelineEventsTable = pgTable(
+  "communication_timeline_events",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companiesTable.id, { onDelete: "cascade" }),
+    // Null until the thread is assigned to a project — see
+    // threadAssignmentHooks.ts's backfillTimelineEventsProjectId, which
+    // populates this once assignment happens after extraction already ran.
+    projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "cascade" }),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => emailThreadsTable.id, { onDelete: "cascade" }),
+    // The "every event links back to the original email" requirement.
+    messageId: integer("message_id")
+      .notNull()
+      .references(() => emailMessagesTable.id, { onDelete: "cascade" }),
+    eventType: communicationTimelineEventTypeEnum("event_type").notNull(),
+    // Nullable — the UI falls back to the source message's sentAt when the LLM
+    // couldn't determine a specific date for the event.
+    eventDate: timestamp("event_date", { withTimezone: true }),
+    description: text("description").notNull(),
+    confidence: integer("confidence"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_communication_timeline_events_company").on(t.companyId),
+    index("idx_communication_timeline_events_project").on(t.projectId),
+    index("idx_communication_timeline_events_thread").on(t.threadId),
+    index("idx_communication_timeline_events_message").on(t.messageId),
+    index("idx_communication_timeline_events_event_date").on(t.eventDate),
+    pgPolicy("tenant_isolation", {
+      as: "permissive",
+      using: sql`current_tenant_id() IS NULL OR ${t.companyId} = current_tenant_id()`,
+    }),
+  ],
+).enableRLS();
+
 export type ProjectSignalWeight = typeof projectSignalWeightsTable.$inferSelect;
 export type EmailThreadCorrection = typeof emailThreadCorrectionsTable.$inferSelect;
+
+export const insertCommunicationTimelineEventSchema = createInsertSchema(
+  communicationTimelineEventsTable,
+).omit({ id: true, createdAt: true });
+export type InsertCommunicationTimelineEvent = z.infer<typeof insertCommunicationTimelineEventSchema>;
+export type CommunicationTimelineEvent = typeof communicationTimelineEventsTable.$inferSelect;
 
 export const insertProjectMatchKeywordSchema = createInsertSchema(projectMatchKeywordsTable).omit(
   { id: true, createdAt: true },

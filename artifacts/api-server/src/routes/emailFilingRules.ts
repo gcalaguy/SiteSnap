@@ -11,6 +11,7 @@ import {
   updateFilingRule,
   deleteFilingRule,
 } from "../repositories/emailIntegrations";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 /**
  * Admin-defined Automatic Filing Rules (Phase 2) — evaluated in priority
@@ -71,6 +72,7 @@ router.post(
       companyId: req.companyId!,
       createdByUserId: req.userId ?? null,
     });
+    logAuditEventFromRequest(req, "Email Filing Rule Created", `Created rule "${rule.name}"`).catch(() => {});
     res.status(201).json(rule);
   }),
 );
@@ -86,6 +88,7 @@ router.patch(
 
     const updated = await updateFilingRule(req.companyId!, ruleId, parsed.data);
     if (!updated) throw new NotFoundError("Filing rule not found");
+    logAuditEventFromRequest(req, "Email Filing Rule Updated", `Updated rule "${updated.name}" (id ${ruleId})`).catch(() => {});
     res.json(updated);
   }),
 );
@@ -98,6 +101,7 @@ router.delete(
     if (isNaN(ruleId)) throw new BadRequestError("Invalid rule id");
     const deleted = await deleteFilingRule(req.companyId!, ruleId);
     if (!deleted) throw new NotFoundError("Filing rule not found");
+    logAuditEventFromRequest(req, "Email Filing Rule Deleted", `Deleted rule id ${ruleId}`).catch(() => {});
     res.status(204).send();
   }),
 );

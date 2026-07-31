@@ -34,6 +34,11 @@ export * from "./documentTemplates";
 export * from "./communications";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+// Cross-file FK target for project_documents.source_email_attachment_id
+// (Phase 4) — safe circular import: communications.ts already imports
+// companiesTable/projectsTable/usersTable from this file the same way, and
+// drizzle's `.references(() => ...)` callback is only resolved lazily.
+import { emailAttachmentsTable } from "./communications";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -613,12 +618,20 @@ export const documentStatusEnum = pgEnum("document_status", [
 
 export const projectDocumentsTable = pgTable("project_documents", {
   id: serial("id").primaryKey(),
+  // Backfilled from projects.company_id (see migration 0081) and RLS-enforced
+  // below — closes a pre-existing gap where this table (unlike every comms-hub
+  // table) had no direct tenant-scoping column of its own.
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projectsTable.id, { onDelete: "cascade" }),
-  uploadedByUserId: integer("uploaded_by_user_id")
-    .notNull()
-    .references(() => usersTable.id),
+  // Nullable (Phase 4): system-triggered promotions of an email attachment
+  // into the document library have no acting user.
+  uploadedByUserId: integer("uploaded_by_user_id").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
   filename: text("filename").notNull(),
   fileType: text("file_type").notNull(),
   objectPath: text("object_path").notNull(),
@@ -627,12 +640,26 @@ export const projectDocumentsTable = pgTable("project_documents", {
   extractedData: json("extracted_data"),
   aiSummary: text("ai_summary"),
   extractedText: text("extracted_text"),
+  // Phase 4: set when this document row was auto-promoted from a synced email
+  // attachment (see attachmentClassifier.ts / threadAssignmentHooks.ts) —
+  // preserves the link back to the original email without re-uploading bytes
+  // (same objectPath is reused).
+  sourceEmailAttachmentId: integer("source_email_attachment_id").references(
+    () => emailAttachmentsTable.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_project_documents_project_id").on(t.projectId),
   index("idx_project_documents_status").on(t.status),
   index("idx_project_documents_project_status").on(t.projectId, t.status),
-]);
+  index("idx_project_documents_company").on(t.companyId),
+  index("idx_project_documents_source_attachment").on(t.sourceEmailAttachmentId),
+  pgPolicy("tenant_isolation", {
+    as: "permissive",
+    using: sql`current_tenant_id() IS NULL OR ${t.companyId} = current_tenant_id()`,
+  }),
+]).enableRLS();
 
 export const insertProjectDocumentSchema = createInsertSchema(
   projectDocumentsTable,

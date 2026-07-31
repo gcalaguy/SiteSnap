@@ -21,21 +21,31 @@ export function verifyOAuthState(payload: string, sig: string, secret: string): 
   }
 }
 
-/** Encodes {companyId, ts} into the base64url `state` param sent to the provider. */
-export function buildOAuthState(companyId: number, secret: string): string {
-  const payload = JSON.stringify({ companyId, ts: Date.now() });
+/**
+ * Encodes {companyId, ts, sharedMailboxAddress?} into the base64url `state`
+ * param sent to the provider. sharedMailboxAddress (Phase 4, Outlook shared
+ * mailboxes only) must be chosen before the OAuth redirect and carried
+ * through here — Microsoft's consent screen has no way to surface it, and
+ * the callback needs it to know which mailbox to connect (as opposed to the
+ * connecting user's own).
+ */
+export function buildOAuthState(companyId: number, secret: string, sharedMailboxAddress?: string): string {
+  const payload = JSON.stringify({ companyId, ts: Date.now(), sharedMailboxAddress: sharedMailboxAddress ?? null });
   const sig = signOAuthState(payload, secret);
   return Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
 }
 
 /** Decodes and verifies a `state` param built by buildOAuthState. Throws on any tamper/malformed input. */
-export function parseOAuthState(state: string, secret: string): { companyId: number } {
+export function parseOAuthState(
+  state: string,
+  secret: string,
+): { companyId: number; sharedMailboxAddress: string | null } {
   const outer = JSON.parse(Buffer.from(state, "base64url").toString());
   if (!outer.payload || !outer.sig) throw new Error("malformed_state");
   if (!verifyOAuthState(outer.payload, outer.sig, secret)) throw new Error("invalid_signature");
   const decoded = JSON.parse(outer.payload);
   if (!decoded.companyId) throw new Error("missing_company");
-  return { companyId: decoded.companyId };
+  return { companyId: decoded.companyId, sharedMailboxAddress: decoded.sharedMailboxAddress ?? null };
 }
 
 /**

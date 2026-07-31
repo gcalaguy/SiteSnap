@@ -14,6 +14,7 @@ import {
   mergeThreads,
 } from "../repositories/emailIntegrations";
 import { recordManualAssignment } from "../repositories/projectMatching";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 /**
  * Global "Uncategorized Emails" inbox (Phase 2) — threads the matching engine
@@ -43,7 +44,10 @@ router.get(
       : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
-    const result = await listInboxThreads(req.companyId!, { status, limit, offset });
+    const suggestedProjectId = req.query.suggestedProjectId
+      ? parseInt(req.query.suggestedProjectId as string)
+      : undefined;
+    const result = await listInboxThreads(req.companyId!, { status, limit, offset, suggestedProjectId });
     res.json(result);
   }),
 );
@@ -56,6 +60,7 @@ router.post(
     if (isNaN(threadId)) throw new BadRequestError("Invalid thread id");
     const updated = await archiveThread(req.companyId!, threadId);
     if (!updated) throw new NotFoundError("Thread not found");
+    logAuditEventFromRequest(req, "Email Thread Archived", `Archived thread id ${threadId}`).catch(() => {});
     res.json(updated);
   }),
 );
@@ -68,6 +73,7 @@ router.post(
     if (isNaN(threadId)) throw new BadRequestError("Invalid thread id");
     const updated = await ignoreThread(req.companyId!, threadId);
     if (!updated) throw new NotFoundError("Thread not found");
+    logAuditEventFromRequest(req, "Email Thread Ignored", `Ignored thread id ${threadId}`).catch(() => {});
     res.json(updated);
   }),
 );
@@ -95,6 +101,11 @@ router.post(
       const thread = await recordManualAssignment(req.companyId!, threadId, parsed.data.projectId, req.userId ?? null);
       if (thread) updated.push(thread);
     }
+    logAuditEventFromRequest(
+      req,
+      "Email Threads Bulk-Assigned",
+      `Assigned ${updated.length} thread(s) to project ${parsed.data.projectId}`,
+    ).catch(() => {});
     res.json({ data: updated });
   }),
 );
@@ -116,6 +127,11 @@ router.post(
 
     const merged = await mergeThreads(req.companyId!, parsed.data.sourceThreadId, parsed.data.targetThreadId);
     if (!merged) throw new NotFoundError("Thread not found");
+    logAuditEventFromRequest(
+      req,
+      "Email Threads Merged",
+      `Merged thread ${parsed.data.sourceThreadId} into ${parsed.data.targetThreadId}`,
+    ).catch(() => {});
     res.json(merged);
   }),
 );
@@ -144,6 +160,11 @@ router.post(
     const updated = await recordManualAssignment(req.companyId!, threadId, project.id, req.userId ?? null);
     if (!updated) throw new NotFoundError("Thread not found");
 
+    logAuditEventFromRequest(
+      req,
+      "Project Created From Email",
+      `Created project "${project.name}" from thread id ${threadId}`,
+    ).catch(() => {});
     res.status(201).json({ project, thread: updated });
   }),
 );

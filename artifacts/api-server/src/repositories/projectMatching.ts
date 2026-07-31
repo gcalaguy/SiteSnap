@@ -17,6 +17,7 @@ import {
 } from "@workspace/db";
 import { eq, and, isNotNull, desc, sql } from "drizzle-orm";
 import { getThread, assignThreadToProject, applyThreadMatch } from "./emailIntegrations";
+import { onThreadAssignedToProject } from "../services/threadAssignmentHooks";
 
 /**
  * Per-project signals the matching engine (projectMatchingService.ts) scores
@@ -282,6 +283,7 @@ export async function recordManualAssignment(
   });
 
   await reinforceProjectSignals(companyId, projectId, updated);
+  await onThreadAssignedToProject(companyId, threadId, projectId);
 
   return updated;
 }

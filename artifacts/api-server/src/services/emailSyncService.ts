@@ -17,6 +17,8 @@ import {
 } from "../repositories/emailIntegrations";
 import { evaluateRules } from "./emailFilingRulesService";
 import { scoreProjectsForThread, decideTriage } from "./projectMatchingService";
+import { classifyAttachment } from "./attachmentClassifier";
+import { onThreadAssignedToProject } from "./threadAssignmentHooks";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { logger } from "../lib/logger";
 
@@ -69,6 +71,7 @@ export async function triageThread(companyId: number, threadId: number): Promise
       matchReasons: [{ signal: "filing_rule", value: "matched an automatic filing rule", points: 100 }],
       matchSource: "rule",
     });
+    await onThreadAssignedToProject(companyId, threadId, moveAction.projectId);
     return;
   }
 
@@ -97,6 +100,9 @@ export async function triageThread(companyId: number, threadId: number): Promise
     matchReasons: decision.matchReasons,
     matchSource: decision.matchConfidence != null ? "engine" : null,
   });
+  if (decision.triageStatus === "assigned" && decision.projectId != null) {
+    await onThreadAssignedToProject(companyId, threadId, decision.projectId);
+  }
 }
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // skip larger attachments to bound sync time
@@ -176,6 +182,7 @@ async function storeAttachments(
     }
     const objectPath = await objectStorage.uploadBuffer(buffer, att.contentType ?? "application/octet-stream");
     await objectStorage.trySetCompanyReadAcl(objectPath, "system", String(companyId));
+    const classification = classifyAttachment({ filename: att.filename, contentType: att.contentType });
     await insertAttachment({
       companyId,
       messageId,
@@ -183,6 +190,8 @@ async function storeAttachments(
       contentType: att.contentType,
       sizeBytes: buffer.byteLength,
       objectPath,
+      category: classification.category,
+      categorySource: classification.categorySource,
     });
   }
 }
@@ -192,6 +201,16 @@ async function storeAttachments(
 const OUTLOOK_MESSAGE_SELECT =
   "subject,from,toRecipients,ccRecipients,body,conversationId,sentDateTime,hasAttachments";
 
+// Phase 4 — shared Outlook mailboxes: a "shared" account is accessed via the
+// connecting user's Exchange delegate permissions through Graph's
+// /users/{upn}/... rather than /me/..., which always resolves to whoever the
+// access token itself belongs to (the connecting user, never the mailbox).
+function graphMailboxSegment(account: EmailAccount): string {
+  return account.mailboxType === "shared" && account.sharedMailboxAddress
+    ? `users/${encodeURIComponent(account.sharedMailboxAddress)}`
+    : "me";
+}
+
 async function syncOutlookAccount(
   account: EmailAccount,
   objectStorage: ObjectStorageService,
@@ -200,11 +219,13 @@ async function syncOutlookAccount(
   // deltaCursor stores one Graph deltaLink per folder as a JSON map, since Graph's
   // delta query is scoped per-folder — there's no single account-wide delta token.
   const cursors: Record<string, string> = account.deltaCursor ? JSON.parse(account.deltaCursor) : {};
+  const mailboxSegment = graphMailboxSegment(account);
   let synced = 0;
 
   for (const folderId of folders) {
     const { messages, deltaLink } = await deltaSyncOutlookFolder(
       account.accessToken!,
+      mailboxSegment,
       folderId,
       cursors[folderId],
     );
@@ -247,7 +268,7 @@ async function syncOutlookAccount(
       synced++;
 
       if (msg.hasAttachments) {
-        const attachments = await fetchOutlookAttachments(account.accessToken!, msg.id);
+        const attachments = await fetchOutlookAttachments(account.accessToken!, mailboxSegment, msg.id);
         await storeAttachments(account.companyId, message.id, objectStorage, attachments);
       }
 
@@ -260,10 +281,11 @@ async function syncOutlookAccount(
 
 async function deltaSyncOutlookFolder(
   accessToken: string,
+  mailboxSegment: string,
   folderId: string,
   cursorUrl: string | undefined,
 ): Promise<{ messages: any[]; deltaLink?: string }> {
-  const initialUrl = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages/delta?$select=${OUTLOOK_MESSAGE_SELECT}`;
+  const initialUrl = `https://graph.microsoft.com/v1.0/${mailboxSegment}/mailFolders/${folderId}/messages/delta?$select=${OUTLOOK_MESSAGE_SELECT}`;
   let url: string | null = cursorUrl || initialUrl;
   const messages: any[] = [];
   let deltaLink: string | undefined;
@@ -303,9 +325,10 @@ function extractOutlookParticipants(msg: any): string[] {
 
 async function fetchOutlookAttachments(
   accessToken: string,
+  mailboxSegment: string,
   messageId: string,
 ): Promise<Array<{ filename: string; contentType: string | null; base64: string }>> {
-  const resp = await axios.get(`https://graph.microsoft.com/v1.0/me/messages/${messageId}/attachments`, {
+  const resp = await axios.get(`https://graph.microsoft.com/v1.0/${mailboxSegment}/messages/${messageId}/attachments`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const items = (resp.data.value ?? []) as any[];

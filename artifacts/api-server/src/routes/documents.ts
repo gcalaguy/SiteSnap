@@ -103,6 +103,7 @@ router.post("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(asy
 
   const doc = await insertDocument({
     projectId,
+    companyId: req.companyId!,
     uploadedByUserId: req.userId!,
     filename: parsed.data.filename,
     fileType: parsed.data.fileType,

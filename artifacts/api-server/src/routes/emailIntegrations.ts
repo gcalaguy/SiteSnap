@@ -65,6 +65,7 @@ router.get(
         syncFrequency: a.syncFrequency,
         lastSyncAt: a.lastSyncAt,
         lastSyncError: a.lastSyncError,
+        mailboxType: a.mailboxType,
       })),
       outlookConfigured: isOutlookConfigured(),
       gmailConfigured: isGmailConfigured(),
@@ -85,7 +86,11 @@ router.get(
       res.status(503).json({ error: "Outlook integration not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET." });
       return;
     }
-    const state = buildOAuthState(req.companyId!, getStateSecret());
+    // Phase 4: optional shared-mailbox address, chosen in the mobile connect
+    // flow before this redirect — see the "My Inbox"/"Shared Mailbox" toggle
+    // in app/email-integrations.tsx.
+    const sharedMailboxAddress = (req.query.sharedMailboxAddress as string | undefined)?.trim() || undefined;
+    const state = buildOAuthState(req.companyId!, getStateSecret(), sharedMailboxAddress);
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID ?? "",
       scope: MICROSOFT_SCOPES,
@@ -137,8 +142,9 @@ router.get(
       return;
     }
     let companyId: number;
+    let sharedMailboxAddress: string | null;
     try {
-      ({ companyId } = parseOAuthState(state, getStateSecret()));
+      ({ companyId, sharedMailboxAddress } = parseOAuthState(state, getStateSecret()));
     } catch {
       res.redirect(`${basePath}/settings?email=error&provider=outlook&reason=invalid_state`);
       return;
@@ -151,8 +157,13 @@ router.get(
         companyId,
         connectedByUserId: null,
         provider: "outlook",
-        emailAddress: profile.email,
-        displayName: profile.displayName,
+        // Shared mailbox: the connected account IS the shared mailbox, not the
+        // connecting user's own identity — the delegate's token is still used
+        // to authenticate every subsequent Graph call against it.
+        emailAddress: sharedMailboxAddress ?? profile.email,
+        displayName: sharedMailboxAddress ? sharedMailboxAddress : profile.displayName,
+        mailboxType: sharedMailboxAddress ? "shared" : "personal",
+        sharedMailboxAddress,
         status: "active",
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -233,7 +244,9 @@ router.get(
 
     const valid = await getValidToken(account);
     const folders =
-      valid.provider === "outlook" ? await listOutlookFolders(valid.accessToken!) : await listGmailLabels(valid.accessToken!);
+      valid.provider === "outlook"
+        ? await listOutlookFolders(valid.accessToken!, valid.sharedMailboxAddress)
+        : await listGmailLabels(valid.accessToken!);
     res.json({ folders });
   }),
 );
@@ -330,6 +343,7 @@ router.patch(
     if (parsed.data.projectId == null) {
       const updated = await assignThreadToProject(req.companyId!, threadId, null);
       if (!updated) throw new NotFoundError("Thread not found");
+      logAuditEventFromRequest(req, "Email Thread Unassigned", `Unassigned thread id ${threadId} from its project`).catch(() => {});
       res.json(updated);
       return;
     }
@@ -339,6 +353,11 @@ router.patch(
 
     const updated = await recordManualAssignment(req.companyId!, threadId, parsed.data.projectId, req.userId ?? null);
     if (!updated) throw new NotFoundError("Thread not found");
+    logAuditEventFromRequest(
+      req,
+      "Email Thread Assigned To Project",
+      `Assigned thread id ${threadId} to project "${project.name}"`,
+    ).catch(() => {});
     res.json(updated);
   }),
 );

@@ -12,6 +12,9 @@ import {
   listAttachmentsForMessage,
   searchEmails,
   getAttachment,
+  listAttachmentsForProject,
+  listTimelineEventsForProject,
+  listMessageSummariesForProject,
 } from "../repositories/emailIntegrations";
 import {
   listProjectMatchKeywords,
@@ -103,6 +106,49 @@ router.get(
     const objectStorage = new ObjectStorageService();
     const url = await objectStorage.getObjectEntityReadURL(attachment.objectPath);
     res.json({ url, filename: attachment.filename, contentType: attachment.contentType });
+  }),
+);
+
+// ── GET /projects/:projectId/communications/attachments ────────────────────
+// Phase 4 — every attachment across this project's threads, categorized, with
+// documentId set once it's been promoted into the project's document library.
+router.get(
+  "/attachments",
+  asyncHandler(async (req, res) => {
+    const projectId = await requireProject(req);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+    const result = await listAttachmentsForProject(req.companyId!, projectId, { limit, offset });
+    res.json(result);
+  }),
+);
+
+// ── GET /projects/:projectId/communications/timeline ────────────────────────
+// Phase 4 — AI-derived chronological project events, each linking back to its
+// source email thread/message.
+router.get(
+  "/timeline",
+  asyncHandler(async (req, res) => {
+    const projectId = await requireProject(req);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+    const eventType = req.query.eventType as any;
+    const result = await listTimelineEventsForProject(req.companyId!, projectId, { limit, offset, eventType });
+    res.json(result);
+  }),
+);
+
+// ── GET /projects/:projectId/communications/summaries ───────────────────────
+// Phase 4 mobile "AI Summaries" tab — a feed of per-message AI summaries for
+// this project, most recent first.
+router.get(
+  "/summaries",
+  asyncHandler(async (req, res) => {
+    const projectId = await requireProject(req);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+    const result = await listMessageSummariesForProject(req.companyId!, projectId, { limit, offset });
+    res.json(result);
   }),
 );
 

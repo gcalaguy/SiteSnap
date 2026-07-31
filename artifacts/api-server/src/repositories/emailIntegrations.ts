@@ -7,12 +7,14 @@ import {
   emailAttachmentsTable,
   emailFilingRulesTable,
   communicationSearchTemplatesTable,
+  communicationTimelineEventsTable,
   type EmailAccount,
   type EmailThread,
   type EmailMessage,
   type EmailAttachment,
   type EmailFilingRule,
   type CommunicationSearchTemplate,
+  type CommunicationTimelineEvent,
   type InsertEmailAccount,
   type InsertEmailThread,
   type InsertEmailMessage,
@@ -22,17 +24,53 @@ import {
   type MatchReason,
   type CommunicationSearchCriteria,
   type EmailAiEntities,
+  type SearchCondition,
+  type SearchConditionGroup,
+  type SearchConditionLeafGroup,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, lte, or, inArray, isNull, lt } from "drizzle-orm";
+import { reclassifyFromEntities } from "../services/attachmentClassifier";
+import { encryptSecret, decryptOrPassthrough } from "../lib/crypto";
+
+const TOKEN_KEY_ENV_VAR = "EMAIL_TOKEN_ENCRYPTION_KEY";
+
+/**
+ * Encryption boundary for email OAuth tokens (Phase 4) — lives entirely here
+ * so emailOAuthService.ts/emailSyncService.ts/routes stay unaware encryption
+ * exists at all; they just read/write plain accessToken/refreshToken strings.
+ * No bulk migration of existing plaintext tokens: decryptAccountTokens()
+ * transparently passes through legacy plaintext (see crypto.ts's
+ * decryptOrPassthrough), and every account re-encrypts on its next token
+ * write (createOrUpdateEmailAccount on reconnect, or updateEmailAccountTokens
+ * on its next refresh — within hours/days per syncFrequency).
+ */
+function encryptAccountTokens<T extends { accessToken?: string | null; refreshToken?: string | null }>(
+  patch: T,
+): T {
+  return {
+    ...patch,
+    accessToken: patch.accessToken != null ? encryptSecret(patch.accessToken, TOKEN_KEY_ENV_VAR) : patch.accessToken,
+    refreshToken: patch.refreshToken != null ? encryptSecret(patch.refreshToken, TOKEN_KEY_ENV_VAR) : patch.refreshToken,
+  };
+}
+
+function decryptAccountTokens(account: EmailAccount): EmailAccount {
+  return {
+    ...account,
+    accessToken: account.accessToken != null ? decryptOrPassthrough(account.accessToken, TOKEN_KEY_ENV_VAR) : account.accessToken,
+    refreshToken: account.refreshToken != null ? decryptOrPassthrough(account.refreshToken, TOKEN_KEY_ENV_VAR) : account.refreshToken,
+  };
+}
 
 // ── Email accounts ──────────────────────────────────────────────────────────
 
 export async function listEmailAccounts(companyId: number): Promise<EmailAccount[]> {
-  return db
+  const rows = await db
     .select()
     .from(emailAccountsTable)
     .where(eq(emailAccountsTable.companyId, companyId))
     .orderBy(desc(emailAccountsTable.createdAt));
+  return rows.map(decryptAccountTokens);
 }
 
 export async function getEmailAccount(
@@ -43,7 +81,7 @@ export async function getEmailAccount(
     .select()
     .from(emailAccountsTable)
     .where(and(eq(emailAccountsTable.companyId, companyId), eq(emailAccountsTable.id, accountId)));
-  return row ?? null;
+  return row ? decryptAccountTokens(row) : null;
 }
 
 /**
@@ -54,25 +92,26 @@ export async function getEmailAccount(
 export async function createOrUpdateEmailAccount(
   account: InsertEmailAccount,
 ): Promise<EmailAccount> {
+  const encrypted = encryptAccountTokens(account);
   const [row] = await db
     .insert(emailAccountsTable)
-    .values(account)
+    .values(encrypted)
     .onConflictDoUpdate({
       target: [emailAccountsTable.companyId, emailAccountsTable.provider, emailAccountsTable.emailAddress],
       set: {
-        connectedByUserId: account.connectedByUserId,
-        displayName: account.displayName,
+        connectedByUserId: encrypted.connectedByUserId,
+        displayName: encrypted.displayName,
         status: "active",
-        accessToken: account.accessToken,
-        refreshToken: account.refreshToken,
-        tokenExpiresAt: account.tokenExpiresAt,
-        scopes: account.scopes,
+        accessToken: encrypted.accessToken,
+        refreshToken: encrypted.refreshToken,
+        tokenExpiresAt: encrypted.tokenExpiresAt,
+        scopes: encrypted.scopes,
         lastSyncError: null,
         updatedAt: new Date(),
       },
     })
     .returning();
-  return row;
+  return decryptAccountTokens(row);
 }
 
 export async function updateEmailAccountSettings(
@@ -116,7 +155,7 @@ export async function updateEmailAccountTokens(
 ): Promise<void> {
   await db
     .update(emailAccountsTable)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...encryptAccountTokens(patch), updatedAt: new Date() })
     .where(eq(emailAccountsTable.id, accountId));
 }
 
@@ -140,7 +179,7 @@ export async function getDueEmailAccounts(
   limit: number,
   offset: number,
 ): Promise<EmailAccount[]> {
-  return db
+  const rows = await db
     .select()
     .from(emailAccountsTable)
     .where(
@@ -151,6 +190,7 @@ export async function getDueEmailAccounts(
     )
     .limit(limit)
     .offset(offset);
+  return rows.map(decryptAccountTokens);
 }
 
 // ── Threads ──────────────────────────────────────────────────────────────────
@@ -246,10 +286,22 @@ const INBOX_STATUSES: EmailThread["triageStatus"][] = ["unassigned", "suggested"
 
 export async function listInboxThreads(
   companyId: number,
-  opts: { status?: EmailThread["triageStatus"][]; limit?: number; offset?: number } = {},
+  opts: {
+    status?: EmailThread["triageStatus"][];
+    limit?: number;
+    offset?: number;
+    // Phase 4 mobile "Suggested Matches" tab — scopes the global uncategorized
+    // inbox down to threads the matching engine already suggested for one
+    // specific project, rather than a new endpoint.
+    suggestedProjectId?: number;
+  } = {},
 ): Promise<{ data: EmailThread[]; total: number }> {
   const statuses = opts.status?.length ? opts.status : INBOX_STATUSES;
-  const where = and(eq(emailThreadsTable.companyId, companyId), inArray(emailThreadsTable.triageStatus, statuses));
+  const where = and(
+    eq(emailThreadsTable.companyId, companyId),
+    inArray(emailThreadsTable.triageStatus, statuses),
+    opts.suggestedProjectId != null ? eq(emailThreadsTable.suggestedProjectId, opts.suggestedProjectId) : undefined,
+  );
   const [data, [{ total }]] = await Promise.all([
     db
       .select()
@@ -481,6 +533,121 @@ export async function getAttachment(
   return row ?? null;
 }
 
+/**
+ * Upgrades any still-generic-category attachments on this message using its
+ * just-extracted aiEntities (Phase 4) — see attachmentClassifier.ts. Called
+ * right after saveMessageIntelligence() persists a message's extraction.
+ */
+export async function reclassifyAttachmentsForMessage(
+  messageId: number,
+  entities: EmailAiEntities,
+): Promise<void> {
+  const attachments = await db
+    .select()
+    .from(emailAttachmentsTable)
+    .where(eq(emailAttachmentsTable.messageId, messageId));
+  if (attachments.length === 0) return;
+
+  for (const att of attachments) {
+    const upgrade = reclassifyFromEntities({ currentCategory: att.category, entities });
+    if (!upgrade) continue;
+    await db
+      .update(emailAttachmentsTable)
+      .set({ category: upgrade.category, categorySource: upgrade.categorySource })
+      .where(eq(emailAttachmentsTable.id, att.id));
+  }
+}
+
+export interface ProjectAttachment extends EmailAttachment {
+  threadId: number;
+  documentId: number | null;
+}
+
+/** Attachments across every thread assigned to a project, with promotion status (Phase 4). */
+export async function listAttachmentsForProject(
+  companyId: number,
+  projectId: number,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<{ data: ProjectAttachment[]; total: number }> {
+  const params: unknown[] = [companyId, projectId];
+  const result = await pool.query<{
+    id: number; company_id: number; message_id: number; filename: string;
+    content_type: string | null; size_bytes: number | null; object_path: string;
+    category: string | null; category_source: string | null; created_at: Date;
+    thread_id: number; document_id: number | null;
+  }>(
+    `SELECT a.*, m.thread_id, pd.id AS document_id
+     FROM email_attachments a
+     JOIN email_messages m ON m.id = a.message_id
+     JOIN email_threads t ON t.id = m.thread_id
+     LEFT JOIN project_documents pd ON pd.source_email_attachment_id = a.id
+     WHERE a.company_id = $1 AND t.project_id = $2
+     ORDER BY a.created_at DESC
+     LIMIT ${opts.limit ?? 50} OFFSET ${opts.offset ?? 0}`,
+    params,
+  );
+  const [{ total }] = (
+    await pool.query<{ total: number }>(
+      `SELECT count(*)::int AS total
+       FROM email_attachments a
+       JOIN email_messages m ON m.id = a.message_id
+       JOIN email_threads t ON t.id = m.thread_id
+       WHERE a.company_id = $1 AND t.project_id = $2`,
+      params,
+    )
+  ).rows;
+
+  const data: ProjectAttachment[] = result.rows.map((r) => ({
+    id: r.id,
+    companyId: r.company_id,
+    messageId: r.message_id,
+    filename: r.filename,
+    contentType: r.content_type,
+    sizeBytes: r.size_bytes,
+    objectPath: r.object_path,
+    category: r.category as EmailAttachment["category"],
+    categorySource: r.category_source as EmailAttachment["categorySource"],
+    createdAt: r.created_at,
+    threadId: r.thread_id,
+    documentId: r.document_id,
+  }));
+  return { data, total };
+}
+
+/**
+ * Promotes every not-yet-promoted attachment on a thread's messages into the
+ * project's document library (Phase 4) — reuses the existing GCS objectPath,
+ * no re-upload. Left as `status: "pending"` (no auto-triggered analysis) so
+ * AI-analysis cost stays opt-in, same as any manual upload.
+ */
+export async function promoteThreadAttachmentsToDocuments(
+  companyId: number,
+  threadId: number,
+  projectId: number,
+): Promise<number> {
+  const result = await pool.query<{
+    id: number; filename: string; content_type: string | null; size_bytes: number | null; object_path: string;
+  }>(
+    `SELECT a.id, a.filename, a.content_type, a.size_bytes, a.object_path
+     FROM email_attachments a
+     JOIN email_messages m ON m.id = a.message_id
+     LEFT JOIN project_documents pd ON pd.source_email_attachment_id = a.id
+     WHERE m.thread_id = $1 AND a.company_id = $2 AND pd.id IS NULL`,
+    [threadId, companyId],
+  );
+  if (result.rows.length === 0) return 0;
+
+  for (const att of result.rows) {
+    await pool.query(
+      `INSERT INTO project_documents
+         (company_id, project_id, uploaded_by_user_id, filename, file_type, object_path, file_size, status, source_email_attachment_id)
+       VALUES ($1, $2, NULL, $3, $4, $5, $6, 'pending', $7)`,
+      [companyId, projectId, att.filename, att.content_type, att.object_path, att.size_bytes, att.id],
+    );
+  }
+  return result.rows.length;
+}
+
 // ── Search (FTS against the indexed generated tsvector column) ───────────────
 
 export interface EmailSearchResult {
@@ -538,13 +705,91 @@ export interface StructuredEmailSearchResult {
   project_id: number | null;
 }
 
-const ATTACHMENT_TYPE_SQL: Record<string, string> = {
+// Prefers the persisted category column (set at ingest — see
+// attachmentClassifier.ts) with the old ILIKE/content-type heuristic as a
+// fallback for any row where category is still NULL (e.g. a row synced before
+// Phase 4 that a backfill missed) — so old and new data both search correctly.
+const ATTACHMENT_TYPE_HEURISTIC_SQL: Record<string, string> = {
   pdf: `(a.content_type = 'application/pdf' OR a.filename ILIKE '%.pdf')`,
   word: `(a.content_type IN ('application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document') OR a.filename ILIKE '%.doc' OR a.filename ILIKE '%.docx')`,
   excel: `(a.content_type IN ('application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') OR a.filename ILIKE '%.xls' OR a.filename ILIKE '%.xlsx')`,
   image: `(a.content_type ILIKE 'image/%')`,
   cad: `(a.filename ILIKE '%.dwg' OR a.filename ILIKE '%.dxf' OR a.content_type ILIKE '%dwg%')`,
+  blueprint: `(a.filename ILIKE '%blueprint%' OR a.filename ILIKE '%plan%')`,
+  quote: `false`,
+  invoice: `false`,
+  inspection_report: `false`,
+  permit: `false`,
+  other: `false`,
 };
+
+function attachmentTypeSql(type: string, p: (v: unknown) => string): string {
+  const heuristic = ATTACHMENT_TYPE_HEURISTIC_SQL[type] ?? "false";
+  return `(a.category = ${p(type)} OR (a.category IS NULL AND ${heuristic}))`;
+}
+
+/**
+ * Advanced Search Builder v2 (Phase 4) — translates a one-level-deep
+ * field/operator/value condition tree (mirrors email_filing_rules' condition
+ * shape for UI consistency — see ConditionBuilder.tsx) into a parenthesized
+ * boolean SQL expression. All values are bound via the shared `p()`
+ * parameterizer — never interpolated directly — since these values originate
+ * from an end-user-authored search, unlike the fixed lookup-table keys used
+ * elsewhere in this file.
+ */
+function conditionToSql(cond: SearchCondition, p: (v: unknown) => string): string {
+  const v = cond.value ?? "";
+  const like = (col: string, negate = false) =>
+    cond.operator === "starts_with"
+      ? `${col} ${negate ? "NOT ILIKE" : "ILIKE"} ${p(`${v}%`)}`
+      : `${col} ${negate ? "NOT ILIKE" : "ILIKE"} ${p(`%${v}%`)}`;
+
+  switch (cond.field) {
+    case "subject":
+      return cond.operator === "equals" ? `m.subject = ${p(v)}` : like("m.subject", cond.operator === "not_contains");
+    case "from_email":
+      return cond.operator === "equals" ? `m.from_email = ${p(v)}` : like("m.from_email", cond.operator === "not_contains");
+    case "from_name":
+      return cond.operator === "equals" ? `m.from_name = ${p(v)}` : like("m.from_name", cond.operator === "not_contains");
+    case "body_text":
+      return like("m.body_text", cond.operator === "not_contains");
+    case "to_emails":
+      return `EXISTS (SELECT 1 FROM unnest(m.to_emails) e WHERE e ILIKE ${p(`%${v}%`)})`;
+    case "cc_emails":
+      return `EXISTS (SELECT 1 FROM unnest(m.cc_emails) e WHERE e ILIKE ${p(`%${v}%`)})`;
+    case "thread_category":
+      return cond.operator === "equals" ? `t.category = ${p(v)}` : like("t.category", cond.operator === "not_contains");
+    case "priority":
+      return `t.priority = ${p(v)}`;
+    case "flagged":
+      return cond.operator === "is_false" ? `t.flagged = false` : `t.flagged = true`;
+    case "project_number":
+      return like("pr.project_number");
+    case "date_sent":
+      return cond.operator === "after" ? `m.sent_at >= ${p(new Date(v))}` : `m.sent_at <= ${p(new Date(v))}`;
+    case "attachment_type":
+      return `EXISTS (SELECT 1 FROM email_attachments a WHERE a.message_id = m.id AND ${attachmentTypeSql(v, p)})`;
+    default:
+      return "true";
+  }
+}
+
+function buildConditionTreeSql(
+  group: SearchConditionGroup,
+  p: (v: unknown) => string,
+): string {
+  if (group.conditions.length === 0) return "true";
+  const parts = group.conditions.map((item) =>
+    "logic" in item ? buildLeafGroupSql(item, p) : conditionToSql(item, p),
+  );
+  return `(${parts.join(` ${group.logic} `)})`;
+}
+
+function buildLeafGroupSql(group: SearchConditionLeafGroup, p: (v: unknown) => string): string {
+  if (group.conditions.length === 0) return "true";
+  const parts = group.conditions.map((c) => conditionToSql(c, p));
+  return `(${parts.join(` ${group.logic} `)})`;
+}
 
 /**
  * Structured Search Builder query — widens searchEmails() with the full set
@@ -603,8 +848,11 @@ export async function searchEmailsStructured(
   if (criteria.hasConversation) clauses.push(`t.message_count > 1`);
   if (criteria.projectId != null) clauses.push(`t.project_id = ${p(criteria.projectId)}`);
   if (criteria.attachmentTypes?.length) {
-    const typeSql = criteria.attachmentTypes.map((t) => ATTACHMENT_TYPE_SQL[t]).join(" OR ");
+    const typeSql = criteria.attachmentTypes.map((t) => attachmentTypeSql(t, p)).join(" OR ");
     clauses.push(`EXISTS (SELECT 1 FROM email_attachments a WHERE a.message_id = m.id AND (${typeSql}))`);
+  }
+  if (criteria.conditionTree) {
+    clauses.push(buildConditionTreeSql(criteria.conditionTree, p));
   }
 
   const limitPlaceholder = p(limit);
@@ -765,4 +1013,129 @@ export async function deleteSearchTemplate(companyId: number, templateId: number
     .where(and(eq(communicationSearchTemplatesTable.companyId, companyId), eq(communicationSearchTemplatesTable.id, templateId)))
     .returning({ id: communicationSearchTemplatesTable.id });
   return !!row;
+}
+
+// ── AI Timeline (Phase 4) ──────────────────────────────────────────────────────
+
+export interface TimelineEventInput {
+  eventType: CommunicationTimelineEvent["eventType"];
+  eventDate: Date | null;
+  description: string;
+  confidence: number | null;
+}
+
+/**
+ * Replaces every timeline event derived from this message (transactional
+ * delete-then-insert, not a fine-grained diff) — simple and correct even
+ * when a message is re-extracted on retry and the LLM refines a date or
+ * description the second time around.
+ */
+export async function saveMessageTimelineEvents(
+  companyId: number,
+  threadId: number,
+  messageId: number,
+  projectId: number | null,
+  events: TimelineEventInput[],
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(communicationTimelineEventsTable).where(eq(communicationTimelineEventsTable.messageId, messageId));
+    if (events.length === 0) return;
+    await tx.insert(communicationTimelineEventsTable).values(
+      events.map((e) => ({
+        companyId,
+        projectId,
+        threadId,
+        messageId,
+        eventType: e.eventType,
+        eventDate: e.eventDate,
+        description: e.description,
+        confidence: e.confidence,
+      })),
+    );
+  });
+}
+
+/**
+ * Called from threadAssignmentHooks.ts when a thread is assigned to a project
+ * after its messages already went through AI extraction — fills in the
+ * projectId on any orphaned (projectId IS NULL) timeline events for that
+ * thread, rather than waiting for the next extraction pass to fix it up.
+ */
+export async function backfillTimelineEventsProjectId(
+  companyId: number,
+  threadId: number,
+  projectId: number,
+): Promise<void> {
+  await db
+    .update(communicationTimelineEventsTable)
+    .set({ projectId })
+    .where(
+      and(
+        eq(communicationTimelineEventsTable.companyId, companyId),
+        eq(communicationTimelineEventsTable.threadId, threadId),
+        isNull(communicationTimelineEventsTable.projectId),
+      ),
+    );
+}
+
+export interface MessageSummary {
+  id: number;
+  thread_id: number;
+  subject: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  sent_at: Date;
+  ai_summary: string;
+  ai_trade: string | null;
+}
+
+/** AI summaries feed for a project's Communications Hub (Phase 4 mobile "AI Summaries" tab). */
+export async function listMessageSummariesForProject(
+  companyId: number,
+  projectId: number,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<{ data: MessageSummary[]; total: number }> {
+  const params = [companyId, projectId];
+  const [dataResult, totalResult] = await Promise.all([
+    pool.query<MessageSummary>(
+      `SELECT m.id, m.thread_id, m.subject, m.from_email, m.from_name, m.sent_at, m.ai_summary, m.ai_trade
+       FROM email_messages m
+       JOIN email_threads t ON t.id = m.thread_id
+       WHERE m.company_id = $1 AND t.project_id = $2 AND m.ai_summary IS NOT NULL
+       ORDER BY m.sent_at DESC
+       LIMIT ${opts.limit ?? 50} OFFSET ${opts.offset ?? 0}`,
+      params,
+    ),
+    pool.query<{ total: number }>(
+      `SELECT count(*)::int AS total
+       FROM email_messages m
+       JOIN email_threads t ON t.id = m.thread_id
+       WHERE m.company_id = $1 AND t.project_id = $2 AND m.ai_summary IS NOT NULL`,
+      params,
+    ),
+  ]);
+  return { data: dataResult.rows, total: totalResult.rows[0].total };
+}
+
+export async function listTimelineEventsForProject(
+  companyId: number,
+  projectId: number,
+  opts: { limit?: number; offset?: number; eventType?: CommunicationTimelineEvent["eventType"] } = {},
+): Promise<{ data: CommunicationTimelineEvent[]; total: number }> {
+  const where = and(
+    eq(communicationTimelineEventsTable.companyId, companyId),
+    eq(communicationTimelineEventsTable.projectId, projectId),
+    opts.eventType ? eq(communicationTimelineEventsTable.eventType, opts.eventType) : undefined,
+  );
+  const [data, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(communicationTimelineEventsTable)
+      .where(where)
+      .orderBy(desc(communicationTimelineEventsTable.eventDate), desc(communicationTimelineEventsTable.createdAt))
+      .limit(opts.limit ?? 50)
+      .offset(opts.offset ?? 0),
+    db.select({ total: sql<number>`count(*)::int` }).from(communicationTimelineEventsTable).where(where),
+  ]);
+  return { data, total };
 }

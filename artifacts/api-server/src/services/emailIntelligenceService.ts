@@ -1,10 +1,19 @@
 import { z } from "zod";
 import { batchProcess, extractJson } from "@workspace/integrations-openai-ai-server";
-import { subcontractorTradeTypeEnum, type EmailMessage, type EmailAiEntities } from "@workspace/db";
+import {
+  subcontractorTradeTypeEnum,
+  communicationTimelineEventTypeEnum,
+  type EmailMessage,
+  type EmailAiEntities,
+  type CommunicationTimelineEvent,
+} from "@workspace/db";
 import { checkAiQuota, recordAiCall } from "../lib/aiRateLimiter";
 import {
   getMessagesDueForAiExtraction,
   saveMessageIntelligence,
+  reclassifyAttachmentsForMessage,
+  saveMessageTimelineEvents,
+  getThread,
 } from "../repositories/emailIntegrations";
 import { triageThread } from "./emailSyncService";
 import { logger } from "../lib/logger";
@@ -22,6 +31,7 @@ import { logger } from "../lib/logger";
  */
 
 const TRADE_VALUES = subcontractorTradeTypeEnum.enumValues;
+const TIMELINE_EVENT_TYPE_VALUES = communicationTimelineEventTypeEnum.enumValues;
 const BATCH_SIZE = 25;
 const MAX_BODY_CHARS = 6000;
 const MAX_ATTEMPTS = 3;
@@ -41,6 +51,18 @@ const EmailAiExtractionSchema = z.object({
   deadlines: z.array(z.object({ description: z.string(), date: z.string().nullable() })).default([]),
   risks: z.array(z.string()).default([]),
   actionItems: z.array(z.string()).default([]),
+  // Phase 4 — AI Timeline. Same LLM call as the rest of this extraction (no
+  // second AI pass): the model additionally classifies whether this single
+  // email itself represents a discrete, datable project lifecycle event.
+  timelineEvents: z
+    .array(
+      z.object({
+        type: z.enum(TIMELINE_EVENT_TYPE_VALUES as [string, ...string[]]),
+        date: z.string().nullable(),
+        description: z.string().min(1).max(300),
+      }),
+    )
+    .default([]),
 });
 
 const SYSTEM_PROMPT = `You extract structured metadata from construction-project emails for a project
@@ -71,6 +93,13 @@ Return a JSON object with exactly these fields:
 - deadlines: array of {description, date} for any deadlines/due dates mentioned (date as YYYY-MM-DD if determinable, else null).
 - risks: string[] of any risks, delays, problems, or concerns mentioned.
 - actionItems: string[] of any action items or next steps mentioned.
+- timelineEvents: array of {type, date, description} — ONLY include an entry if
+  this email itself represents one of these discrete project events: ${JSON.stringify(TIMELINE_EVENT_TYPE_VALUES)}.
+  Most emails are not a timeline event at all — return an empty array unless
+  the email clearly IS one (e.g. an inspector confirming a scheduled date, a
+  city confirming permit approval, an invoice being sent). date as YYYY-MM-DD
+  if determinable, else null. description: a short (<15 word) human-readable
+  label for this specific event, e.g. "Permit #4471 approved by city".
 Use empty arrays / false / null for anything not present — do not guess.`;
 }
 
@@ -78,6 +107,7 @@ export interface ExtractionResult {
   summary: string;
   trade: EmailMessage["aiTrade"];
   entities: EmailAiEntities;
+  timelineEvents: { type: string; date: string | null; description: string }[];
 }
 
 export async function extractMessageIntelligence(message: EmailMessage): Promise<ExtractionResult | null> {
@@ -98,8 +128,8 @@ export async function extractMessageIntelligence(message: EmailMessage): Promise
     return null;
   }
 
-  const { summary, trade, ...entities } = parsed.data;
-  return { summary, trade: trade as EmailMessage["aiTrade"], entities };
+  const { summary, trade, timelineEvents, ...entities } = parsed.data;
+  return { summary, trade: trade as EmailMessage["aiTrade"], entities, timelineEvents };
 }
 
 /**
@@ -155,11 +185,36 @@ export async function extractDueEmailIntelligence(): Promise<{
         });
         processed++;
 
+        // Phase 4: upgrade any still-generic attachment categories on this
+        // message using the entities we just extracted — no new LLM call.
+        await reclassifyAttachmentsForMessage(message.id, result.entities);
+
         // Newly extracted entities (project/client/vendor mentions) can
         // upgrade a weak match — re-run the same rules+engine triage path
         // Phase 2 built. triageThread() itself no-ops for threads that are
         // no longer unassigned/suggested, so this is always safe to call.
         await triageThread(message.companyId, message.threadId);
+
+        // Phase 4: save timeline events with whatever projectId the thread
+        // has *now* — triageThread() above may have just auto-assigned it
+        // using these same entities, so re-fetch rather than use a stale
+        // pre-triage value. If the thread gets assigned later instead,
+        // threadAssignmentHooks.ts's backfillTimelineEventsProjectId fills
+        // this in at that point. Always called (even with an empty array) so
+        // a re-extraction that no longer detects an event clears the stale one.
+        const thread = await getThread(message.companyId, message.threadId);
+        await saveMessageTimelineEvents(
+          message.companyId,
+          message.threadId,
+          message.id,
+          thread?.projectId ?? null,
+          result.timelineEvents.map((e) => ({
+            eventType: e.type as CommunicationTimelineEvent["eventType"],
+            eventDate: e.date ? new Date(e.date) : null,
+            description: e.description,
+            confidence: null,
+          })),
+        );
       } catch (err: any) {
         await saveMessageIntelligence(message.id, {
           aiExtractionAttempts: message.aiExtractionAttempts + 1,

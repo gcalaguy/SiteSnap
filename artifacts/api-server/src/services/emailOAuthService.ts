@@ -194,8 +194,17 @@ export interface MailFolder {
   name: string;
 }
 
-export async function listOutlookFolders(accessToken: string): Promise<MailFolder[]> {
-  const resp = await fetch("https://graph.microsoft.com/v1.0/me/mailFolders?$top=100", {
+/**
+ * sharedMailboxAddress (Phase 4): when set, lists the shared mailbox's
+ * folders via Graph's /users/{upn}/... rather than /me/... — mirrors
+ * emailSyncService.ts's graphMailboxSegment().
+ */
+export async function listOutlookFolders(
+  accessToken: string,
+  sharedMailboxAddress?: string | null,
+): Promise<MailFolder[]> {
+  const segment = sharedMailboxAddress ? `users/${encodeURIComponent(sharedMailboxAddress)}` : "me";
+  const resp = await fetch(`https://graph.microsoft.com/v1.0/${segment}/mailFolders?$top=100`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!resp.ok) throw new Error(await resp.text());
