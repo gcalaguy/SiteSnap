@@ -1540,6 +1540,13 @@ paths:
       operationId: getEmailIntegrationsOutlookAuthUrl
       tags: [emailIntegrations]
       summary: Get the OAuth authorization URL to connect an Outlook mailbox
+      parameters:
+        - name: sharedMailboxAddress
+          in: query
+          required: false
+          description: If set, connects this shared mailbox (via the signing-in user's Exchange delegate access) instead of the user's own inbox.
+          schema:
+            type: string
       responses:
         "200":
           description: Auth URL
@@ -1793,6 +1800,103 @@ paths:
                   contentType:
                     type: ["string", "null"]
 
+  /projects/{projectId}/communications/attachments:
+    get:
+      operationId: listProjectCommunicationAttachments
+      tags: [projectCommunications]
+      summary: List categorized email attachments across a project's threads
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectAttachment"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/summaries:
+    get:
+      operationId: listProjectCommunicationSummaries
+      tags: [projectCommunications]
+      summary: AI summaries feed for a project's synced emails
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MessageSummary"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/timeline:
+    get:
+      operationId: listProjectCommunicationTimeline
+      tags: [projectCommunications]
+      summary: AI-derived chronological project events, each linking back to its source email
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: eventType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Timeline events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommunicationTimelineEvent"
+                  total:
+                    type: integer
+
   /projects/{projectId}/communications/match-keywords:
     get:
       operationId: listProjectMatchKeywords
@@ -1870,6 +1974,11 @@ paths:
             type: integer
         - name: offset
           in: query
+          schema:
+            type: integer
+        - name: suggestedProjectId
+          in: query
+          description: Phase 4 — scope to threads the matching engine suggested for this one project (used by the mobile per-project "Suggested Matches" tab).
           schema:
             type: integer
       responses:
@@ -7383,14 +7492,17 @@ components:
     # ── Documents ──────────────────────────────────────────────────────────────
     ProjectDocument:
       type: object
-      required: [id, projectId, uploadedByUserId, filename, fileType, objectPath, status, createdAt]
+      required: [id, projectId, companyId, uploadedByUserId, filename, fileType, objectPath, status, createdAt]
       properties:
         id:
           type: integer
         projectId:
           type: integer
-        uploadedByUserId:
+        companyId:
           type: integer
+        uploadedByUserId:
+          type: ["integer", "null"]
+          description: Null when this document was auto-promoted from a synced email attachment rather than manually uploaded.
         filename:
           type: string
         fileType:
@@ -7402,7 +7514,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pending, processing, ready, failed]
+          enum: [pending, processing, processing_ocr, ready, failed]
         extractedData:
           type: object
           nullable: true
@@ -7410,6 +7522,9 @@ components:
         aiSummary:
           type: string
           nullable: true
+        sourceEmailAttachmentId:
+          type: ["integer", "null"]
+          description: Set when this document was promoted from an email attachment (Phase 4) — links back to the original email.
         createdAt:
           type: string
           format: date-time
@@ -10550,6 +10665,9 @@ components:
           format: date-time
         lastSyncError:
           type: ["string", "null"]
+        mailboxType:
+          type: string
+          enum: [personal, shared]
 
     EmailIntegrationsStatus:
       type: object
@@ -10807,6 +10925,72 @@ components:
           type: ["string", "null"]
         sizeBytes:
           type: ["integer", "null"]
+        category:
+          type: ["string", "null"]
+          enum: [pdf, word, excel, image, cad, blueprint, quote, invoice, inspection_report, permit, other, null]
+
+    ProjectAttachment:
+      allOf:
+        - $ref: "#/components/schemas/EmailAttachment"
+        - type: object
+          required: [threadId, documentId]
+          properties:
+            threadId:
+              type: integer
+            documentId:
+              type: ["integer", "null"]
+              description: Set once this attachment has been promoted into the project's document library.
+
+    MessageSummary:
+      type: object
+      required: [id, thread_id, sent_at, ai_summary]
+      properties:
+        id:
+          type: integer
+        thread_id:
+          type: integer
+        subject:
+          type: ["string", "null"]
+        from_email:
+          type: ["string", "null"]
+        from_name:
+          type: ["string", "null"]
+        sent_at:
+          type: string
+          format: date-time
+        ai_summary:
+          type: string
+        ai_trade:
+          type: ["string", "null"]
+
+    CommunicationTimelineEvent:
+      type: object
+      required: [id, threadId, messageId, eventType, description, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: ["integer", "null"]
+        threadId:
+          type: integer
+        messageId:
+          type: integer
+          description: Links this event back to its source email.
+        eventType:
+          type: string
+          enum: [permit_submitted, permit_approved, permit_rejected, inspection_scheduled, inspection_passed, inspection_failed, change_order_received, change_order_approved, invoice_sent, invoice_paid, payment_requested, quote_sent, quote_accepted, other]
+        eventDate:
+          type: ["string", "null"]
+          format: date-time
+        description:
+          type: string
+        confidence:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
 
     EmailSearchResult:
       type: object
@@ -10925,6 +11109,46 @@ components:
           type: string
           format: date-time
 
+    SearchCondition:
+      type: object
+      required: [field, operator]
+      properties:
+        field:
+          type: string
+          enum: [subject, from_email, from_name, to_emails, cc_emails, body_text, thread_category, priority, flagged, attachment_type, project_number, date_sent]
+        operator:
+          type: string
+          enum: [contains, not_contains, equals, starts_with, before, after, is_true, is_false]
+        value:
+          type: string
+
+    SearchConditionLeafGroup:
+      type: object
+      required: [logic, conditions]
+      properties:
+        logic:
+          type: string
+          enum: [AND, OR]
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchCondition"
+
+    SearchConditionGroup:
+      type: object
+      required: [logic, conditions]
+      description: Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.
+      properties:
+        logic:
+          type: string
+          enum: [AND, OR]
+        conditions:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/SearchCondition"
+              - $ref: "#/components/schemas/SearchConditionLeafGroup"
+
     CommunicationSearchCriteria:
       type: object
       properties:
@@ -10952,7 +11176,7 @@ components:
           type: array
           items:
             type: string
-            enum: [pdf, word, excel, image, cad]
+            enum: [pdf, word, excel, image, cad, blueprint, quote, invoice, inspection_report, permit, other]
         priority:
           type: string
           enum: [low, medium, high, urgent]
@@ -10962,6 +11186,8 @@ components:
           type: boolean
         projectId:
           type: ["integer", "null"]
+        conditionTree:
+          $ref: "#/components/schemas/SearchConditionGroup"
 
     CommunicationSearchTemplate:
       type: object
