@@ -30,6 +30,7 @@ import {
   Package,
   Download,
   DollarSign,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
@@ -210,6 +211,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     // gated by its own permission (viewSchedules / viewTimesheets).
     ...(canViewWorkforce ? [{ name: "Workforce", href: "/workforce", icon: CalendarDays, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING", section: "operations" }] : []),
     { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub", section: "operations" },
+    // Landing page for the Project Communications Hub — Uncategorized inbox is
+    // the entry point; Search Builder, Email Integrations, and Filing Rules are
+    // reachable from there (mirrors the mobile app's Communications grouping).
+    { name: "Communications", href: "/uncategorized-emails", icon: Inbox, badge: 0, featureKey: "COMMS_HUB", permissionKey: "viewProjectCommunications", section: "operations" },
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI", section: "operations" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL", section: "operations" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, section: "operations" }] : []),
