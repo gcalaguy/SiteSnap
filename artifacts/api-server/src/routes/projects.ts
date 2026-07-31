@@ -11,8 +11,9 @@ import {
   usersTable,
   userMembershipsTable,
   projectNotesTable,
+  sitePhotosTable,
 } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
@@ -47,6 +48,25 @@ router.use(requireAuth, requireCompany, requireTenantCtx);
 // so this must be reduced to a plain YYYY-MM-DD string before insert/update.
 function toDateOnlyString(value: Date | string): string {
   return value instanceof Date ? value.toISOString().split("T")[0] : value;
+}
+
+// Most recent site photo per project, for the mobile list's card images.
+// One DISTINCT ON query for the whole page rather than a per-project fetch —
+// `idx_site_photos_project_created` covers exactly this ordering. Returns
+// storage object paths; the client signs them.
+async function getCoverPhotoUrls(projectIds: number[]): Promise<Map<number, string>> {
+  if (projectIds.length === 0) return new Map();
+
+  const rows = await db
+    .selectDistinctOn([sitePhotosTable.projectId], {
+      projectId: sitePhotosTable.projectId,
+      imageUrl: sitePhotosTable.imageUrl,
+    })
+    .from(sitePhotosTable)
+    .where(inArray(sitePhotosTable.projectId, projectIds))
+    .orderBy(sitePhotosTable.projectId, desc(sitePhotosTable.createdAt));
+
+  return new Map(rows.map((r) => [r.projectId, r.imageUrl]));
 }
 
 // GET /projects
@@ -87,11 +107,19 @@ router.get(
         complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
       } catch {}
 
+      let coverPhotos = new Map<number, string>();
+      try {
+        coverPhotos = await getCoverPhotoUrls(projectIds);
+      } catch (err) {
+        req.log?.warn({ err }, "projects: failed to load cover photos");
+      }
+
       res.json(
         projects.map((p) => ({
           ...p,
           financials: financialsMap.get(p.id) ?? null,
           complianceAlert: complianceAlertIds.has(p.id),
+          coverPhotoUrl: coverPhotos.get(p.id) ?? null,
         })),
       );
       return;
@@ -108,11 +136,19 @@ router.get(
       complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
     } catch {}
 
+    let coverPhotos = new Map<number, string>();
+    try {
+      coverPhotos = await getCoverPhotoUrls(projectIds);
+    } catch (err) {
+      req.log?.warn({ err }, "projects: failed to load cover photos");
+    }
+
     res.json(
       projects.map((p) => ({
         ...p,
         financials: financialsMap.get(p.id) ?? null,
         complianceAlert: complianceAlertIds.has(p.id),
+        coverPhotoUrl: coverPhotos.get(p.id) ?? null,
       })),
     );
   }),

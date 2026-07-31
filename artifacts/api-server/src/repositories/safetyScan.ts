@@ -83,6 +83,14 @@ export async function getSafetyScan(
   };
 }
 
+export async function deleteSafetyScan(companyId: number, id: number): Promise<boolean> {
+  const [deleted] = await db
+    .delete(safetyScansTable)
+    .where(and(eq(safetyScansTable.companyId, companyId), eq(safetyScansTable.id, id)))
+    .returning({ id: safetyScansTable.id });
+  return !!deleted;
+}
+
 export async function getScanHazard(
   companyId: number,
   scanId: number,
