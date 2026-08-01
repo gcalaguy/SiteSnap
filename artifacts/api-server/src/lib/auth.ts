@@ -224,16 +224,6 @@ export const requireClerkSession = (
   next: NextFunction,
 ) => {
   const auth = getAuth(req);
-  // Temporary debug log — remove once login issue is resolved
-  req.log?.debug(
-    {
-      clerkUserId: auth?.userId ?? null,
-      sessionId: auth?.sessionId ?? null,
-      hasAuthHeader: !!req.headers.authorization,
-      hasCookies: !!req.headers.cookie,
-    },
-    "requireClerkSession check",
-  );
   if (!auth?.userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
