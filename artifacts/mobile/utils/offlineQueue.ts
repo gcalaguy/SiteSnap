@@ -21,17 +21,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { ApiError } from "@workspace/api-client-react";
-import { getCurrentUserId } from "./auth";
 
-// AsyncStorage key prefix that holds the serialised queue (JSON array of
-// payloads), namespaced per signed-in user (see queueKey()) so a queued
-// submission from one account is never flushed under a different account's
-// session — that would silently submit it to the wrong tenant.
-const QUEUE_KEY_PREFIX = "safety_form_offline_queue";
-
-function queueKey(userId: string): string {
-  return `${QUEUE_KEY_PREFIX}:${userId}`;
-}
+// AsyncStorage key that holds the serialised queue (JSON array of payloads).
+const QUEUE_KEY = "safety_form_offline_queue";
 
 // Matches OfflineQueueContext.tsx's cap — after this many failed attempts an
 // item stops being retried automatically instead of being resubmitted forever.
@@ -63,12 +55,12 @@ let _storedApiSubmitFn: ((data: any) => Promise<any>) | null = null;
 // ---------------------------------------------------------------------------
 
 /**
- * Read the current user's queue from AsyncStorage.
+ * Read the current queue from AsyncStorage.
  * Returns an empty array when the key is absent or the stored value is invalid.
  */
-async function readQueue(userId: string): Promise<any[]> {
+async function readQueue(): Promise<any[]> {
   try {
-    const raw = await AsyncStorage.getItem(queueKey(userId));
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -78,12 +70,12 @@ async function readQueue(userId: string): Promise<any[]> {
 }
 
 /**
- * Persist an updated queue back to AsyncStorage, scoped to the given user.
+ * Persist an updated queue back to AsyncStorage.
  * A write failure is swallowed so it never crashes the caller.
  */
-async function writeQueue(userId: string, queue: any[]): Promise<void> {
+async function writeQueue(queue: any[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(queueKey(userId), JSON.stringify(queue));
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch {
     // Nothing we can do if storage is unavailable; the item is simply lost.
   }
@@ -103,14 +95,9 @@ async function writeQueue(userId: string, queue: any[]): Promise<void> {
  * @param formData – the raw form payload that could not be submitted.
  */
 export async function queueOffline(formData: any): Promise<void> {
-  const userId = getCurrentUserId();
-  // No signed-in user to scope this to (e.g. mid-sign-out race) — nothing
-  // safe to persist. The submission is lost, same as any other storage
-  // failure this module already swallows.
-  if (!userId) return;
-  const queue = await readQueue(userId);
+  const queue = await readQueue();
   queue.push({ ...formData, _queuedAt: Date.now(), _retries: 0 });
-  await writeQueue(userId, queue);
+  await writeQueue(queue);
 }
 
 /**
@@ -138,18 +125,11 @@ export async function flushOfflineQueue(
 ): Promise<void> {
   _storedApiSubmitFn = apiSubmitFn;
 
-  // Resolve the *current* signed-in user at flush time (not at listener
-  // registration time — see startOfflineQueueListener below) so a flush
-  // triggered by a reconnect event always operates on whoever is actually
-  // signed in right now, never a stale account from before a switch.
-  const userId = getCurrentUserId();
-  if (!userId) return;
-
   // Guard: do nothing when there is no network connection.
   const netState = await NetInfo.fetch();
   if (!netState.isConnected) return;
 
-  const queue = await readQueue(userId);
+  const queue = await readQueue();
   if (queue.length === 0) return;
 
   // Work through the queue one item at a time; track which items survive.
@@ -183,7 +163,7 @@ export async function flushOfflineQueue(
   }
 
   // Persist every item that either still needs retrying or has terminally failed.
-  await writeQueue(userId, remaining);
+  await writeQueue(remaining);
 }
 
 // ---------------------------------------------------------------------------

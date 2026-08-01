@@ -364,7 +364,6 @@ function ClaimTokenPanel({ tenant, onReissue, isReissuing }: { tenant: TenantDet
 
 type TenantDirectoryTabProps = {
   tenants: TenantRow[];
-  loadError?: string | null;
   plans: Plan[];
   features: Feature[];
   tenantDetail?: TenantDetail;
@@ -381,7 +380,6 @@ type TenantDirectoryTabProps = {
 
 function TenantDirectoryTab({
   tenants,
-  loadError,
   plans,
   features,
   tenantDetail,
@@ -411,13 +409,7 @@ function TenantDirectoryTab({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {loadError ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-red-200 bg-red-50/50 px-4 py-10 text-center">
-              <Building2 className="h-8 w-8 text-red-300" />
-              <p className="mt-3 text-sm font-semibold text-red-700">Couldn't load tenants</p>
-              <p className="mt-1 text-xs text-red-500">{loadError}</p>
-            </div>
-          ) : tenants.length === 0 ? (
+          {tenants.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-10 text-center">
               <Building2 className="h-8 w-8 text-gray-300" />
               <p className="mt-3 text-sm font-semibold text-foreground">No tenants yet</p>
@@ -1203,12 +1195,7 @@ export default function SuperAdminPage() {
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
-  // isError/error surfaced explicitly (not just `data = []`) — a failed fetch
-  // (e.g. a 403 because the signed-in account isn't actually flagged
-  // systemRole="super_admin" server-side, even though this page has no
-  // client-side role gate of its own) must never be indistinguishable from
-  // "this company genuinely has zero tenants."
-  const { data: tenants = [], isError: tenantsError, error: tenantsErrorObj } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
+  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
   const { data: tenantDetail } = useQuery<TenantDetail>({ queryKey: ["admin-tenant-detail", tenantDetailId], queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`), enabled: tenantDetailId !== null });
 
   const refresh = () => {
@@ -1267,14 +1254,7 @@ export default function SuperAdminPage() {
   const deleteTenant = useMutation({
     mutationFn: ({ id, receiptId }: { id: number; receiptId: number | null }) =>
       customFetch(`/api/admin/tenants/${id}${receiptId ? `?receiptId=${receiptId}` : ""}`, { method: "DELETE" }),
-    onSuccess: (_data, variables) => {
-      // Remove it from the cached list immediately rather than relying solely
-      // on invalidateQueries' background refetch — a successful DELETE must
-      // never leave the deleted tenant visibly lingering in the directory
-      // just because the follow-up GET hit a transient hiccup of its own.
-      qc.setQueryData<TenantRow[]>(["admin-tenants"], (old) => old?.filter((t) => t.id !== variables.id));
-      setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); setExportDeleteTenant(null); setExportReceiptId(null); refresh(); toast({ title: "Tenant deleted" });
-    },
+    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); setExportDeleteTenant(null); setExportReceiptId(null); refresh(); toast({ title: "Tenant deleted" }); },
     onError: (e: ApiError) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }),
   });
   const exportTenant = useMutation({
@@ -1310,7 +1290,6 @@ export default function SuperAdminPage() {
         <TabsContent value="tenants">
           <TenantDirectoryTab
             tenants={tenants}
-            loadError={tenantsError ? (tenantsErrorObj instanceof ApiError ? tenantsErrorObj.message : "Failed to load tenants.") : null}
             plans={plans}
             features={features}
             tenantDetail={tenantDetail}
