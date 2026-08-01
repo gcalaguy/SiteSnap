@@ -118,7 +118,7 @@ async function runAIAnalysis(
         { role: "system", content: INSPECTION_SUMMARY_PROMPT },
         { role: "user", content: context },
       ],
-      max_tokens: 600,
+      max_completion_tokens: 600,
     }),
     openai.chat.completions.create({
       model: "gpt-5-mini",
@@ -126,7 +126,7 @@ async function runAIAnalysis(
         { role: "system", content: RISK_SCORING_PROMPT },
         { role: "user", content: context },
       ],
-      max_tokens: 300,
+      max_completion_tokens: 300,
       response_format: { type: "json_object" },
     }),
     failedItems.length > 0
@@ -136,7 +136,7 @@ async function runAIAnalysis(
             { role: "system", content: FAILED_ITEM_ANALYSIS_PROMPT },
             { role: "user", content: `Failed items:\n${failedItems.map((i) => `- ${i.itemName} [${i.severity}]${i.comment ? `: ${i.comment}` : ""}`).join("\n")}` },
           ],
-          max_tokens: 500,
+          max_completion_tokens: 500,
         })
       : Promise.resolve(null),
   ]);
