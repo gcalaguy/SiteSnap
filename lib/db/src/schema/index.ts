@@ -1316,7 +1316,7 @@ export const proposalsTable = pgTable("proposals", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   builderEstimateId: integer("builder_estimate_id")
     .notNull()
     .references(() => builderEstimatesTable.id),
@@ -1515,7 +1515,7 @@ export const fileAttachmentsTable = pgTable("file_attachments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   uploadedByUserId: integer("uploaded_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -1641,7 +1641,7 @@ export const estimatorActualsTable = pgTable("estimator_actuals", {
     .references(() => estimatesTable.id, { onDelete: "cascade" }),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   estimatedCost: numeric("estimated_cost", { precision: 12, scale: 2 }).notNull(),
   actualCost: numeric("actual_cost", { precision: 12, scale: 2 }).notNull(),
   variancePct: numeric("variance_pct", { precision: 8, scale: 2 }),
