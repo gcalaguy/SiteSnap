@@ -144,6 +144,10 @@ async function dbIncrementDailyAndGet(key: string): Promise<number> {
     setCachedDaily(key, count);
     return count;
   } catch (err) {
+    if ((err as NodeJS.ErrnoException & { code?: string })?.code === "42P01") {
+      logger.warn({ key }, "aiRateLimiter: ai_daily_usage table missing — failing open, request allowed");
+      return 1; // Fail open: table absent, not over limit
+    }
     logger.error({ err }, "aiRateLimiter: daily DB upsert failed, blocking request");
     return DAILY_LIMIT + 1; // Fail closed
   }
@@ -165,7 +169,11 @@ async function dbGetMinuteCount(key: string): Promise<number> {
     );
     return result.rows[0]?.count ?? 0;
   } catch (err) {
-    logger.error({ err }, "aiRateLimiter: minute DB read failed, failing open");
+    if ((err as NodeJS.ErrnoException & { code?: string })?.code === "42P01") {
+      logger.warn({ key }, "aiRateLimiter: ai_minute_usage table missing — failing open, request allowed");
+    } else {
+      logger.error({ err }, "aiRateLimiter: minute DB read failed, failing open");
+    }
     return 0;
   }
 }
@@ -196,6 +204,10 @@ async function dbIncrementMinuteAndGet(key: string): Promise<number> {
     setCachedMinuteCount(key, count);
     return count;
   } catch (err) {
+    if ((err as NodeJS.ErrnoException & { code?: string })?.code === "42P01") {
+      logger.warn({ key }, "aiRateLimiter: ai_minute_usage table missing — failing open, request allowed");
+      return 1; // Fail open: table absent, not over limit
+    }
     logger.error({ err }, "aiRateLimiter: minute DB upsert failed, blocking request");
     return PER_MINUTE_LIMIT + 1; // Fail closed
   }
