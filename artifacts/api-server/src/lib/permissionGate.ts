@@ -23,9 +23,6 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   viewEstimator:      false,
   viewTradeHub:       false,
   viewAskAI:          true,
-  manageEmailIntegrations: false,
-  viewProjectCommunications: true,
-  manageFilingRules: false,
 };
 
 /**

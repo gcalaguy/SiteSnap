@@ -57,9 +57,6 @@ export function Button({
         styles.base,
         size === "lg" ? styles.lg : styles.md,
         {
-          // Filled buttons are pills; `ghost` keeps the card radius so it reads
-          // as an outlined surface rather than a second solid action.
-          borderRadius: variant === "ghost" ? radius.md : radius.full,
           backgroundColor: bg,
           borderWidth: border ? 1 : 0,
           borderColor: border,
@@ -82,10 +79,11 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
-  md: { paddingVertical: 14, paddingHorizontal: spacing.xxl },
-  lg: { paddingVertical: 18, paddingHorizontal: spacing.xxxl },
+  md: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  lg: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 });

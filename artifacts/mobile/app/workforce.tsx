@@ -55,9 +55,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
   backBtn: { width: 36 },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   tabBar: { flexDirection: "row", borderBottomWidth: 1 },
   tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12, position: "relative" },
-  tabText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  tabText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   tabIndicator: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, borderRadius: 1 },
 });

@@ -621,7 +621,7 @@ function SelectField({ field, value, onChange, colors }: {
                 { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? `${colors.primary}15` : colors.card }
               ]}
             >
-              <Text style={[styles.optionPillText, { color: selected ? colors.primary : colors.mutedForeground, fontFamily: selected ? "NunitoSans_600SemiBold" : "NunitoSans_400Regular" }]}>
+              <Text style={[styles.optionPillText, { color: selected ? colors.primary : colors.mutedForeground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
                 {opt}
               </Text>
             </Pressable>
@@ -793,7 +793,7 @@ export default function CalculatorsScreen() {
                         <Feather name="cpu" size={13} color={colors.primary} />
                         <Text style={[styles.stepsTitle, { color: colors.foreground }]}>AI Field Note</Text>
                       </View>
-                      <Text style={[styles.aiText, { color: colors.foreground, backgroundColor: `${colors.primary}10`, borderRadius: 16, padding: 10 }]}>{aiSummary}</Text>
+                      <Text style={[styles.aiText, { color: colors.foreground, backgroundColor: `${colors.primary}10`, borderRadius: 8, padding: 10 }]}>{aiSummary}</Text>
                     </View>
                   ) : (
                     <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }} onPress={getAiNote} disabled={aiLoading}>
@@ -868,44 +868,44 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 14 },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   catBar: { borderBottomWidth: StyleSheet.hairlineWidth },
   catPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  catPillText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  catPillText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   grid: { padding: 16, gap: 8 },
-  gridHint: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginBottom: 4 },
-  card: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 16, borderWidth: 1, gap: 12 },
-  cardIcon: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  cardName: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
-  cardDesc: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  gridHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 4 },
+  card: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
+  cardIcon: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  cardName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   catTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  catTagText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
+  catTagText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   calcScroll: { padding: 16, gap: 12 },
   calcBack: { flexDirection: "row", alignItems: "center", gap: 4 },
-  calcBackText: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-  calcHeader: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: 16 },
-  calcIconBox: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  calcTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
-  calcDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  fieldsCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 14 },
+  calcBackText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  calcHeader: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: 14 },
+  calcIconBox: { width: 48, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  calcTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  calcDesc: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  fieldsCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 14 },
   fieldRow: { gap: 4 },
-  fieldLabel: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  fieldInput: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, fontFamily: "NunitoSans_400Regular" },
-  optionPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  fieldInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, fontFamily: "Inter_400Regular" },
+  optionPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
   optionPillText: { fontSize: 12 },
-  calcBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 16 },
-  calcBtnText: { color: "#FFFFFF", fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
-  resultsCard: { borderRadius: 16, borderWidth: 1.5, padding: 14, gap: 2 },
-  resultsTitle: { fontSize: 11, fontFamily: "NunitoSans_700Bold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 },
-  resultRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, paddingHorizontal: 8, borderRadius: 16 },
-  resultLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
-  resultValue: { fontSize: 14, fontFamily: "NunitoSans_700Bold" },
-  stepsCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
-  stepsTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 2 },
+  calcBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14 },
+  calcBtnText: { color: "#FFFFFF", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  resultsCard: { borderRadius: 14, borderWidth: 1.5, padding: 14, gap: 2 },
+  resultsTitle: { fontSize: 11, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 },
+  resultRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, paddingHorizontal: 8, borderRadius: 8 },
+  resultLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  resultValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  stepsCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
+  stepsTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 2 },
   stepRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   stepDot: { width: 6, height: 6, borderRadius: 3, marginTop: 6 },
-  stepLabel: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  stepFormula: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 1 },
-  aiCard: { borderRadius: 16, borderWidth: 1, padding: 14 },
-  aiText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19 },
+  stepLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  stepFormula: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  aiCard: { borderRadius: 14, borderWidth: 1, padding: 14 },
+  aiText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 });

@@ -169,7 +169,7 @@ function MobileSignaturePad({
           height: 110,
           borderWidth: 1,
           borderColor: "#333",
-          borderRadius: 16,
+          borderRadius: 8,
           backgroundColor: "#0a0a0a",
           overflow: "hidden",
         }}
@@ -303,14 +303,14 @@ function SignoffModal({
       alignItems: "flex-start",
       gap: 12,
       padding: 12,
-      borderRadius: 16,
+      borderRadius: 10,
       backgroundColor: colors.background,
       marginBottom: 16,
     },
     checkbox: {
       width: 22,
       height: 22,
-      borderRadius: 16,
+      borderRadius: 6,
       borderWidth: 2,
       borderColor: confirmed ? "#C9A84C" : colors.border,
       backgroundColor: confirmed ? "#C9A84C" : "transparent",
@@ -322,7 +322,7 @@ function SignoffModal({
     confirmText: { flex: 1, fontSize: 13, color: colors.text, lineHeight: 19 },
     signBtn: {
       backgroundColor: confirmed ? "#C9A84C" : colors.border,
-      borderRadius: 16,
+      borderRadius: 12,
       paddingVertical: 14,
       alignItems: "center",
     },
@@ -560,7 +560,7 @@ export default function CorDashboardScreen() {
             marginHorizontal: 16,
             marginBottom: 12,
             paddingVertical: 14,
-            borderRadius: 16,
+            borderRadius: 12,
             backgroundColor: isGeneratingPackage ? "#a07820" : "#C9A84C",
             flexDirection: "row",
             alignItems: "center",
@@ -589,7 +589,7 @@ export default function CorDashboardScreen() {
             marginBottom: 12,
             paddingVertical: 14,
             paddingHorizontal: 16,
-            borderRadius: 16,
+            borderRadius: 12,
             backgroundColor: colors.card,
             borderWidth: 1,
             borderColor: colors.border,
@@ -610,7 +610,7 @@ export default function CorDashboardScreen() {
       {!isWorker && flaggedSubs.length > 0 && (
         <View style={{
           marginHorizontal: 16, marginBottom: 12,
-          padding: 14, borderRadius: 16,
+          padding: 14, borderRadius: 12,
           backgroundColor: "#450a0a",
           borderWidth: 1, borderColor: "#7f1d1d80",
           flexDirection: "row", alignItems: "flex-start", gap: 10,
@@ -631,7 +631,7 @@ export default function CorDashboardScreen() {
       {!isWorker && openCapas.length > 0 && (
         <View style={{
           marginHorizontal: 16, marginBottom: 12,
-          padding: 14, borderRadius: 16,
+          padding: 14, borderRadius: 12,
           backgroundColor: "#1a0000",
           borderWidth: 1, borderColor: "#7f1d1d80",
         }}>
@@ -661,7 +661,7 @@ export default function CorDashboardScreen() {
       {!isWorker && expiringCreds.length > 0 && (
         <View style={{
           marginHorizontal: 16, marginBottom: 12,
-          padding: 14, borderRadius: 16,
+          padding: 14, borderRadius: 12,
           backgroundColor: "#1c1004",
           borderWidth: 1, borderColor: "#92400e80",
         }}>
@@ -809,7 +809,7 @@ export default function CorDashboardScreen() {
                       alignItems: "center",
                       gap: 12,
                       backgroundColor: "#C9A84C18",
-                      borderRadius: 16,
+                      borderRadius: 10,
                       padding: 12,
                       borderWidth: 1,
                       borderColor: "#C9A84C40",
@@ -818,7 +818,7 @@ export default function CorDashboardScreen() {
                     <View style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 16,
+                      borderRadius: 8,
                       backgroundColor: "#C9A84C22",
                       alignItems: "center",
                       justifyContent: "center",
@@ -838,7 +838,7 @@ export default function CorDashboardScreen() {
                       paddingHorizontal: 10,
                       paddingVertical: 5,
                       backgroundColor: "#C9A84C",
-                      borderRadius: 16,
+                      borderRadius: 6,
                     }}>
                       <Text style={{ color: "#000", fontSize: 12, fontWeight: "700" }}>Sign</Text>
                     </View>
@@ -950,7 +950,7 @@ function styles(colors: ReturnType<typeof useColors>) {
       marginHorizontal: 16,
       marginBottom: 12,
       backgroundColor: colors.card,
-      borderRadius: 16,
+      borderRadius: 12,
       padding: 16,
     },
     cardTitle: {
@@ -967,7 +967,7 @@ function styles(colors: ReturnType<typeof useColors>) {
     projectChip: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 20,
+      borderRadius: 16,
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
@@ -984,7 +984,7 @@ function styles(colors: ReturnType<typeof useColors>) {
     },
     elementName: { fontSize: 14, color: colors.text, fontWeight: "500" },
     elementMeta: { fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
-    elementBadge: { borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
+    elementBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     elementBadgeText: { fontSize: 14, fontWeight: "700" },
     findingRow: {
       flexDirection: "row",

@@ -1010,7 +1010,7 @@ export function GlobalVoiceCommandFAB() {
                 style={{
                   borderWidth: 1,
                   borderColor: colors.border,
-                  borderRadius: 16,
+                  borderRadius: 8,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   fontSize: 15,
@@ -1153,14 +1153,14 @@ export function GlobalVoiceCommandFAB() {
                       style={{
                         paddingVertical: 12,
                         paddingHorizontal: 14,
-                        borderRadius: 16,
+                        borderRadius: 10,
                         backgroundColor: colors.card,
                         marginBottom: 6,
                         borderWidth: 1,
                         borderColor: colors.border,
                       }}
                     >
-                      <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
                         {p.name}
                       </Text>
                     </TouchableOpacity>
@@ -1178,7 +1178,7 @@ export function GlobalVoiceCommandFAB() {
                     alignItems: "center",
                   }}
                 >
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_500Medium", fontSize: 14 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
                     Cancel
                   </Text>
                 </TouchableOpacity>
@@ -1251,14 +1251,14 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 16,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
   },
   recordingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: "#FEF2F2",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#FECACA",
     paddingHorizontal: 12,
@@ -1272,20 +1272,20 @@ const styles = StyleSheet.create({
   },
   recordingText: {
     fontSize: 13,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
     color: "#DC2626",
   },
   transcriptBox: {
     flexDirection: "row",
     alignItems: "flex-start",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 12,
     marginTop: 4,
   },
   transcriptText: {
     fontSize: 14,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     flex: 1,
     lineHeight: 20,
   },
@@ -1294,16 +1294,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
   },
   resultLabel: {
     fontSize: 13,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   resultDetail: {
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     marginTop: 2,
   },
   hintGrid: {
@@ -1317,12 +1317,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
   },
   hintText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   sheetActionBtn: {
     flexDirection: "row",
@@ -1330,17 +1330,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 12,
     marginTop: 8,
   },
   sheetActionText: {
     fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#FFFFFF",
   },
   errorText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     textAlign: "center",
     marginTop: 4,
   },

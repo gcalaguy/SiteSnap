@@ -1,20 +1,9 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { AlertTriangle, ArrowLeft, CheckCircle2, FileDown, Loader2, MapPin, RefreshCw, Trash2, XCircle } from "lucide-react";
-import { useGetMe } from "@workspace/api-client-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileDown, Loader2, MapPin, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useSafetyScan, useDeleteSafetyScan } from "@/hooks/safety-scanner/useSafetyScan";
+import { useSafetyScan } from "@/hooks/safety-scanner/useSafetyScan";
 import type { ScanHazard } from "@/hooks/safety-scanner/useSafetyScan";
 import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { ActionItemDrawer } from "@/components/safety-scanner/ActionItemDrawer";
@@ -37,12 +26,7 @@ export default function SafetyScanDetailPage() {
   const [, setLocation] = useLocation();
   const scanId = id ? parseInt(id) : null;
   const { data: scan, isLoading, isError } = useSafetyScan(scanId);
-  const { data: me } = useGetMe();
   const [actionHazard, setActionHazard] = useState<ScanHazard | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const deleteScan = useDeleteSafetyScan(() => setLocation("/safety-compliance?tab=scanner"));
-
-  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>;
@@ -59,17 +43,7 @@ export default function SafetyScanDetailPage() {
         <Button variant="ghost" size="sm" className="text-zinc-400" onClick={() => setLocation("/safety-compliance?tab=scanner")}>
           <ArrowLeft className="h-4 w-4 mr-2" />Back
         </Button>
-        <h1 className="text-xl font-bold text-zinc-100 flex-1">AI Safety Scan #{scan.id}</h1>
-        {isOwnerOrForeman && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-zinc-400 hover:text-red-400"
-            onClick={() => setConfirmingDelete(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />Delete
-          </Button>
-        )}
+        <h1 className="text-xl font-bold text-zinc-100">AI Safety Scan #{scan.id}</h1>
       </div>
 
       {scan.siteAddress && (
@@ -183,27 +157,6 @@ export default function SafetyScanDetailPage() {
       )}
 
       <ActionItemDrawer scanId={scan.id} hazard={actionHazard} onClose={() => setActionHazard(null)} />
-
-      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this safety scan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This scan and its photos will be permanently removed from the Web Dashboard. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => deleteScan.mutate(scan.id)}
-            >
-              {deleteScan.isPending && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

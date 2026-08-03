@@ -401,7 +401,7 @@ function SearchPanel({ projectId }: { projectId: number }) {
       {loading && (retrying || waiting) && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
           <ActivityIndicator size={13} color={colors.primary} />
-          <Text style={{ fontSize: 13, fontFamily: "NunitoSans_400Regular", color: colors.mutedForeground }}>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
             {waiting ? "Waiting for connection…" : "Poor connection detected, retrying…"}
           </Text>
         </View>
@@ -523,10 +523,10 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
   return (
     <View style={{ gap: 10 }}>
       {ragActive && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: `${colors.primary}10`, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 5 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: `${colors.primary}10`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5 }}>
           <Feather name="zap" size={11} color={colors.primary} />
-          <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.primary }}>Full-text search active</Text>
-          <Text style={{ fontSize: 10, fontFamily: "NunitoSans_400Regular", color: colors.mutedForeground }}>— grounded in document content</Text>
+          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Full-text search active</Text>
+          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>— grounded in document content</Text>
         </View>
       )}
       {messages.length === 0 ? (
@@ -540,13 +540,13 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
           {totalCount > 0 && (
             <View style={{
               flexDirection: "row", alignItems: "center", gap: 6,
-              borderRadius: 16, paddingHorizontal: 9, paddingVertical: 6,
+              borderRadius: 6, paddingHorizontal: 9, paddingVertical: 6,
               backgroundColor: indexedCount > 0 ? "#16a34a12" : "#d9770612",
               borderWidth: 1, borderColor: indexedCount > 0 ? "#16a34a30" : "#d9770630",
               alignSelf: "flex-start",
             }}>
               <Feather name={indexedCount > 0 ? "check-circle" : "alert-circle"} size={11} color={indexedCount > 0 ? "#16a34a" : "#d97706"} />
-              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_400Regular", color: indexedCount > 0 ? "#16a34a" : "#d97706" }}>
+              <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: indexedCount > 0 ? "#16a34a" : "#d97706" }}>
                 {indexedCount > 0
                   ? `${indexedCount} of ${totalCount} document${totalCount !== 1 ? "s" : ""} indexed for AI search`
                   : `No documents indexed yet — tap Re-index on analyzed files`}
@@ -610,7 +610,7 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
                 <View style={[docStyles.bubble, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 6 }]}>
                   <ActivityIndicator size={14} color={colors.primary} />
                   {(aiRetrying || aiWaiting) && (
-                    <Text style={{ fontSize: 12, fontFamily: "NunitoSans_400Regular", color: colors.mutedForeground }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
                       {aiWaiting ? "Waiting for connection…" : "Retrying…"}
                     </Text>
                   )}
@@ -661,7 +661,7 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
         </View>
         <Text style={{
           fontSize: 11,
-          fontFamily: "NunitoSans_500Medium",
+          fontFamily: "Inter_500Medium",
           color: input.length >= 2000 ? "#EF4444" : input.length >= 2000 * 0.8 ? "#F59E0B" : colors.mutedForeground,
           textAlign: "right",
           marginTop: 3,
@@ -889,7 +889,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
         </View>
 
         {/* Mode tabs */}
-        <View style={[docStyles.modeRow, { backgroundColor: colors.muted, borderRadius: 16 }]}>
+        <View style={[docStyles.modeRow, { backgroundColor: colors.muted, borderRadius: 10 }]}>
           {(["list", "search", "qa"] as const).map(m => {
             const active = mode === m;
             const icons = { list: "file", search: "search", qa: "message-square" } as const;
@@ -949,7 +949,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
             <View style={[docStyles.tipBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
               <Feather name="zap" size={13} color={colors.primary} style={{ marginTop: 1 }} />
               <Text style={[docStyles.tipText, { color: colors.mutedForeground }]}>
-                Photos & receipts are analyzed automatically. Tap <Text style={{ fontFamily: "NunitoSans_600SemiBold", color: colors.primary }}>Analyze</Text> on other files, then use Search or Ask AI.
+                Photos & receipts are analyzed automatically. Tap <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary }}>Analyze</Text> on other files, then use Search or Ask AI.
               </Text>
             </View>
 
@@ -1097,78 +1097,78 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
 
 const docStyles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  heading: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
-  subheading: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  headerBtn: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  heading: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  subheading: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  headerBtn: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   modeRow: { flexDirection: "row", padding: 3, gap: 2 },
-  modeTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, borderRadius: 16 },
-  modeTabText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-  panel: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 12 },
+  modeTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, borderRadius: 8 },
+  modeTabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  panel: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 12 },
   panelHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
-  panelTitle: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flex: 1 },
-  aiBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 16 },
-  aiBadgeText: { fontSize: 10, fontFamily: "NunitoSans_700Bold" },
-  tipBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 16, padding: 10 },
-  tipText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 17, flex: 1 },
+  panelTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
+  aiBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  aiBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  tipBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  tipText: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, flex: 1 },
   emptyBox: { alignItems: "center", paddingVertical: 36, gap: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  emptySubtext: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", maxWidth: 260 },
-  emptyText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingVertical: 8 },
-  docCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 0 },
+  emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  emptySubtext: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", maxWidth: 260 },
+  emptyText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 8 },
+  docCard: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 0 },
   docCardMain: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  docIcon: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  docFilename: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },
-  docMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
-  statusChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 16 },
-  statusText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
-  analyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
-  analyzeBtnText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
-  iconBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  extractedHeader: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8, borderRadius: 16, borderWidth: 1, marginTop: 8 },
-  extractedHeaderText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", flex: 1 },
+  docIcon: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  docFilename: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  docMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  statusChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  statusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  analyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  analyzeBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  iconBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  extractedHeader: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8, borderRadius: 8, borderWidth: 1, marginTop: 8 },
+  extractedHeaderText: { fontSize: 11, fontFamily: "Inter_600SemiBold", flex: 1 },
   extractedBody: { borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, padding: 10, gap: 0 },
-  extractedSummary: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 17, fontStyle: "italic", marginBottom: 8 },
+  extractedSummary: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, fontStyle: "italic", marginBottom: 8 },
   fieldsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   fieldItem: { minWidth: "40%", gap: 1 },
-  fieldLabel: { fontSize: 9, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
-  fieldValue: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  fieldLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
+  fieldValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   lineItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4, borderTopWidth: StyleSheet.hairlineWidth },
-  lineItemDesc: { fontSize: 12, fontFamily: "NunitoSans_400Regular", flex: 1 },
-  lineItemAmt: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", marginLeft: 8 },
-  ocrText: { fontSize: 11, fontFamily: "NunitoSans_400Regular", lineHeight: 16, borderRadius: 16, padding: 8 },
-  amountPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 16, borderWidth: 1, marginLeft: "auto" as any },
-  amountPillText: { fontSize: 10, fontFamily: "NunitoSans_700Bold" },
-  taxWarning: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 16, padding: 8, marginTop: 8 },
-  taxWarningText: { fontSize: 11, fontFamily: "NunitoSans_500Medium", flex: 1, lineHeight: 15 },
-  reanalyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 16, backgroundColor: "#F59E0B25" },
-  reanalyzeBtnText: { fontSize: 10, fontFamily: "NunitoSans_700Bold", color: "#B45309" },
-  pushBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 16 },
-  pushBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#fff" },
-  pushedBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1 },
-  pushedText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  lineItemDesc: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  lineItemAmt: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginLeft: 8 },
+  ocrText: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, borderRadius: 6, padding: 8 },
+  amountPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, borderWidth: 1, marginLeft: "auto" as any },
+  amountPillText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  taxWarning: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 8 },
+  taxWarningText: { fontSize: 11, fontFamily: "Inter_500Medium", flex: 1, lineHeight: 15 },
+  reanalyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, backgroundColor: "#F59E0B25" },
+  reanalyzeBtnText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#B45309" },
+  pushBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 9 },
+  pushBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  pushedBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1 },
+  pushedText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  sectionLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, flex: 1 },
-  clientBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 16 },
-  clientBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: "#3B82F6" },
-  inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, overflow: "hidden", gap: 6, paddingRight: 6, paddingVertical: 4 },
-  textInput: { fontSize: 13, fontFamily: "NunitoSans_400Regular", paddingVertical: 6, minHeight: 32 },
-  micBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  sendBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  aiAnswerBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 16, padding: 10 },
-  aiAnswerText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 18, flex: 1 },
-  searchResultRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 16, borderWidth: 1 },
-  relevanceChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16 },
-  relevanceText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
+  sectionLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, flex: 1 },
+  clientBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  clientBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#3B82F6" },
+  inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 12, overflow: "hidden", gap: 6, paddingRight: 6, paddingVertical: 4 },
+  textInput: { fontSize: 13, fontFamily: "Inter_400Regular", paddingVertical: 6, minHeight: 32 },
+  micBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  sendBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  aiAnswerBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  aiAnswerText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, flex: 1 },
+  searchResultRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, borderWidth: 1 },
+  relevanceChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  relevanceText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   aiBubbleHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3, paddingLeft: 2 },
-  bubble: { maxWidth: "88%", borderRadius: 16, padding: 10 },
-  bubbleText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19 },
-  citationChip: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 16 },
-  citationText: { fontSize: 10, fontFamily: "NunitoSans_500Medium", maxWidth: 140 },
-  starterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  starterText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
-  qaErrorBox: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10, marginBottom: 6 },
+  bubble: { maxWidth: "88%", borderRadius: 14, padding: 10 },
+  bubbleText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  citationChip: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  citationText: { fontSize: 10, fontFamily: "Inter_500Medium", maxWidth: 140 },
+  starterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  starterText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  qaErrorBox: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 10, marginBottom: 6 },
   qaErrorTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  qaErrorMsg: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "#B91C1C", lineHeight: 19 },
-  qaRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 9, paddingHorizontal: 14 },
-  qaRetryBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
+  qaErrorMsg: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C", lineHeight: 19 },
+  qaRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
+  qaRetryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
 });

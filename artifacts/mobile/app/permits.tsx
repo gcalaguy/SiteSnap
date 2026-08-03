@@ -351,7 +351,7 @@ export default function PermitsScreen() {
             Could not load permits
           </Text>
           <TouchableOpacity onPress={() => refetch()} style={[styles.retryBtn, { backgroundColor: colors.primary }]}>
-            <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 14 }}>Retry</Text>
+            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -450,7 +450,7 @@ export default function PermitsScreen() {
                           <Text
                             style={{
                               fontSize: 12,
-                              fontFamily: "NunitoSans_500Medium",
+                              fontFamily: "Inter_500Medium",
                               color: active ? colors.primary : colors.mutedForeground,
                             }}
                             numberOfLines={1}
@@ -492,7 +492,7 @@ export default function PermitsScreen() {
                       <Text
                         style={{
                           fontSize: 12,
-                          fontFamily: "NunitoSans_500Medium",
+                          fontFamily: "Inter_500Medium",
                           textTransform: "capitalize",
                           color: active ? colors.primary : colors.mutedForeground,
                         }}
@@ -523,7 +523,7 @@ export default function PermitsScreen() {
                 style={[styles.attachBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
               >
                 <Feather name="paperclip" size={16} color={colors.primary} />
-                <Text style={{ fontSize: 13, fontFamily: "NunitoSans_500Medium", color: colors.foreground }} numberOfLines={1}>
+                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground }} numberOfLines={1}>
                   {attachedFile ? (attachedFile.fileName ?? "Photo selected") : "Attach from library"}
                 </Text>
               </TouchableOpacity>
@@ -536,7 +536,7 @@ export default function PermitsScreen() {
                 {saving ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>
+                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
                     {editing ? "Save Changes" : "Create Permit"}
                   </Text>
                 )}
@@ -591,33 +591,33 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
   list: { padding: 12, gap: 10 },
   statsRow: { flexDirection: "row", gap: 8 },
-  statCard: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 12, alignItems: "flex-start" },
-  statValue: { fontSize: 20, fontFamily: "NunitoSans_700Bold" },
-  statLabel: { fontSize: 11, fontFamily: "NunitoSans_500Medium", marginTop: 2 },
+  statCard: { flex: 1, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: "flex-start" },
+  statValue: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  statLabel: { fontSize: 11, fontFamily: "Inter_500Medium", marginTop: 2 },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === "web" ? 10 : 8,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_400Regular", padding: 0 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", padding: 0 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14 },
   cardRow: { flexDirection: "row", gap: 12 },
   cardIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  cardTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  cardMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  cardMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   cardBadges: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  statusChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" },
-  expiryText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
+  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  statusChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
+  expiryText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   cardActions: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -626,10 +626,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 2, paddingHorizontal: 8 },
-  actionText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
+  actionText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
-  emptySub: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  emptySub: { fontSize: 13, fontFamily: "Inter_400Regular" },
   retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
   fab: {
     position: "absolute",
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  fabText: { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  fabText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 15 },
   sheetOverlay: {
     position: "absolute",
     top: 0,
@@ -664,17 +664,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  sheetTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetBody: { paddingHorizontal: 20, paddingTop: 12 },
-  label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginTop: 14, marginBottom: 6 },
+  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 14, marginBottom: 6 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, maxWidth: "100%" },
-  input: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
+  input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "Inter_400Regular" },
   attachBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     marginTop: 20,
   },
 });

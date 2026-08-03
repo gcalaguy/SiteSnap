@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 8,
   },
-  text: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },
+  text: { fontSize: 12, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
 });

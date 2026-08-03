@@ -248,13 +248,13 @@ export function ProjectFormSheet({ visible, onClose, onSubmit, submitting = fals
 const styles = StyleSheet.create({
   label: {
     fontSize: 12,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     marginBottom: spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  input: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, fontSize: 15, fontFamily: "NunitoSans_400Regular" },
+  input: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, fontSize: 15, fontFamily: "Inter_400Regular" },
   dateField: {
     flexDirection: "row",
     alignItems: "center",
@@ -264,14 +264,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
-  dateText: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_500Medium" },
+  dateText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
   textarea: {
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     minHeight: 84,
     fontSize: 15,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     lineHeight: 21,
     textAlignVertical: "top",
   },

@@ -103,20 +103,6 @@ export function useCreateScanAction(scanId: number, onDone?: () => void) {
   });
 }
 
-export function useDeleteSafetyScan(onDone?: () => void) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (scanId: number) => customFetch(`/api/safety/scans/${scanId}`, { method: "DELETE" }),
-    onSuccess: (_data, scanId) => {
-      toast({ title: "Scan deleted" });
-      invalidate(queryClient, scanId);
-      onDone?.();
-    },
-    onError: () => toast({ title: "Could not delete scan", variant: "destructive" }),
-  });
-}
-
 export function useSignSafetyScan(scanId: number) {
   const { toast } = useToast();
   const queryClient = useQueryClient();

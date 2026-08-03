@@ -54,7 +54,7 @@ function ConfidenceBadge({ level }: { level: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
       <View style={{ backgroundColor: c.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
-        <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: c.text }}>{c.label}</Text>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: c.text }}>{c.label}</Text>
       </View>
     </View>
   );
@@ -386,61 +386,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: 14,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#fff" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.55)", marginTop: 1 },
-  headerIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#fff" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.55)", marginTop: 1 },
+  headerIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
 
   card: {
-    borderRadius: 16, borderWidth: 1,
+    borderRadius: 14, borderWidth: 1,
     padding: 14, marginBottom: 12,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
-  cardTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  cardTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   photoAdd: {
-    width: 80, height: 80, borderRadius: 16, borderWidth: 2, borderStyle: "dashed",
+    width: 80, height: 80, borderRadius: 10, borderWidth: 2, borderStyle: "dashed",
     alignItems: "center", justifyContent: "center", gap: 4,
   },
-  photoAddLabel: { fontSize: 10, fontFamily: "NunitoSans_500Medium" },
-  photoThumb: { width: 80, height: 80, borderRadius: 16, overflow: "hidden", position: "relative" },
+  photoAddLabel: { fontSize: 10, fontFamily: "Inter_500Medium" },
+  photoThumb: { width: 80, height: 80, borderRadius: 10, overflow: "hidden", position: "relative" },
   photoImg: { width: 80, height: 80 },
   photoRemove: {
     position: "absolute", top: 4, right: 4,
-    backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 8,
     width: 16, height: 16, alignItems: "center", justifyContent: "center",
   },
 
   projectPill: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1,
   },
-  projectPillText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
+  projectPillText: { fontSize: 12, fontFamily: "Inter_500Medium" },
 
   contextInput: {
-    borderWidth: 1, borderRadius: 16, padding: 10,
-    fontSize: 13, fontFamily: "NunitoSans_400Regular", minHeight: 72,
+    borderWidth: 1, borderRadius: 8, padding: 10,
+    fontSize: 13, fontFamily: "Inter_400Regular", minHeight: 72,
     textAlignVertical: "top",
   },
 
   analyzeBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 15, borderRadius: 16, marginBottom: 16,
+    gap: 8, paddingVertical: 15, borderRadius: 14, marginBottom: 16,
   },
-  analyzeBtnText: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#111111" },
+  analyzeBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#111111" },
 
-  resultsContainer: { borderRadius: 16, borderWidth: 1, padding: 16 },
+  resultsContainer: { borderRadius: 14, borderWidth: 1, padding: 16 },
   resultsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   resultsBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  resultsBadgeText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  resultsBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
-  summaryBox: { borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
-  summaryText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 21 },
+  summaryBox: { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 14 },
+  summaryText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
 
   section: { marginBottom: 14 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  sectionTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 6, paddingLeft: 4 },
   bullet: { width: 6, height: 6, borderRadius: 3, marginTop: 5, flexShrink: 0 },
-  bulletText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19, flex: 1 },
+  bulletText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19, flex: 1 },
 
-  footerNote: { fontSize: 11, fontFamily: "NunitoSans_400Regular", textAlign: "center", marginTop: 8 },
+  footerNote: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 8 },
 });

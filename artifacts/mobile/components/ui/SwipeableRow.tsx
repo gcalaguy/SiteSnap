@@ -71,5 +71,5 @@ const styles = StyleSheet.create({
   actionPanel: { justifyContent: "center", alignItems: "center" },
   actionLeft: { borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
   actionRight: { borderTopRightRadius: 14, borderBottomRightRadius: 14 },
-  actionLabel: { color: "#FFFFFF", fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  actionLabel: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_600SemiBold" },
 });

@@ -35,13 +35,10 @@ import {
   hasCredentialAlertBeenSent,
   recordCredentialAlert,
 } from "./repositories/cor/index.js";
-import { getDueEmailAccounts } from "./repositories/emailIntegrations.js";
-import { syncEmailAccount } from "./services/emailSyncService.js";
-import { extractDueEmailIntelligence } from "./services/emailIntelligenceService.js";
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006, EXPORT_RECEIPT_CLEANUP: 7007, BACKUPS: 7008, EMAIL_SYNC: 7009, EMAIL_AI_EXTRACTION: 7010 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006, EXPORT_RECEIPT_CLEANUP: 7007, BACKUPS: 7008 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -443,33 +440,6 @@ export async function sendCredentialExpiryAlerts(): Promise<{
   return { alerted, skipped, errors };
 }
 
-/**
- * Syncs every email account across all companies that is due (nextSyncDueAt
- * has passed, or has never synced). Per-account cadence is enforced by that
- * due-time filter rather than by registering a separate cron schedule per
- * sync-frequency tier — this job just runs frequently and skips accounts not
- * yet due. Paged like the other cron jobs to avoid loading every account at once.
- */
-export async function syncDueEmailAccounts(): Promise<{ synced: number; failed: number }> {
-  let synced = 0;
-  let failed = 0;
-  let offset = 0;
-
-  while (true) {
-    const due = await getDueEmailAccounts(CRON_PAGE_SIZE, offset);
-    if (due.length === 0) break;
-    offset += CRON_PAGE_SIZE;
-
-    for (const account of due) {
-      const result = await syncEmailAccount(account);
-      if (result.error) failed++;
-      else synced++;
-    }
-  }
-
-  return { synced, failed };
-}
-
 export function startDailyCron(): void {
   // Re-entry guards — prevent overlapping runs if a job takes longer than its interval.
   let digestRunning = false;
@@ -719,71 +689,4 @@ export function startDailyCron(): void {
     { timezone: "UTC" },
   );
   logger.info("Backup cron scheduled: midnight UTC");
-
-  // Every 5 minutes — sync email accounts due for a poll (Project Communications
-  // Hub). Actual per-account cadence is enforced by nextSyncDueAt, not this
-  // interval — see syncDueEmailAccounts. No webhooks in Phase 1, polling only.
-  let emailSyncRunning = false;
-  cron.schedule(
-    "*/5 * * * *",
-    async () => {
-      if (emailSyncRunning) {
-        logger.warn("Email sync cron skipped — previous run still in progress (in-process)");
-        return;
-      }
-      const locked = await tryAdvisoryLock(LOCK.EMAIL_SYNC);
-      if (!locked) {
-        logger.warn("Email sync cron skipped — advisory lock held by another instance");
-        return;
-      }
-      emailSyncRunning = true;
-      try {
-        const result = await syncDueEmailAccounts();
-        if (result.synced > 0 || result.failed > 0) {
-          logger.info(result, "Email sync cron complete");
-        }
-      } catch (err) {
-        logger.error({ err }, "Unhandled error in email sync cron");
-      } finally {
-        emailSyncRunning = false;
-        await releaseAdvisoryLock(LOCK.EMAIL_SYNC);
-      }
-    },
-    { timezone: "America/Toronto" },
-  );
-  logger.info("Email sync cron scheduled: every 5 minutes");
-
-  // Every 5 minutes — AI entity extraction/summarization for newly synced
-  // emails (Phase 3). Fully decoupled from the sync job above so an LLM call
-  // never adds latency to email polling; extractDueEmailIntelligence() has
-  // its own per-company AI quota gating and a bounded per-run batch size.
-  let emailAiExtractionRunning = false;
-  cron.schedule(
-    "*/5 * * * *",
-    async () => {
-      if (emailAiExtractionRunning) {
-        logger.warn("Email AI extraction cron skipped — previous run still in progress (in-process)");
-        return;
-      }
-      const locked = await tryAdvisoryLock(LOCK.EMAIL_AI_EXTRACTION);
-      if (!locked) {
-        logger.warn("Email AI extraction cron skipped — advisory lock held by another instance");
-        return;
-      }
-      emailAiExtractionRunning = true;
-      try {
-        const result = await extractDueEmailIntelligence();
-        if (result.processed > 0 || result.failed > 0 || result.skippedQuota > 0) {
-          logger.info(result, "Email AI extraction cron complete");
-        }
-      } catch (err) {
-        logger.error({ err }, "Unhandled error in email AI extraction cron");
-      } finally {
-        emailAiExtractionRunning = false;
-        await releaseAdvisoryLock(LOCK.EMAIL_AI_EXTRACTION);
-      }
-    },
-    { timezone: "America/Toronto" },
-  );
-  logger.info("Email AI extraction cron scheduled: every 5 minutes");
 }

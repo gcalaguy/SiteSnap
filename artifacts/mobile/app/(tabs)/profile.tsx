@@ -25,8 +25,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { Card, ListRow, MediaCard } from "@/components/ui";
-import { layout, spacing, typography } from "@/constants/theme";
+import { Card, ListRow } from "@/components/ui";
 import { safeNavigate } from "@/utils/safeNavigate";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -257,13 +256,10 @@ export default function ProfileScreen() {
     perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Speak or type to build a detailed estimate", onPress: () => safeNavigate(router, "/estimator", "profile:estimator") },
     perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => safeNavigate(router, "/vault", "profile:vault") },
     perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => safeNavigate(router, "/(tabs)/(home)/reports", "profile:reports") },
-    perms.viewSafetyTab && { key: "scan-photo-history", icon: "clock", label: "Scan Photo History", subtitle: "Review or remove your AI Safety Scan photos", onPress: () => safeNavigate(router, "/(tabs)/(home)/scan-photo-history", "profile:scan-photo-history") },
     perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "profile:expenses") },
     perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => safeNavigate(router, "/(tabs)/(home)/ask", "profile:ask-ai") },
     perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/risk", "profile:risk") },
     perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/tradehub", "profile:tradehub") },
-    perms.viewProjectCommunications && { key: "uncategorized-emails", icon: "inbox", label: "Uncategorized Emails", subtitle: "Emails waiting to be filed to a project", onPress: () => safeNavigate(router, "/uncategorized-emails", "profile:uncategorized-emails") },
-    perms.viewProjectCommunications && { key: "communications-search", icon: "search", label: "Search Builder", subtitle: "Build and save reusable email searches", onPress: () => safeNavigate(router, "/communications-search", "profile:communications-search") },
   ].filter((i): i is ToolItem => !!i);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
@@ -361,19 +357,15 @@ export default function ProfileScreen() {
             longer surfaces directly, gated by the same permissions as before */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>More Tools</Text>
-          <View style={styles.toolGrid}>
-            {toolItems.map((item) => (
-              <MediaCard
-                key={item.key}
-                size="compact"
-                seed={item.key}
-                fallbackIcon={item.icon}
-                title={item.label}
-                onPress={item.onPress}
-                style={styles.toolTile}
-              />
-            ))}
-          </View>
+          <Card padding="none">
+            <View style={{ paddingHorizontal: 14 }}>
+              {toolItems.map((item, i) => (
+                <View key={item.key} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+                  <ListRow icon={item.icon} title={item.label} subtitle={item.subtitle} onPress={item.onPress} showChevron />
+                </View>
+              ))}
+            </View>
+          </Card>
         </View>
 
         {/* Administration — owners only */}
@@ -385,12 +377,6 @@ export default function ProfileScreen() {
                 <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/admin-hub", "profile:admin-hub")} showChevron />
                 <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
                   <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => safeNavigate(router, "/settings", "profile:company-settings")} showChevron />
-                </View>
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="mail" title="Email Integrations" subtitle="Connect Outlook & Gmail" onPress={() => safeNavigate(router, "/email-integrations", "profile:email-integrations")} showChevron />
-                </View>
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="filter" title="Automatic Filing Rules" subtitle="IF/AND/OR rules that file incoming emails" onPress={() => safeNavigate(router, "/email-filing-rules", "profile:email-filing-rules")} showChevron />
                 </View>
               </View>
             </Card>
@@ -480,7 +466,7 @@ export default function ProfileScreen() {
                     alignItems: "center",
                     paddingVertical: 12,
                     paddingHorizontal: 12,
-                    borderRadius: 16,
+                    borderRadius: 8,
                     marginBottom: 8,
                     backgroundColor: isActive ? colors.muted : colors.card,
                     borderWidth: 1,
@@ -620,8 +606,8 @@ export default function ProfileScreen() {
                   <Text style={[styles.totalVal, { color: colors.foreground }]}>{fmtCAD(aiResult.taxAmount ?? 0)}</Text>
                 </View>
                 <View style={styles.totalRow}>
-                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "NunitoSans_700Bold" }]}>Total CAD</Text>
-                  <Text style={[styles.totalVal, { color: colors.primary, fontFamily: "NunitoSans_700Bold" }]}>{fmtCAD(aiResult.total ?? 0)}</Text>
+                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>Total CAD</Text>
+                  <Text style={[styles.totalVal, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>{fmtCAD(aiResult.total ?? 0)}</Text>
                 </View>
                 {aiResult.notes && (
                   <Text style={[styles.notes, { color: colors.mutedForeground }]}>{aiResult.notes}</Text>
@@ -657,36 +643,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  avatarText: { fontSize: 28, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  userName: { fontSize: 24, fontFamily: "NunitoSans_700Bold", marginBottom: 4 },
-  userEmail: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, alignSelf: "flex-start", marginTop: 8 },
-  badgeText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
-  section: { paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
-  sectionTitle: { ...typography.label, textTransform: "uppercase", marginBottom: spacing.md },
-  toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  // Two per row: half the width minus half the gap.
-  toolTile: { width: "48%", flexGrow: 1 },
-  sectionDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginBottom: 12, lineHeight: 18 },
+  avatarText: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  userName: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  userEmail: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: "flex-start", marginTop: 8 },
+  badgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  section: { paddingHorizontal: 20, marginBottom: 20 },
+  sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
+  sectionDesc: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 12, lineHeight: 18 },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     marginBottom: 8,
     gap: 12,
   },
-  menuIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  menuLabel: { flex: 1, fontSize: 15, fontFamily: "NunitoSans_500Medium", minWidth: 0 },
-  menuValue: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flexShrink: 1, textAlign: "right", maxWidth: "55%" },
-  versionText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingTop: 8 },
-  referralCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 12 },
+  menuIcon: { width: 36, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", minWidth: 0 },
+  menuValue: { fontSize: 13, fontFamily: "Inter_400Regular", flexShrink: 1, textAlign: "right", maxWidth: "55%" },
+  versionText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", paddingTop: 8 },
+  referralCard: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 12 },
   referralHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  referralLinkBox: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
-  referralLinkText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
-  referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 16 },
-  referralBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#fff" },
+  referralLinkBox: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  referralLinkText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 8 },
+  referralBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
 
   // Seat warning banner
   seatWarningBanner: {
@@ -697,7 +680,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#FDE68A",
     backgroundColor: "#FFFBEB",
@@ -705,20 +688,20 @@ const styles = StyleSheet.create({
   seatWarningIcon: {
     width: 36,
     height: 36,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FEF3C7",
   },
   seatWarningTitle: {
     fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#92400E",
     marginBottom: 2,
   },
   seatWarningBody: {
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     color: "#B45309",
     lineHeight: 17,
   },
@@ -728,7 +711,7 @@ const styles = StyleSheet.create({
   quickCard: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     gap: 6,
     shadowColor: "#000",
@@ -737,72 +720,72 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  quickIcon: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  quickLabel: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
-  quickDesc: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 16, marginBottom: 8 },
+  quickIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  quickLabel: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  quickDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16, marginBottom: 8 },
   quickBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 8,
   },
-  quickBtnText: { color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 13 },
+  quickBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 13 },
   financeLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
   },
-  financeLinkText: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_500Medium" },
+  financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
 
   // Worker: Incident reporting
-  incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16 },
-  incidentIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  incidentBtnTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  incidentBtnSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  incidentArrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  incidentEmpty: { borderRadius: 16, borderWidth: 1, padding: 20, alignItems: "center" },
-  submissionRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, padding: 12, gap: 10 },
+  incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
+  incidentIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  incidentBtnTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  incidentBtnSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  incidentArrow: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  incidentEmpty: { borderRadius: 10, borderWidth: 1, padding: 20, alignItems: "center" },
+  submissionRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, gap: 10 },
   submissionDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  submissionName: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
+  submissionName: { fontSize: 13, fontFamily: "Inter_500Medium" },
   submissionCatTag: { alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 3 },
-  submissionCatText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
-  submissionBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16 },
-  submissionBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  submissionCatText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  submissionBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  submissionBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   // Worker: Trade Calculators feature card
-  calcFeatureCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  calcFeatureCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   calcFeatureBanner: { paddingHorizontal: 14, paddingVertical: 14 },
   calcFeatureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  calcFeatureIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  calcFeatureTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  calcFeatureSubtitle: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  calcFeatureOpenBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  calcFeatureIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  calcFeatureTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  calcFeatureSubtitle: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  calcFeatureOpenBtn: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   calcChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 },
-  calcChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
-  calcChipText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  calcChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  calcChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   // Worker tasks
-  emptyTasks: { borderRadius: 16, borderWidth: 1, padding: 24, alignItems: "center" },
+  emptyTasks: { borderRadius: 10, borderWidth: 1, padding: 24, alignItems: "center" },
   taskCard: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 10,
     padding: 12,
     marginBottom: 8,
     gap: 10,
   },
   taskDot: { width: 8, height: 8, borderRadius: 4 },
-  taskTitle: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-  taskProject: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  taskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  taskBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  taskTitle: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  taskProject: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  taskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  taskBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   // Modal
   modal: { flex: 1 },
@@ -814,11 +797,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  modalTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   modalContent: { padding: 20, gap: 4, paddingBottom: 40 },
   typeToggle: {
     flexDirection: "row",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 3,
     marginBottom: 20,
@@ -831,24 +814,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 9,
-    borderRadius: 16,
+    borderRadius: 8,
   },
-  typeToggleBtnText: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
-  label: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
-  input: { borderWidth: 1, borderRadius: 16, padding: 12, fontSize: 15, fontFamily: "NunitoSans_400Regular" },
-  transcriptBox: { borderWidth: 1, borderRadius: 16, padding: 14, minHeight: 90 },
-  transcriptText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
+  typeToggleBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  label: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
+  transcriptBox: { borderWidth: 1, borderRadius: 10, padding: 14, minHeight: 90 },
+  transcriptText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   recordBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     marginTop: 14,
     position: "relative",
   },
-  recordBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  recordBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   recordingPulse: {
     position: "absolute",
     right: 16,
@@ -864,31 +847,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     marginTop: 10,
   },
-  generateBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  resultCard: { borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 16, gap: 4 },
+  generateBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  resultCard: { borderWidth: 1, borderRadius: 12, padding: 16, marginTop: 16, gap: 4 },
   resultHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  resultHeaderText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-  resultTitle: { fontSize: 16, fontFamily: "NunitoSans_700Bold", marginBottom: 2 },
-  resultSub: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
+  resultHeaderText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  resultTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  resultSub: { fontSize: 13, fontFamily: "Inter_400Regular" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 10 },
   lineItemRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 },
-  lineItemDesc: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular" },
-  lineItemTotal: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  lineItemDesc: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+  lineItemTotal: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  totalLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
-  totalVal: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  notes: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 8, lineHeight: 18 },
+  totalLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  totalVal: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  notes: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 8, lineHeight: 18 },
   createBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     marginTop: 14,
   },
-  createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

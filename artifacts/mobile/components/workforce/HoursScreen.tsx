@@ -335,7 +335,7 @@ export default function HoursScreen({ embedded = false }: { embedded?: boolean }
                 </TouchableOpacity>
               </View>
               {descVoice.error && (
-                <Text style={{ fontSize: 11, color: "#EF4444", fontFamily: "NunitoSans_400Regular" }}>
+                <Text style={{ fontSize: 11, color: "#EF4444", fontFamily: "Inter_400Regular" }}>
                   {descVoice.error}
                 </Text>
               )}
@@ -595,7 +595,7 @@ export default function HoursScreen({ embedded = false }: { embedded?: boolean }
                     );
                   })}
                   {(projects ?? []).length === 0 && (
-                    <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "NunitoSans_400Regular" }}>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular" }}>
                       No projects assigned yet.
                     </Text>
                   )}
@@ -641,10 +641,10 @@ export default function HoursScreen({ embedded = false }: { embedded?: boolean }
                     />
                     <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 12, paddingBottom: 8, gap: 16 }}>
                       <TouchableOpacity onPress={() => setShowLogDatePicker(false)}>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_400Regular", fontSize: 14 }}>Cancel</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14 }}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => { setLogDate(logTempDate); setShowLogDatePicker(false); }}>
-                        <Text style={{ color: colors.primary, fontFamily: "NunitoSans_700Bold", fontSize: 14 }}>Done</Text>
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>Done</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -670,7 +670,7 @@ export default function HoursScreen({ embedded = false }: { embedded?: boolean }
                 {/* Description input */}
                 <Text style={[styles.fieldLabel, { color: colors.foreground, marginTop: 18 }]}>
                   Description{" "}
-                  <Text style={{ fontSize: 11, fontFamily: "NunitoSans_400Regular", color: colors.mutedForeground }}>optional</Text>
+                  <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>optional</Text>
                 </Text>
                 <TextInput
                   style={[
@@ -688,7 +688,7 @@ export default function HoursScreen({ embedded = false }: { embedded?: boolean }
                 />
 
                 {!!logHoursError && (
-                  <Text style={{ color: "#EF4444", fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 6 }}>
+                  <Text style={{ color: "#EF4444", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 6 }}>
                     {logHoursError}
                   </Text>
                 )}
@@ -728,10 +728,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
-  badgeText: { fontSize: 12, fontFamily: "NunitoSans_700Bold", color: "#111111" },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#111111" },
   filterRow: { borderBottomWidth: 1 },
   filterChip: {
     paddingHorizontal: 12,
@@ -739,12 +739,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  filterChipText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
+  filterChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
-  emptyText: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
+  emptyText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   card: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 14,
     gap: 6,
@@ -755,36 +755,36 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  cardName: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold", flex: 1 },
-  cardTotal: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
-  cardEmpty: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  cardName: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },
+  cardTotal: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  cardEmpty: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   entryRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  entryWeek: { fontSize: 12, fontFamily: "NunitoSans_400Regular", flex: 1 },
-  entryHours: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", width: 42 },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 16 },
-  statusText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
+  entryWeek: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  entryHours: { fontSize: 12, fontFamily: "Inter_600SemiBold", width: 42 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  statusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   editInput: {
     width: 60,
     height: 28,
-    borderRadius: 16,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 6,
     fontSize: 13,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   descInput: {
     flex: 1,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 8,
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
   },
   micBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -798,12 +798,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
   },
   voiceHintText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     flex: 1,
   },
   actionRow: {
@@ -818,11 +818,11 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 6,
   },
   actionText: {
     fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   logBtn: {
     flexDirection: "row",
@@ -830,12 +830,12 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,
     marginLeft: 10,
   },
   logBtnText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#FFFFFF",
   },
   // Log Hours Modal
@@ -860,11 +860,11 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 17,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
   },
   fieldLabel: {
     fontSize: 13,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     marginBottom: 8,
   },
   projectChip: {
@@ -875,14 +875,14 @@ const styles = StyleSheet.create({
   },
   projectChipText: {
     fontSize: 13,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   dateField: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 4,
@@ -890,10 +890,10 @@ const styles = StyleSheet.create({
   dateFieldText: {
     flex: 1,
     fontSize: 14,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   iosDateBox: {
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     overflow: "hidden",
     marginTop: 6,
@@ -901,11 +901,11 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
   },
   textInputMulti: {
     minHeight: 70,
@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   submitBtn: {
-    borderRadius: 16,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -921,6 +921,6 @@ const styles = StyleSheet.create({
   submitBtnText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
   },
 });

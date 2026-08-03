@@ -229,13 +229,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
     color: "#EF4444",
     flex: 1,
   },
   countBadge: {
     backgroundColor: "#EF4444",
-    borderRadius: 16,
+    borderRadius: 10,
     minWidth: 20,
     height: 20,
     alignItems: "center",
@@ -245,11 +245,11 @@ const styles = StyleSheet.create({
   countText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
   },
 
   card: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
     padding: 14,
     gap: 12,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 16,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -284,18 +284,18 @@ const styles = StyleSheet.create({
   urgencyText: {
     color: "#FFFFFF",
     fontSize: 10,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
   },
   formLabel: {
     fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "capitalize",
   },
 
   directive: {
     fontSize: 13,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     lineHeight: 19,
     color: "#111827",
   },
@@ -311,14 +311,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
   actionText: {
     color: "#FFFFFF",
     fontSize: 13,
-    fontFamily: "NunitoSans_700Bold",
+    fontFamily: "Inter_700Bold",
     flex: 1,
   },
 
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#EF4444",
   },
 });

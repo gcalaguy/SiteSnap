@@ -263,7 +263,7 @@ export default function VaultScreen() {
             onPress={() => refetch()}
             style={[styles.retryBtn, { backgroundColor: colors.primary }]}
           >
-            <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 14 }}>
+            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
               Retry
             </Text>
           </TouchableOpacity>
@@ -347,7 +347,7 @@ export default function VaultScreen() {
                       <Text
                         style={{
                           fontSize: 12,
-                          fontFamily: "NunitoSans_500Medium",
+                          fontFamily: "Inter_500Medium",
                           color: active ? colors.primary : colors.mutedForeground,
                         }}
                       >
@@ -368,7 +368,7 @@ export default function VaultScreen() {
                 ) : (
                   <>
                     <Feather name="image" size={18} color="#FFFFFF" />
-                    <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>
+                    <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
                       Choose from Library
                     </Text>
                   </>
@@ -392,18 +392,18 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 12, gap: 10 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14 },
   docRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   docIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  docType: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  docMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  docType: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  docMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
-  emptySub: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  emptySub: { fontSize: 13, fontFamily: "Inter_400Regular" },
   retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
   fab: {
     position: "absolute",
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  fabText: { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  fabText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 15 },
   sheetOverlay: {
     position: "absolute",
     top: 0,
@@ -438,9 +438,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  sheetTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetBody: { paddingHorizontal: 20, paddingTop: 16 },
-  label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginBottom: 6 },
+  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   typeChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   uploadBtn: {
     flexDirection: "row",
@@ -448,6 +448,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
   },
 });

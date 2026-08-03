@@ -280,13 +280,13 @@ export default function RFIDetailScreen() {
           {voice.state === "recording" && (
             <View style={[styles.recordingBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
               <View style={styles.recordingDot} />
-              <Text style={{ color: "#DC2626", fontFamily: "NunitoSans_500Medium", fontSize: 13 }}>
+              <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
                 Recording… tap mic to stop & transcribe
               </Text>
             </View>
           )}
           {voice.error && (
-            <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "NunitoSans_400Regular", marginBottom: 4 }}>
+            <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 4 }}>
               {voice.error}
             </Text>
           )}
@@ -370,34 +370,34 @@ export default function RFIDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  emptyText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   header: { paddingHorizontal: 20, paddingBottom: 20 },
   backBtn: { marginBottom: 12 },
   headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  rfiNumBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
-  rfiNum: { fontSize: 13, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  headerSubtitle: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)" },
-  rfiSubject: { fontSize: 20, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", lineHeight: 28, marginBottom: 12 },
+  rfiNumBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  rfiNum: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
+  rfiSubject: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF", lineHeight: 28, marginBottom: 12 },
   headerBadges: { flexDirection: "row", gap: 8 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  badgeText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  badgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   body: { padding: 20, gap: 24 },
-  metaCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  metaCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  metaLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flex: 1 },
-  metaValue: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  metaLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  metaValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   metaDivider: { height: 1 },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
-  descText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
+  sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
+  descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   statusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statusChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
-  statusChipText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
+  statusChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   responseLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   micButton: {
     width: 34,
     height: 34,
-    borderRadius: 20,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -416,8 +416,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#DC2626",
   },
-  textarea: { borderWidth: 1, borderRadius: 16, padding: 12, minHeight: 120, fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
-  charCounter: { fontSize: 11, fontFamily: "NunitoSans_400Regular", textAlign: "right", marginTop: 4 },
-  saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 16, paddingVertical: 14 },
-  saveBtnText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  textarea: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 120, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  charCounter: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "right", marginTop: 4 },
+  saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14 },
+  saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

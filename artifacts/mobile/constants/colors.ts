@@ -8,12 +8,6 @@
 // "trouble" the way amber/red would. `overlay`/`sheetHandle` back the
 // BottomSheet primitive: `overlay` is the backdrop scrim, `sheetHandle` the
 // drag-grip color (needs contrast against `card`, not `background`).
-//
-// `cardElevated`/`borderSoft` back the elevated Card variant. On a near-black
-// background a drop shadow does almost nothing on its own, so the lifted
-// surface carries most of the depth: `cardElevated` sits one step above `card`,
-// and `borderSoft` replaces the hard `#2A2A2A` hairline with a translucent
-// white edge that reads as a light catch rather than a drawn outline.
 const colors = {
   light: {
     text: "#FAFAFA",
@@ -21,7 +15,6 @@ const colors = {
     background: "#0F0F0F",
     foreground: "#FAFAFA",
     card: "#1A1A1A",
-    cardElevated: "#1F1F1F",
     cardForeground: "#FAFAFA",
     primary: "#C9A84C",
     primaryForeground: "#111111",
@@ -40,7 +33,6 @@ const colors = {
     draft: "#64748B",
     draftForeground: "#F1F5F9",
     border: "#2A2A2A",
-    borderSoft: "rgba(255,255,255,0.06)",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",
     sidebarForeground: "#FAFAFA",
@@ -53,7 +45,6 @@ const colors = {
     background: "#0F0F0F",
     foreground: "#FAFAFA",
     card: "#1A1A1A",
-    cardElevated: "#1F1F1F",
     cardForeground: "#FAFAFA",
     primary: "#C9A84C",
     primaryForeground: "#111111",
@@ -72,7 +63,6 @@ const colors = {
     draft: "#64748B",
     draftForeground: "#F1F5F9",
     border: "#2A2A2A",
-    borderSoft: "rgba(255,255,255,0.06)",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",
     sidebarForeground: "#FAFAFA",

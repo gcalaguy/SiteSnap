@@ -66,10 +66,6 @@ import RfiSubmittalPage from "@/pages/rfi-submittal";
 import PublicQuotePage from "@/pages/public-quote";
 import PublicInvoicePage from "@/pages/public-invoice";
 import AuditorPortalPage from "@/pages/auditor-portal";
-import EmailIntegrationsPage from "@/pages/email-integrations";
-import EmailFilingRulesPage from "@/pages/email-filing-rules";
-import UncategorizedEmailsPage from "@/pages/uncategorized-emails";
-import CommunicationsSearchPage from "@/pages/communications-search";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -341,10 +337,6 @@ function AuthApp() {
           <Route path="/field-logs"><PermissionGuard permissionKey="viewSafetyTab"><FieldLogsPage /></PermissionGuard></Route>
           <Route path="/permits" component={PermitsPage} />
           <Route path="/inventory" component={InventoryPage} />
-          <Route path="/uncategorized-emails"><PermissionGuard permissionKey="viewProjectCommunications"><UncategorizedEmailsPage /></PermissionGuard></Route>
-          <Route path="/communications-search"><PermissionGuard permissionKey="viewProjectCommunications"><CommunicationsSearchPage /></PermissionGuard></Route>
-          <Route path="/email-integrations"><PermissionGuard permissionKey="manageEmailIntegrations"><EmailIntegrationsPage /></PermissionGuard></Route>
-          <Route path="/email-filing-rules"><PermissionGuard permissionKey="manageFilingRules"><EmailFilingRulesPage /></PermissionGuard></Route>
           <Route path="/tradehub/messages/:conversationId"><PermissionGuard permissionKey="viewTradeHub"><TradehubMessagesPage /></PermissionGuard></Route>
           <Route path="/tradehub/messages"><PermissionGuard permissionKey="viewTradeHub"><TradehubMessagesPage /></PermissionGuard></Route>
           <Route path="/tradehub/notifications"><PermissionGuard permissionKey="viewTradeHub"><TradehubNotificationsPage /></PermissionGuard></Route>

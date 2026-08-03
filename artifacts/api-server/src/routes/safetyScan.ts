@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { extractJson, type VisionImage } from "@workspace/integrations-openai-ai-server";
-import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { requireFeature } from "../lib/featureGate";
@@ -15,7 +15,6 @@ import {
   createSafetyScan,
   listSafetyScans,
   getSafetyScan,
-  deleteSafetyScan,
   getScanHazard,
   signSafetyScan,
   createCapaFromScanHazard,
@@ -25,7 +24,6 @@ import {
 } from "../repositories/safetyScan";
 import { buildSafetyScanPdfBuffer } from "../lib/safetyScanPdf";
 import { processSafetyScan, classifyForElement } from "../services/cor/evidenceAggregator";
-import { logAuditEventFromRequest } from "../utils/logger";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -337,44 +335,6 @@ router.get(
     const scan = await getSafetyScan(req.companyId!, id);
     if (!scan) throw new NotFoundError("Safety scan not found");
     res.json(scan);
-  }),
-);
-
-// ── DELETE /safety/scans/:id ──────────────────────────────────────────────────
-
-router.delete(
-  "/safety/scans/:id",
-  requireAuth,
-  requireCompany,
-  requireTenantCtx,
-  requireFeature("SAFETY_SCANNER"),
-  requireOwnerOrForeman,
-  asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.id as string);
-    if (isNaN(id)) throw new BadRequestError("Invalid scan ID");
-    const scan = await getSafetyScan(req.companyId!, id);
-    if (!scan) throw new NotFoundError("Safety scan not found");
-
-    await deleteSafetyScan(req.companyId!, id);
-
-    for (const objectPath of scan.photoObjectPaths as string[]) {
-      objectStorageService.deleteObjectByPath(objectPath).catch((err) => {
-        req.log?.warn({ err, objectPath, scanId: id }, "Failed to delete safety scan photo during scan deletion");
-      });
-    }
-    if (scan.reportObjectPath) {
-      objectStorageService.deleteObjectByPath(scan.reportObjectPath).catch((err) => {
-        req.log?.warn({ err, objectPath: scan.reportObjectPath, scanId: id }, "Failed to delete safety scan report during scan deletion");
-      });
-    }
-
-    logAuditEventFromRequest(
-      req,
-      "Safety Scan Deleted",
-      `Deleted AI Safety Scan #${id}${scan.siteAddress ? ` (${scan.siteAddress})` : ""}`,
-    ).catch(() => {});
-
-    res.status(204).end();
   }),
 );
 

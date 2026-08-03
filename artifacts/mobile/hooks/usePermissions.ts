@@ -20,7 +20,6 @@ const ALL_TRUE = {
   viewEstimator: true,
   viewTradeHub: true,
   viewAskAI: true,
-  viewProjectCommunications: true,
 };
 
 // P1 fix: deny all permissions during loading / unauthenticated state.
@@ -63,7 +62,6 @@ export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: 
     viewClientMessages: true,
     viewRiskTab: true,
     viewInspectTab: true,
-    viewProjectCommunications: true,
     isLoading: false,
   };
 }

@@ -424,7 +424,7 @@ export default function QuoteEditScreen() {
                 </View>
                 <View style={[styles.numField, { borderColor: colors.border, backgroundColor: `${CYAN}08` }]}>
                   <Text style={[styles.numLabel, { color: colors.mutedForeground }]}>Total</Text>
-                  <Text style={[styles.numInput, { color: CYAN, fontFamily: "NunitoSans_700Bold" }]}>
+                  <Text style={[styles.numInput, { color: CYAN, fontFamily: "Inter_700Bold" }]}>
                     {fmtCAD(item.total)}
                   </Text>
                 </View>
@@ -460,8 +460,8 @@ export default function QuoteEditScreen() {
             </View>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "NunitoSans_700Bold" }]}>Total</Text>
-              <Text style={[styles.totalValue, { color: CYAN, fontFamily: "NunitoSans_700Bold" }]}>{fmtCAD(calcTotals(lineItems).total)}</Text>
+              <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>Total</Text>
+              <Text style={[styles.totalValue, { color: CYAN, fontFamily: "Inter_700Bold" }]}>{fmtCAD(calcTotals(lineItems).total)}</Text>
             </View>
           </View>
         )}
@@ -521,18 +521,18 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   backBtn: { width: 36 },
-  headerTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
+  headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
   saveHeaderBtn: { width: 36, alignItems: "center", justifyContent: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
-  card: { borderRadius: 16, padding: 16, borderWidth: 1, gap: 8 },
-  label: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
+  card: { borderRadius: 12, padding: 16, borderWidth: 1, gap: 8 },
+  label: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
   input: {
     fontSize: 15,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: "#00000008",
     minHeight: 40,
   },
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   micBtn: {
     width: 36,
     height: 36,
-    borderRadius: 20,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#00000008",
@@ -551,10 +551,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  dateText: { fontSize: 15, fontFamily: "NunitoSans_400Regular", flex: 1 },
+  dateText: { fontSize: 15, fontFamily: "Inter_400Regular", flex: 1 },
   lineItemHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -566,21 +566,21 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 6,
   },
-  addBtnText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  addBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   lineItemRow: { paddingVertical: 12, gap: 8 },
   numericRow: { flexDirection: "row", gap: 8 },
   numField: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
     gap: 2,
   },
-  numLabel: { fontSize: 10, fontFamily: "NunitoSans_500Medium" },
-  numInput: { fontSize: 14, fontFamily: "NunitoSans_400Regular", padding: 0, minHeight: 20 },
+  numLabel: { fontSize: 10, fontFamily: "Inter_500Medium" },
+  numInput: { fontSize: 14, fontFamily: "Inter_400Regular", padding: 0, minHeight: 20 },
   removeBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -588,19 +588,19 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 4,
   },
-  removeText: { fontSize: 12, fontFamily: "NunitoSans_500Medium", color: "#ef4444" },
+  removeText: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#ef4444" },
   emptyLineItems: { paddingVertical: 16, alignItems: "center" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  totalLabel: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-  totalValue: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  totalLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  totalValue: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   divider: { height: 1, marginVertical: 8 },
   notesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   notesInput: {
     fontSize: 14,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: "#00000008",
     minHeight: 80,
     textAlignVertical: "top",
@@ -611,17 +611,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 12,
     marginTop: 4,
   },
-  saveBtnText: { fontSize: 16, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
+  saveBtnText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     padding: 10,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  errorText: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "#ef4444" },
+  errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#ef4444" },
 });

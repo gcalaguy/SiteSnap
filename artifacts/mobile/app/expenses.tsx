@@ -356,7 +356,7 @@ export default function ExpensesScreen() {
               onPress={() => setProjectId(p.id)}
               style={[styles.typePill, { backgroundColor: activeProjectId === p.id ? colors.primary : colors.card, borderColor: activeProjectId === p.id ? colors.primary : colors.border }]}
             >
-              <Text style={{ fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: activeProjectId === p.id ? "#fff" : colors.foreground }}>{p.name}</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: activeProjectId === p.id ? "#fff" : colors.foreground }}>{p.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -450,7 +450,7 @@ export default function ExpensesScreen() {
                 style={[styles.uploadBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, marginTop: 14 }]}
               >
                 <Feather name="paperclip" size={16} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14 }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
                   {receiptAsset ? "Receipt attached" : "Attach receipt (optional)"}
                 </Text>
               </TouchableOpacity>
@@ -462,7 +462,7 @@ export default function ExpensesScreen() {
                 {submitting ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Submit</Text>
+                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>Submit</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -519,7 +519,7 @@ export default function ExpensesScreen() {
                 onPress={() => { setTempDate(reviewDate); setShowDatePicker(true); }}
               >
                 <Feather name="calendar" size={15} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14, flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 }}>
                   {formatDateDisplay(isoDate(reviewDate))}
                 </Text>
                 <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
@@ -537,7 +537,7 @@ export default function ExpensesScreen() {
                     onPress={() => setReviewProjectId(p.id)}
                     style={[styles.typePill, { backgroundColor: reviewProjectId === p.id ? colors.primary : colors.card, borderColor: reviewProjectId === p.id ? colors.primary : colors.border }]}
                   >
-                    <Text style={{ fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: reviewProjectId === p.id ? "#fff" : colors.foreground }}>{p.name}</Text>
+                    <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: reviewProjectId === p.id ? "#fff" : colors.foreground }}>{p.name}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -550,7 +550,7 @@ export default function ExpensesScreen() {
                 {submittingReview ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Submit Expense</Text>
+                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>Submit Expense</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -565,11 +565,11 @@ export default function ExpensesScreen() {
             <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
               <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowDatePicker(false)} hitSlop={8}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_500Medium", fontSize: 15 }}>Cancel</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 15 }}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Transaction Date</Text>
                 <TouchableOpacity onPress={confirmIOSReviewDate} hitSlop={8}>
-                  <Text style={{ color: colors.primary, fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Done</Text>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 15 }}>Done</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker value={tempDate} mode="date" display="spinner" onChange={onReviewDateChange} maximumDate={new Date()} />
@@ -585,31 +585,31 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 14 },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
   typePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 12, gap: 10 },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   fab: {
     position: "absolute", right: 20, flexDirection: "row", alignItems: "center", gap: 8,
     paddingHorizontal: 20, paddingVertical: 14, borderRadius: 30,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 6,
   },
-  fabText: { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  fabText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 15 },
   scanBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    marginHorizontal: 12, marginTop: 12, marginBottom: 4, paddingVertical: 13, borderRadius: 16,
+    marginHorizontal: 12, marginTop: 12, marginBottom: 4, paddingVertical: 13, borderRadius: 14,
   },
-  scanBtnText: { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold", fontSize: 14.5 },
-  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11 },
+  scanBtnText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 14.5 },
+  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11 },
   sheetOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1 },
-  sheetTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetBody: { paddingHorizontal: 20, paddingTop: 16, maxHeight: 480 },
-  label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginBottom: 6 },
-  input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  uploadBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 16 },
+  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "Inter_400Regular" },
+  uploadBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14 },
 });

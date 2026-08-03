@@ -60,6 +60,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
   title: { fontSize: 18, fontWeight: "600" },
   message: { fontSize: 14, color: "#666", textAlign: "center" },
-  button: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: "#ccc" },
+  button: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: "#ccc" },
   buttonText: { fontSize: 14, fontWeight: "500" },
 });

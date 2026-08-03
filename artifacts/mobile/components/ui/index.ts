@@ -1,7 +1,5 @@
 export { Button } from "./Button";
 export { Card } from "./Card";
-export { MediaCard } from "./MediaCard";
-export type { MediaCardSize } from "./MediaCard";
 export { Chip } from "./Chip";
 export { Badge } from "./Badge";
 export type { BadgeStatus } from "./Badge";

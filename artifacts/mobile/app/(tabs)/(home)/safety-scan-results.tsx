@@ -192,7 +192,7 @@ export default function SafetyScanResultsScreen() {
                 <Text style={[styles.bodyText, { color: colors.mutedForeground }]}>{h.description}</Text>
                 {h.remediation ? (
                   <Text style={[styles.remediation, { color: colors.foreground }]}>
-                    <Text style={{ fontFamily: "NunitoSans_600SemiBold" }}>Remediation: </Text>
+                    <Text style={{ fontFamily: "Inter_600SemiBold" }}>Remediation: </Text>
                     {h.remediation}
                   </Text>
                 ) : null}
@@ -246,37 +246,37 @@ export default function SafetyScanResultsScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   backBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  backText: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-  title: { fontSize: 26, fontFamily: "NunitoSans_700Bold" },
-  subtitle: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginTop: 2, marginBottom: 16 },
+  backText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  title: { fontSize: 26, fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2, marginBottom: 16 },
   scoreRow: { flexDirection: "row", gap: 12, marginTop: 12 },
-  scoreBox: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 14 },
-  scoreLabel: { fontSize: 10, fontFamily: "NunitoSans_700Bold", letterSpacing: 0.5 },
-  scoreValue: { fontSize: 24, fontFamily: "NunitoSans_700Bold", marginTop: 4 },
+  scoreBox: { flex: 1, borderRadius: 12, borderWidth: 1, padding: 14 },
+  scoreLabel: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  scoreValue: { fontSize: 24, fontFamily: "Inter_700Bold", marginTop: 4 },
   section: { marginTop: 24 },
-  sectionTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", marginBottom: 8 },
-  bodyText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19 },
+  sectionTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 8 },
+  bodyText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   ppeRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
-  ppeText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  hazardCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12 },
+  ppeText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  hazardCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 12 },
   hazardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
   severityDot: { width: 8, height: 8, borderRadius: 4 },
-  hazardSeverity: { fontSize: 11, fontFamily: "NunitoSans_700Bold", letterSpacing: 0.5 },
-  hazardTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", marginBottom: 4 },
-  remediation: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginTop: 8, lineHeight: 19 },
+  hazardSeverity: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  hazardTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  remediation: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 8, lineHeight: 19 },
   actionCreated: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12 },
-  actionCreatedText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-  actionBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 16, alignItems: "center" },
-  actionBtnText: { color: "#fff", fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  actionCreatedText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  actionBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 8, alignItems: "center" },
+  actionBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
   reportBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingVertical: 14,
     marginTop: 28,
   },
-  reportBtnText: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  reportBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });

@@ -141,7 +141,7 @@ function TrendChart({ data, colors }: { data: RiskDashboard["trend"]; colors: an
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>7-Day Risk Trend</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <Feather name={trend <= 0 ? "trending-down" : "trending-up"} size={14} color={trendColor} />
-          <Text style={{ fontSize: 12, color: trendColor, fontFamily: "NunitoSans_600SemiBold" }}>
+          <Text style={{ fontSize: 12, color: trendColor, fontFamily: "Inter_600SemiBold" }}>
             {trend > 0 ? "+" : ""}{trend.toFixed(1)} pts
           </Text>
         </View>
@@ -244,7 +244,7 @@ function AlertRow({ item, canAct, onMarkRead, colors }: {
       <View style={{ flex: 1 }}>
         <Text style={[
           styles.alertMsg,
-          { color: a.isRead ? colors.mutedForeground : colors.foreground, fontFamily: a.isRead ? "NunitoSans_400Regular" : "NunitoSans_500Medium" },
+          { color: a.isRead ? colors.mutedForeground : colors.foreground, fontFamily: a.isRead ? "Inter_400Regular" : "Inter_500Medium" },
         ]} numberOfLines={2}>
           {a.message}
         </Text>
@@ -397,7 +397,7 @@ export default function RiskScreen() {
               {alertCounts.critical > 0 ? (
                 <View style={styles.severityItem}>
                   <View style={[styles.severityDot, { backgroundColor: "#dc2626" }]} />
-                  <Text style={{ fontSize: 12, color: "#dc2626", fontFamily: "NunitoSans_600SemiBold" }}>
+                  <Text style={{ fontSize: 12, color: "#dc2626", fontFamily: "Inter_600SemiBold" }}>
                     {alertCounts.critical} Critical
                   </Text>
                 </View>
@@ -405,7 +405,7 @@ export default function RiskScreen() {
               {alertCounts.high > 0 ? (
                 <View style={styles.severityItem}>
                   <View style={[styles.severityDot, { backgroundColor: "#ea580c" }]} />
-                  <Text style={{ fontSize: 12, color: "#ea580c", fontFamily: "NunitoSans_600SemiBold" }}>
+                  <Text style={{ fontSize: 12, color: "#ea580c", fontFamily: "Inter_600SemiBold" }}>
                     {alertCounts.high} High
                   </Text>
                 </View>
@@ -413,7 +413,7 @@ export default function RiskScreen() {
               {alertCounts.medium > 0 ? (
                 <View style={styles.severityItem}>
                   <View style={[styles.severityDot, { backgroundColor: "#ca8a04" }]} />
-                  <Text style={{ fontSize: 12, color: "#ca8a04", fontFamily: "NunitoSans_600SemiBold" }}>
+                  <Text style={{ fontSize: 12, color: "#ca8a04", fontFamily: "Inter_600SemiBold" }}>
                     {alertCounts.medium} Medium
                   </Text>
                 </View>
@@ -434,7 +434,7 @@ export default function RiskScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Top Risk Items</Text>
               {topRisk.length > 0 ? (
                 <View style={[styles.countBadge, { backgroundColor: "#fee2e2" }]}>
-                  <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "NunitoSans_700Bold" }}>
+                  <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "Inter_700Bold" }}>
                     {topRisk.filter((i) => i.inspection.riskLevel === "Critical" || i.inspection.riskLevel === "High").length} High+
                   </Text>
                 </View>
@@ -462,7 +462,7 @@ export default function RiskScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Corrective Actions</Text>
               {overdueActionCount > 0 ? (
                 <View style={[styles.countBadge, { backgroundColor: "#fee2e2" }]}>
-                  <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "NunitoSans_700Bold" }}>
+                  <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "Inter_700Bold" }}>
                     {overdueActionCount} overdue
                   </Text>
                 </View>
@@ -511,7 +511,7 @@ export default function RiskScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Alerts</Text>
               {unreadAlerts.length > 0 ? (
                 <View style={[styles.countBadge, { backgroundColor: `${colors.primary}20` }]}>
-                  <Text style={{ fontSize: 11, color: colors.primary, fontFamily: "NunitoSans_700Bold" }}>
+                  <Text style={{ fontSize: 11, color: colors.primary, fontFamily: "Inter_700Bold" }}>
                     {unreadAlerts.length} unread
                   </Text>
                 </View>
@@ -524,7 +524,7 @@ export default function RiskScreen() {
             {!isOwnerOrForeman ? (
               <View style={[styles.readonlyBanner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}>
                 <Feather name="eye" size={14} color={colors.primary} />
-                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "NunitoSans_500Medium", flex: 1 }}>
+                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_500Medium", flex: 1 }}>
                   View only — contact your foreman to action alerts
                 </Text>
               </View>
@@ -553,7 +553,7 @@ export default function RiskScreen() {
                     onPress={() => setShowAllAlerts((v) => !v)}
                     style={[styles.showMoreBtn, { borderColor: colors.border }]}
                   >
-                    <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "NunitoSans_600SemiBold" }}>
+                    <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
                       {showAllAlerts ? "Show less" : `Show all ${alertsList.length} alerts`}
                     </Text>
                     <Feather name={showAllAlerts ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
@@ -574,14 +574,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 12,
     marginBottom: 8,
   },
   priorityDot: { width: 8, height: 8, borderRadius: 4 },
-  actionTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
-  actionMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  actionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  actionMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 16,
@@ -591,16 +591,16 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
   backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
-  headerSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
-  headerTitle: { fontSize: 24, fontFamily: "NunitoSans_700Bold", marginTop: 2 },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", marginTop: 2 },
   alertBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 12,
     alignSelf: "flex-end",
     marginBottom: 4,
   },
-  alertBadgeText: { fontSize: 12, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
+  alertBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
 
   statsGrid: {
     paddingHorizontal: 12,
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 14,
     gap: 6,
@@ -624,9 +624,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  statIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  statValue: { fontSize: 24, fontFamily: "NunitoSans_700Bold" },
-  statLabel: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
+  statIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  statValue: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  statLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
 
   severityStrip: {
     flexDirection: "row",
@@ -634,14 +634,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
   },
   severityItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   severityDot: { width: 8, height: 8, borderRadius: 4 },
 
   chartCard: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
     marginTop: 4,
@@ -655,39 +655,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 16, fontFamily: "NunitoSans_700Bold" },
-  countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
+  sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
 
   inspRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 12,
     marginBottom: 8,
   },
-  inspType: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
-  inspMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  inspDate: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
+  inspType: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  inspMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  inspDate: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   riskBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
-  riskBadgeText: { fontSize: 12, fontFamily: "NunitoSans_700Bold" },
+  riskBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold" },
 
   alertRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 12,
     marginBottom: 8,
   },
   alertDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0 },
   alertMsg: { fontSize: 13, lineHeight: 18 },
-  alertMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
+  alertMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   readBtn: {
     width: 30,
     height: 30,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     padding: 10,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     marginBottom: 10,
   },
@@ -710,18 +710,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     marginTop: 4,
   },
 
   emptyBox: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 28,
     alignItems: "center",
     gap: 8,
   },
-  emptyText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold", marginTop: 4 },
-  emptyDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", lineHeight: 18 },
+  emptyText: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginTop: 4 },
+  emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
 });

@@ -200,7 +200,7 @@ export default function EstimatorScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
         <Feather name="lock" size={40} color={colors.mutedForeground} />
-        <Text style={{ marginTop: 12, fontSize: 18, color: colors.foreground, fontFamily: "NunitoSans_700Bold" }}>Owners & Foremen Only</Text>
+        <Text style={{ marginTop: 12, fontSize: 18, color: colors.foreground, fontFamily: "Inter_700Bold" }}>Owners & Foremen Only</Text>
         <Text style={{ marginTop: 6, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>
           Estimate creation is available for owners and foremen only.
         </Text>
@@ -1102,28 +1102,28 @@ const s = StyleSheet.create({
   // Step indicator
   stepRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 4 },
   stepItem: { alignItems: "center" },
-  stepCircle: { width: 28, height: 28, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  stepCircle: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   stepNum: { fontSize: 12, fontWeight: "700" },
   stepLabel: { fontSize: 11, marginTop: 4, fontWeight: "500" },
   stepLine: { flex: 1, height: 2, marginHorizontal: 8, marginBottom: 16 },
 
   // History
-  historyHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 16, borderWidth: 1 },
+  historyHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1 },
   historyHeaderText: { flex: 1, fontSize: 13, fontWeight: "600" },
   historyRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
   historyTitle: { fontSize: 13, fontWeight: "500" },
 
   // Cards
-  card: { borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
+  card: { borderRadius: 12, borderWidth: 1, padding: 16, gap: 12 },
   cardTitle: { fontSize: 15, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  badge: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 3 },
+  badge: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   divider: { height: StyleSheet.hairlineWidth },
   muted: { fontSize: 12 },
   hint: { fontSize: 12, lineHeight: 18 },
 
   // Text area
-  textareaWrap: { borderWidth: 1, borderRadius: 16, padding: 12, minHeight: 100, position: "relative" },
+  textareaWrap: { borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 100, position: "relative" },
   textarea: { fontSize: 14, minHeight: 80, textAlignVertical: "top" },
 
   // Voice bar (always-visible, unified with form below)
@@ -1133,11 +1133,11 @@ const s = StyleSheet.create({
   micBtnSmall: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   voiceBarTitle: { fontSize: 14, fontWeight: "700" },
   voiceBarSub: { fontSize: 11, marginTop: 2 },
-  retryInlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: "#2563EB" },
+  retryInlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: "#2563EB" },
   retryInlineBtnText: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
 
   // Inputs
-  input: { borderWidth: 1, borderRadius: 16, padding: 12, fontSize: 14 },
+  input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 14 },
 
   // Chips
   chipScroll: { flexGrow: 0 },
@@ -1146,25 +1146,25 @@ const s = StyleSheet.create({
 
   // Finish level
   finishGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  finishCard: { flex: 1, minWidth: "46%", borderWidth: 1, borderRadius: 16, padding: 10 },
+  finishCard: { flex: 1, minWidth: "46%", borderWidth: 1, borderRadius: 8, padding: 10 },
 
   // Margin
   marginRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  marginChip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
+  marginChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
 
   // Add-ons
   addonGrid: { gap: 8 },
-  addonCard: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 16, padding: 10 },
+  addonCard: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 8, padding: 10 },
   checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, alignItems: "center", justifyContent: "center" },
 
   // DB note
-  dbNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 16, padding: 10 },
+  dbNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 8, padding: 10 },
 
   // Buttons
   btnRow: { flexDirection: "row", alignItems: "center" },
   primaryBtn: {
     backgroundColor: GOLD,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -1172,24 +1172,24 @@ const s = StyleSheet.create({
     gap: 8,
   },
   primaryBtnText: { color: "#111", fontWeight: "700", fontSize: 15 },
-  outlineBtn: { borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  outlineBtn: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 
   // Warnings
-  warnBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 16, padding: 10 },
+  warnBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 8, padding: 10 },
 
   // Step 3
-  modelBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderWidth: 1, borderRadius: 16, padding: 12 },
+  modelBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderWidth: 1, borderRadius: 10, padding: 12 },
   costGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  costCard: { flex: 1, minWidth: "44%", borderWidth: 1, borderRadius: 16, padding: 12 },
+  costCard: { flex: 1, minWidth: "44%", borderWidth: 1, borderRadius: 10, padding: 12 },
   lineItem: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 10 },
   catDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0 },
-  totalCard: { borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  totalCard: { borderRadius: 12, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   actionRow: { flexDirection: "row", gap: 8 },
-  actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 16 },
+  actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 10 },
 
   // Modals
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modalBox: { width: "100%", borderRadius: 20, borderWidth: 1, padding: 20, gap: 8 },
+  modalBox: { width: "100%", borderRadius: 16, borderWidth: 1, padding: 20, gap: 8 },
 
   // Summary lines
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

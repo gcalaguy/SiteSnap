@@ -43,9 +43,6 @@ async function maybeSyncReceiptToExpense(
 ): Promise<void> {
   const docType = typeof parsed.documentType === "string" ? parsed.documentType : "";
   if (!/receipt/i.test(docType)) return;
-  // Documents promoted from a synced email attachment have no uploader to
-  // attribute the expense to (Phase 4) — skip auto-sync rather than guess.
-  if (doc.uploadedByUserId == null) return;
 
   const fields = (parsed.extractedData ?? {}) as Record<string, unknown>;
   const rawAmount = typeof fields.amount === "number" ? fields.amount : 0;
@@ -61,7 +58,7 @@ async function maybeSyncReceiptToExpense(
 
   try {
     await syncReceiptToExpense({
-      companyId, projectId, submittedByUserId: doc.uploadedByUserId!,
+      companyId, projectId, submittedByUserId: doc.uploadedByUserId,
       amount: grandTotal, tax, vendor, date,
       receiptObjectPath: doc.objectPath, filename: doc.filename,
     });

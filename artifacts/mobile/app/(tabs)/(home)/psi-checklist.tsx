@@ -247,7 +247,7 @@ export default function PsiChecklistScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20 }}>
           <Text style={[s.label, { color: colors.mutedForeground, marginTop: 0 }]}>Task / Hazard / Control</Text>
           <TouchableOpacity onPress={() => setTaskRows((rows) => [...rows, newTaskRow()])}>
-            <Text style={{ color: colors.primary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13 }}>+ Add Row</Text>
+            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>+ Add Row</Text>
           </TouchableOpacity>
         </View>
         {taskRows.map((row) => (
@@ -287,27 +287,27 @@ const styles = (colors: ReturnType<typeof useColors>) =>
   StyleSheet.create({
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
     backBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-    backText: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-    title: { fontSize: 24, fontFamily: "NunitoSans_700Bold", marginBottom: 4 },
-    subtitle: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginBottom: 16 },
-    label: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: 16 },
+    backText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+    title: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 4 },
+    subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 16 },
+    label: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: 16 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1 },
-    chipText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-    input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "NunitoSans_400Regular", marginBottom: 4 },
-    categoryCard: { borderWidth: 1, borderRadius: 16, marginBottom: 10, overflow: "hidden" },
+    chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+    chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+    input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "Inter_400Regular", marginBottom: 4 },
+    categoryCard: { borderWidth: 1, borderRadius: 12, marginBottom: 10, overflow: "hidden" },
     categoryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14 },
-    categoryTitle: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },
+    categoryTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
     categoryBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
-    countBadge: { minWidth: 20, height: 20, borderRadius: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
-    countBadgeText: { color: "#fff", fontSize: 11, fontFamily: "NunitoSans_700Bold" },
+    countBadge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+    countBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" },
     checkItem: { flexDirection: "row", alignItems: "center", gap: 10 },
     checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-    checkLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flexShrink: 1 },
-    taskRow: { borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 10 },
-    taskInput: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, fontFamily: "NunitoSans_400Regular", marginBottom: 8 },
-    secondaryBtn: { paddingVertical: 14, borderRadius: 16, alignItems: "center", marginTop: 24, borderWidth: 1 },
-    secondaryBtnText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-    submitBtn: { paddingVertical: 14, borderRadius: 16, alignItems: "center", marginTop: 10 },
-    submitText: { color: "#fff", fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+    checkLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flexShrink: 1 },
+    taskRow: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 },
+    taskInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 8 },
+    secondaryBtn: { paddingVertical: 14, borderRadius: 12, alignItems: "center", marginTop: 24, borderWidth: 1 },
+    secondaryBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+    submitBtn: { paddingVertical: 14, borderRadius: 12, alignItems: "center", marginTop: 10 },
+    submitText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   });

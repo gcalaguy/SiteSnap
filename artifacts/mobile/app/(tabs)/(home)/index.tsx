@@ -25,8 +25,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { triggerVoiceFab } from "@/utils/voiceFabBus";
-import { Card, MediaCard, StatTile, SectionHeader, EmptyState } from "@/components/ui";
-import { layout, radius, spacing, typography } from "@/constants/theme";
+import { Card, StatTile, SectionHeader, EmptyState } from "@/components/ui";
+import { radius, spacing, typography } from "@/constants/theme";
 
 // ── Data shapes reused from other screens (kept local — same convention as
 // tasks.tsx/inspect.tsx, which each declare their own minimal view of the
@@ -128,7 +128,7 @@ function AiInsights() {
   useEffect(() => { mutate(); }, []);
 
   return (
-    <Card style={{ marginHorizontal: layout.gutter, marginBottom: layout.sectionGap }}>
+    <Card style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}>
       <View style={styles.aiHeader}>
         <Feather name="cpu" size={14} color={colors.primary} />
         <Text style={[typography.label, { color: colors.primary }]}>AI INSIGHTS</Text>
@@ -191,28 +191,35 @@ function ActiveProjectCard({ project, onPress }: { project: any; onPress: () => 
     completed: colors.mutedForeground,
     on_hold: colors.warning,
   };
-  const statusColor = statusColors[project.status] ?? colors.mutedForeground;
 
   return (
-    <MediaCard
-      size="hero"
-      objectPath={project.coverPhotoUrl}
-      seed={project.id}
-      fallbackIcon="home"
-      eyebrow="Active project"
-      title={project.name}
-      meta={project.city ? `${project.city}${project.province ? `, ${project.province}` : ""}` : undefined}
-      badge={<View style={[styles.statusDot, { backgroundColor: statusColor }]} />}
-      footer={
-        progress != null ? (
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
-          </View>
-        ) : null
-      }
-      onPress={onPress}
-      style={{ marginHorizontal: layout.gutter }}
-    />
+    <Card onPress={onPress} padding="lg" style={{ marginHorizontal: spacing.xl }}>
+      <View style={styles.activeProjectTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.label, { color: colors.mutedForeground }]}>ACTIVE PROJECT</Text>
+          <Text style={[typography.heading, { color: colors.foreground, marginTop: 4 }]} numberOfLines={1}>
+            {project.name}
+          </Text>
+          {!!project.city && (
+            <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 2 }]} numberOfLines={1}>
+              {project.city}{project.province ? `, ${project.province}` : ""}
+            </Text>
+          )}
+        </View>
+        <View style={[styles.statusDot, { backgroundColor: statusColors[project.status] ?? colors.mutedForeground }]} />
+      </View>
+
+      {progress != null ? (
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
+        </View>
+      ) : null}
+
+      <View style={styles.activeProjectFooter}>
+        <Text style={[typography.captionMedium, { color: colors.primary }]}>View project</Text>
+        <Feather name="arrow-right" size={14} color={colors.primary} />
+      </View>
+    </Card>
   );
 }
 
@@ -251,43 +258,43 @@ function ActivityRow({ item }: { item: any }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: layout.gutter, paddingBottom: spacing.xxl,
-    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
+    paddingHorizontal: spacing.xl, paddingBottom: spacing.lg,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end",
   },
-  greeting: { marginTop: spacing.sm },
+  greeting: { marginTop: 2 },
   companyBadge: {
-    flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.md,
+    flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.sm,
     alignSelf: "flex-start", backgroundColor: "#C9A84C22", borderWidth: 1,
-    borderColor: "#C9A84C44", borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 5,
+    borderColor: "#C9A84C44", borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 3,
   },
   bellBtn: { position: "relative", padding: 4 },
   badge: {
     position: "absolute", top: -2, right: -4, minWidth: 18, height: 18,
-    borderRadius: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
+    borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
   },
-  badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "NunitoSans_700Bold" },
+  badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
 
-  priorityRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
+  priorityRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.xl, marginBottom: spacing.lg },
 
   aiHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
   aiRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
 
-  statusDot: { width: 12, height: 12, borderRadius: 6 },
-  // On the hero card the track sits over photography, so it needs a light
-  // translucent bed rather than the old grey-on-charcoal one.
-  progressTrack: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", marginTop: spacing.md, overflow: "hidden" },
+  activeProjectTop: { flexDirection: "row", alignItems: "flex-start" },
+  statusDot: { width: 9, height: 9, borderRadius: 5, marginTop: 4 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: "#88888833", marginTop: spacing.lg, overflow: "hidden" },
   progressFill: { height: 4, borderRadius: 2 },
+  activeProjectFooter: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.lg },
 
   voiceCard: {
-    marginHorizontal: layout.gutter, marginTop: spacing.lg, marginBottom: layout.sectionGap,
-    borderRadius: radius.lg, paddingVertical: spacing.xxxl, alignItems: "center", gap: spacing.md,
+    marginHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xxl,
+    borderRadius: radius.lg, paddingVertical: spacing.xl, alignItems: "center", gap: spacing.sm,
   },
-  voiceIconWrap: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center" },
+  voiceIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
 
-  section: { paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
+  section: { paddingHorizontal: spacing.xl, marginBottom: spacing.xxl },
 
-  activityRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.lg, paddingVertical: spacing.md },
-  activityIcon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  activityRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, paddingVertical: spacing.sm },
+  activityIcon: { width: 30, height: 30, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -378,8 +385,8 @@ export default function DashboardScreen() {
           <Text style={[typography.caption, { color: colors.mutedForeground }]}>
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
           </Text>
-          <Text style={[typography.hero, styles.greeting, { color: colors.foreground }]}>
-            {greeting()},{"\n"}{firstName}
+          <Text style={[typography.display, styles.greeting, { color: colors.foreground }]}>
+            {greeting()}, {firstName}
           </Text>
           {hasMultipleCompanies && activeCompanyName ? (
             <View style={styles.companyBadge}>
@@ -400,13 +407,13 @@ export default function DashboardScreen() {
 
       <ClockWidget />
 
-      <View style={{ paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap }}>
+      <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
         <WeatherWidget />
       </View>
 
       {/* Today's Priorities */}
-      <View style={[styles.section, { marginBottom: 0 }]}>
-        <SectionHeader eyebrow="Today" title="Priorities" />
+      <View style={[styles.section, { marginBottom: spacing.sm, paddingHorizontal: spacing.xl }]}>
+        <Text style={[typography.label, { color: colors.mutedForeground }]}>TODAY'S PRIORITIES</Text>
       </View>
       <View style={styles.priorityRow}>
         <StatTile
@@ -434,10 +441,10 @@ export default function DashboardScreen() {
       {/* This Month — financial rollup, owners/foremen only */}
       {perms.viewFinancials && (
         <>
-          <View style={[styles.section, { marginBottom: 0 }]}>
-            <SectionHeader eyebrow="This month" title="Spend" />
+          <View style={[styles.section, { marginBottom: spacing.sm, paddingHorizontal: spacing.xl }]}>
+            <Text style={[typography.label, { color: colors.mutedForeground }]}>THIS MONTH</Text>
           </View>
-          <View style={styles.priorityRow}>
+          <View style={[styles.priorityRow, { marginBottom: spacing.lg }]}>
             <StatTile
               label="Spend"
               value={fmtCAD(summary?.totalSpentThisMonth ?? 0)}
@@ -455,17 +462,17 @@ export default function DashboardScreen() {
         <>
           <ActiveProjectCard project={spotlight} onPress={() => go(`/project/${spotlight.id}`)} />
           {spotlightProjects.length > 1 ? (
-            <Pressable onPress={() => go("/projects")} style={{ paddingHorizontal: layout.gutter, marginTop: spacing.md, marginBottom: layout.sectionGap }}>
+            <Pressable onPress={() => go("/projects")} style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.lg }}>
               <Text style={[typography.captionMedium, { color: colors.primary }]}>
                 View all {spotlightProjects.length} projects →
               </Text>
             </Pressable>
           ) : (
-            <View style={{ marginBottom: layout.sectionGap }} />
+            <View style={{ marginBottom: spacing.lg }} />
           )}
         </>
       ) : (
-        <View style={{ marginHorizontal: layout.gutter, marginBottom: layout.sectionGap }}>
+        <View style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}>
           <EmptyState icon="folder" title="No active projects" subtitle="Projects assigned to you will show up here." />
         </View>
       )}
@@ -479,7 +486,7 @@ export default function DashboardScreen() {
         style={({ pressed }) => [styles.voiceCard, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
       >
         <View style={[styles.voiceIconWrap, { backgroundColor: `${colors.primary}1F` }]}>
-          <Feather name="mic" size={30} color={colors.primary} />
+          <Feather name="mic" size={24} color={colors.primary} />
         </View>
         <Text style={[typography.bodyMedium, { color: colors.foreground }]}>Tap to talk</Text>
         <Text style={[typography.caption, { color: colors.mutedForeground }]}>
@@ -489,7 +496,7 @@ export default function DashboardScreen() {
 
       {/* Recent Activity */}
       <View style={styles.section}>
-        <SectionHeader eyebrow="Latest" title="Recent Activity" />
+        <SectionHeader title="Recent Activity" />
         {activityLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : (activity ?? []).length === 0 ? (

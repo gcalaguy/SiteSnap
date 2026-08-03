@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 20,
     width: "100%",
     maxWidth: 480,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   canvas: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     overflow: "hidden",
     alignSelf: "center",
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
   },
   btnPrimary: {
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 10,
   },
   btnText: {
     fontSize: 14,

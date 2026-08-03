@@ -278,20 +278,20 @@ export default function ChangeOrderDetailScreen() {
             <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>REVIEW</Text>
             <View style={{ flexDirection: "row", gap: 12, padding: 14, borderTopWidth: 1, borderTopColor: colors.border }}>
               <Pressable
-                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#DCFCE7", borderRadius: 16, borderWidth: 1, borderColor: "#86EFAC" }}
+                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#DCFCE7", borderRadius: 10, borderWidth: 1, borderColor: "#86EFAC" }}
                 onPress={handleApproveCO}
                 disabled={approveChangeOrder.isPending}
               >
                 {approveChangeOrder.isPending ? <ActivityIndicator color="#16A34A" size="small" /> : <Feather name="check-circle" size={18} color="#16A34A" />}
-                <Text style={{ fontSize: 14, fontFamily: "NunitoSans_600SemiBold", color: "#16A34A" }}>Approve</Text>
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#16A34A" }}>Approve</Text>
               </Pressable>
               <Pressable
-                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#FEF2F2", borderRadius: 16, borderWidth: 1, borderColor: "#FECACA" }}
+                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#FEF2F2", borderRadius: 10, borderWidth: 1, borderColor: "#FECACA" }}
                 onPress={handleRejectCO}
                 disabled={rejectChangeOrder.isPending}
               >
                 {rejectChangeOrder.isPending ? <ActivityIndicator color="#DC2626" size="small" /> : <Feather name="x-circle" size={18} color="#DC2626" />}
-                <Text style={{ fontSize: 14, fontFamily: "NunitoSans_600SemiBold", color: "#DC2626" }}>Reject</Text>
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#DC2626" }}>Reject</Text>
               </Pressable>
             </View>
           </View>
@@ -320,7 +320,7 @@ export default function ChangeOrderDetailScreen() {
                 height: 80,
                 resizeMode: "contain",
                 backgroundColor: "#fff",
-                borderRadius: 16,
+                borderRadius: 6,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
@@ -385,43 +385,43 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   backBtn: { width: 36 },
-  headerTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
+  headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
-  titleCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
-  cardTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
-  amount: { fontSize: 22, fontFamily: "NunitoSans_700Bold", marginTop: 6 },
-  updatedLabel: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 6 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
-  statusText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  titleCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
+  cardTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  amount: { fontSize: 22, fontFamily: "Inter_700Bold", marginTop: 6 },
+  updatedLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 6 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   signedBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     marginTop: 12,
   },
-  signedBannerText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  section: { borderRadius: 16, padding: 16, borderWidth: 1 },
+  signedBannerText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  section: { borderRadius: 12, padding: 16, borderWidth: 1 },
   sectionTitle: {
     fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 4 },
-  infoLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flex: 1 },
-  infoValue: { fontSize: 13, fontFamily: "NunitoSans_500Medium", textAlign: "right", flex: 1 },
-  bodyText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
-  signedMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 6 },
-  actionGroup: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  infoLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  infoValue: { fontSize: 13, fontFamily: "Inter_500Medium", textAlign: "right", flex: 1 },
+  bodyText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  signedMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 6 },
+  actionGroup: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
   actionGroupTitle: {
     fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: 16,
@@ -435,5 +435,5 @@ const styles = StyleSheet.create({
     padding: 14,
     borderTopWidth: 1,
   },
-  actionBtnText: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
+  actionBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

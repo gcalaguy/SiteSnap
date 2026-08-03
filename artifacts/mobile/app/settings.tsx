@@ -336,7 +336,7 @@ export default function SettingsScreen() {
             <View style={[styles.seatWarningBanner, { borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }]}>
               <Feather name="alert-triangle" size={15} color="#D97706" />
               <Text style={styles.seatWarningText}>
-                <Text style={{ fontFamily: "NunitoSans_600SemiBold", color: "#92400E" }}>Seats nearly full — </Text>
+                <Text style={{ fontFamily: "Inter_600SemiBold", color: "#92400E" }}>Seats nearly full — </Text>
                 <Text style={{ color: "#B45309" }}>
                   {seats.currentSeats} of {seats.maxSeats} seats used. Consider upgrading your plan.
                 </Text>
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   restrictedText: {
     fontSize: 15,
     textAlign: "center",
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
   },
   header: {
     flexDirection: "row",
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#FFFFFF",
   },
   section: {
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -600,12 +600,12 @@ const styles = StyleSheet.create({
   },
   editBtnText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -614,18 +614,18 @@ const styles = StyleSheet.create({
   rowIcon: {
     width: 30,
     height: 30,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   rowLabel: {
     flex: 1,
     fontSize: 14,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   rowValue: {
     fontSize: 13,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     maxWidth: 160,
     textAlign: "right",
   },
@@ -639,10 +639,10 @@ const styles = StyleSheet.create({
   },
   pillText: {
     fontSize: 12,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   editForm: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 14,
     gap: 12,
@@ -650,26 +650,26 @@ const styles = StyleSheet.create({
   },
   editFormTitle: {
     fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   fieldWrapper: {
     gap: 5,
   },
   fieldLabel: {
     fontSize: 12,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   input: {
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
   },
   editFormHint: {
     fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     lineHeight: 17,
   },
   editFormActions: {
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     paddingVertical: 10,
     alignItems: "center",
@@ -687,11 +687,11 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     fontSize: 14,
-    fontFamily: "NunitoSans_500Medium",
+    fontFamily: "Inter_500Medium",
   },
   saveBtn: {
     flex: 2,
-    borderRadius: 16,
+    borderRadius: 8,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     color: "#FFFFFF",
   },
   qbBtn: {
@@ -708,27 +708,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     paddingVertical: 13,
     marginTop: 4,
   },
   qbBtnText: {
     fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
   },
   seatWarningBanner: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     padding: 10,
   },
   seatWarningText: {
     flex: 1,
     fontSize: 13,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
     lineHeight: 18,
   },
 });

@@ -96,7 +96,7 @@ function RiskBadge({ level, colors }: { level?: string | null; colors: any }) {
   const color = RISK_COLORS[level] ?? "#6b7280";
   return (
     <View style={{ backgroundColor: `${color}20`, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
-      <Text style={{ color, fontSize: 12, fontFamily: "NunitoSans_700Bold" }}>{level}</Text>
+      <Text style={{ color, fontSize: 12, fontFamily: "Inter_700Bold" }}>{level}</Text>
     </View>
   );
 }
@@ -110,7 +110,7 @@ function ScoreBar({ score, riskLevel, colors }: { score?: number | null; riskLev
     <View style={{ marginTop: 8 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
         <Text style={{ fontSize: 12, color: colors.mutedForeground }}>Score</Text>
-        <Text style={{ fontSize: 12, fontFamily: "NunitoSans_700Bold", color }}>{score}/100</Text>
+        <Text style={{ fontSize: 12, fontFamily: "Inter_700Bold", color }}>{score}/100</Text>
       </View>
       <View style={{ height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: "hidden" }}>
         <View style={{ width: `${score}%`, height: "100%", backgroundColor: color, borderRadius: 3 }} />
@@ -163,7 +163,7 @@ function ChecklistItemRow({
               },
             ]}
           >
-            <Text style={{ fontSize: 11, color: item.status === s ? statusColors[s] : colors.mutedForeground, fontFamily: "NunitoSans_600SemiBold" }}>
+            <Text style={{ fontSize: 11, color: item.status === s ? statusColors[s] : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }}>
               {s === "na" ? "N/A" : s.toUpperCase()}
             </Text>
           </Pressable>
@@ -182,7 +182,7 @@ function ChecklistItemRow({
                   },
                 ]}
               >
-                <Text style={{ fontSize: 11, color: item.severity === sev ? SEVERITY_COLORS[sev] : colors.mutedForeground, fontFamily: "NunitoSans_600SemiBold" }}>
+                <Text style={{ fontSize: 11, color: item.severity === sev ? SEVERITY_COLORS[sev] : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }}>
                   {sev[0].toUpperCase()}
                 </Text>
               </Pressable>
@@ -254,7 +254,7 @@ function NewInspectionModal({ visible, onClose }: { visible: boolean; onClose: (
           </Pressable>
           <Text style={[styles.modalTitle, { color: colors.text }]}>New Inspection</Text>
           <Pressable onPress={() => step === "setup" ? setStep("checklist") : create.mutate({ projectId, inspectionType: inspType, date, items: validItems, submit: submitNow })}>
-            <Text style={{ color: colors.primary, fontSize: 15, fontFamily: "NunitoSans_700Bold" }}>
+            <Text style={{ color: colors.primary, fontSize: 15, fontFamily: "Inter_700Bold" }}>
               {step === "setup" ? "Next" : (create.isPending ? "Saving..." : (submitNow ? "Submit" : "Save Draft"))}
             </Text>
           </Pressable>
@@ -280,7 +280,7 @@ function NewInspectionModal({ visible, onClose }: { visible: boolean; onClose: (
                           },
                         ]}
                       >
-                        <Text style={{ fontSize: 13, color: inspType === t ? "#fff" : colors.text, fontFamily: "NunitoSans_600SemiBold" }}>
+                        <Text style={{ fontSize: 13, color: inspType === t ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>
                           {t.charAt(0).toUpperCase() + t.slice(1)}
                         </Text>
                       </Pressable>
@@ -310,7 +310,7 @@ function NewInspectionModal({ visible, onClose }: { visible: boolean; onClose: (
                       onPress={() => setProjectId(null)}
                       style={[styles.typePill, { backgroundColor: projectId === null ? colors.primary : colors.card, borderColor: projectId === null ? colors.primary : colors.border }]}
                     >
-                      <Text style={{ fontSize: 13, color: projectId === null ? "#fff" : colors.text, fontFamily: "NunitoSans_600SemiBold" }}>None</Text>
+                      <Text style={{ fontSize: 13, color: projectId === null ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>None</Text>
                     </Pressable>
                     {(projects as any[]).map((p: any) => (
                       <Pressable
@@ -318,7 +318,7 @@ function NewInspectionModal({ visible, onClose }: { visible: boolean; onClose: (
                         onPress={() => setProjectId(p.id)}
                         style={[styles.typePill, { backgroundColor: projectId === p.id ? colors.primary : colors.card, borderColor: projectId === p.id ? colors.primary : colors.border }]}
                       >
-                        <Text style={{ fontSize: 13, color: projectId === p.id ? "#fff" : colors.text, fontFamily: "NunitoSans_600SemiBold" }}>{p.name}</Text>
+                        <Text style={{ fontSize: 13, color: projectId === p.id ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>{p.name}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -347,7 +347,7 @@ function NewInspectionModal({ visible, onClose }: { visible: boolean; onClose: (
                 <Text style={[styles.label, { color: colors.text }]}>Checklist ({validItems.length} items)</Text>
                 <Pressable onPress={addItem} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
                   <Feather name="plus" size={14} color="#fff" />
-                  <Text style={{ color: "#fff", fontSize: 12, fontFamily: "NunitoSans_600SemiBold" }}>Add</Text>
+                  <Text style={{ color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>Add</Text>
                 </Pressable>
               </View>
               {items.map((item, i) => (
@@ -406,7 +406,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
           {insp.riskLevel && (
             <View style={[styles.riskBanner, { backgroundColor: `${riskColor}15`, borderColor: `${riskColor}40` }]}>
               <Feather name="alert-triangle" size={18} color={riskColor} />
-              <Text style={{ color: riskColor, fontFamily: "NunitoSans_700Bold", fontSize: 15 }}>{insp.riskLevel} Risk</Text>
+              <Text style={{ color: riskColor, fontFamily: "Inter_700Bold", fontSize: 15 }}>{insp.riskLevel} Risk</Text>
               {insp.riskScore && (
                 <Text style={{ color: riskColor, fontSize: 13, marginLeft: "auto" }}>Score: {insp.riskScore}/10</Text>
               )}
@@ -417,7 +417,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
           <View style={[styles.metaCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.metaRow}>
               <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Type</Text>
-              <Text style={{ color: colors.text, fontSize: 13, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" }}>{insp.inspectionType}</Text>
+              <Text style={{ color: colors.text, fontSize: 13, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" }}>{insp.inspectionType}</Text>
             </View>
             <View style={styles.metaRow}>
               <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Date</Text>
@@ -430,7 +430,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
             <View style={styles.metaRow}>
               <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Status</Text>
               <View style={{ backgroundColor: insp.status === "submitted" ? "#dcfce7" : "#fef9c3", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: insp.status === "submitted" ? "#16a34a" : "#ca8a04", fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" }}>
+                <Text style={{ color: insp.status === "submitted" ? "#16a34a" : "#ca8a04", fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" }}>
                   {insp.status}
                 </Text>
               </View>
@@ -441,7 +441,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
           {/* AI Summary (owners/foremen only) */}
           {isOwnerOrForeman && insp.aiSummary && (
             <View style={[styles.aiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={{ color: colors.primary, fontFamily: "NunitoSans_700Bold", fontSize: 14, marginBottom: 8 }}>✦ AI Summary</Text>
+              <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14, marginBottom: 8 }}>✦ AI Summary</Text>
               <Text style={{ color: colors.text, fontSize: 13, lineHeight: 20 }}>{insp.aiSummary}</Text>
             </View>
           )}
@@ -451,7 +451,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
             <View style={[styles.failedCard, { backgroundColor: "#fff1f2", borderColor: "#fecdd3" }]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <Feather name="alert-triangle" size={14} color="#dc2626" />
-                <Text style={{ color: "#dc2626", fontFamily: "NunitoSans_700Bold", fontSize: 13 }}>Failed Item Analysis</Text>
+                <Text style={{ color: "#dc2626", fontFamily: "Inter_700Bold", fontSize: 13 }}>Failed Item Analysis</Text>
               </View>
               <Text style={{ color: "#9f1239", fontSize: 13, lineHeight: 20 }}>{insp.failedItemAnalysis}</Text>
             </View>
@@ -471,11 +471,11 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
                     color={item.status === "pass" ? "#16a34a" : item.status === "fail" ? "#dc2626" : "#6b7280"}
                   />
                   <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={{ color: colors.text, fontSize: 13, fontFamily: "NunitoSans_600SemiBold" }}>{item.itemName}</Text>
+                    <Text style={{ color: colors.text, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>{item.itemName}</Text>
                     {item.comment && <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 2 }}>{item.comment}</Text>}
                   </View>
                   <View style={{ backgroundColor: item.status === "pass" ? "#dcfce7" : item.status === "fail" ? "#fee2e2" : "#f3f4f6", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ color: item.status === "pass" ? "#16a34a" : item.status === "fail" ? "#dc2626" : "#6b7280", fontSize: 11, fontFamily: "NunitoSans_700Bold" }}>
+                    <Text style={{ color: item.status === "pass" ? "#16a34a" : item.status === "fail" ? "#dc2626" : "#6b7280", fontSize: 11, fontFamily: "Inter_700Bold" }}>
                       {item.status === "na" ? "N/A" : item.status.toUpperCase()}
                     </Text>
                   </View>
@@ -495,7 +495,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
               }}
               style={[styles.submitBtn, { backgroundColor: colors.primary }]}
             >
-              <Text style={{ color: "#fff", fontSize: 15, fontFamily: "NunitoSans_700Bold" }}>
+              <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
                 {submit.isPending ? "Submitting..." : "Submit Inspection"}
               </Text>
             </Pressable>
@@ -594,7 +594,7 @@ export default function InspectScreen() {
           style={[styles.newBtn, { backgroundColor: colors.primary }]}
         >
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={{ color: "#fff", fontSize: 13, fontFamily: "NunitoSans_600SemiBold" }}>New</Text>
+          <Text style={{ color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" }}>New</Text>
         </Pressable>
       </View>
 
@@ -612,12 +612,12 @@ export default function InspectScreen() {
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Feather name="bell" size={16} color="#ea580c" />
-                <Text style={{ color: "#9a3412", fontFamily: "NunitoSans_700Bold", fontSize: 14 }}>
+                <Text style={{ color: "#9a3412", fontFamily: "Inter_700Bold", fontSize: 14 }}>
                   Inspection Alerts
                 </Text>
                 {unreadAlerts.length > 0 && (
-                  <View style={{ backgroundColor: "#ea580c", borderRadius: 16, paddingHorizontal: 6, paddingVertical: 1 }}>
-                    <Text style={{ color: "#fff", fontSize: 11, fontFamily: "NunitoSans_700Bold" }}>{unreadAlerts.length}</Text>
+                  <View style={{ backgroundColor: "#ea580c", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 }}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{unreadAlerts.length}</Text>
                   </View>
                 )}
               </View>
@@ -639,7 +639,7 @@ export default function InspectScreen() {
                     <View key={a.id} style={[styles.alertRow, { opacity: a.isRead ? 0.6 : 1 }]}>
                       <Feather name="alert-triangle" size={14} color={color} />
                       <View style={{ flex: 1, marginLeft: 8 }}>
-                        <Text style={{ color: "#9a3412", fontSize: 13, fontFamily: "NunitoSans_600SemiBold" }}>{a.message}</Text>
+                        <Text style={{ color: "#9a3412", fontSize: 13, fontFamily: "Inter_600SemiBold" }}>{a.message}</Text>
                         {row.inspection && (
                           <Text style={{ color: "#c2410c", fontSize: 11, marginTop: 2, textTransform: "capitalize" }}>
                             {row.inspection.inspectionType} · {row.inspection.date}
@@ -647,7 +647,7 @@ export default function InspectScreen() {
                         )}
                       </View>
                       <View style={{ backgroundColor: `${color}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color, fontSize: 10, fontFamily: "NunitoSans_700Bold", textTransform: "uppercase" }}>{a.severity}</Text>
+                        <Text style={{ color, fontSize: 10, fontFamily: "Inter_700Bold", textTransform: "uppercase" }}>{a.severity}</Text>
                       </View>
                     </View>
                   );
@@ -702,7 +702,7 @@ export default function InspectScreen() {
               onPress={() => setShowNew(true)}
               style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
             >
-              <Text style={{ color: "#fff", fontFamily: "NunitoSans_700Bold" }}>Create Inspection</Text>
+              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold" }}>Create Inspection</Text>
             </Pressable>
           </View>
         ) : visibleRows.length === 0 ? (
@@ -745,7 +745,7 @@ export default function InspectScreen() {
                     <View style={{ alignItems: "flex-end", gap: 4 }}>
                       <RiskBadge level={insp.riskLevel} colors={colors} />
                       <View style={{ backgroundColor: insp.status === "submitted" ? "#dcfce7" : "#fef9c3", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color: insp.status === "submitted" ? "#16a34a" : "#ca8a04", fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" }}>
+                        <Text style={{ color: insp.status === "submitted" ? "#16a34a" : "#ca8a04", fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" }}>
                           {insp.status}
                         </Text>
                       </View>
@@ -756,8 +756,8 @@ export default function InspectScreen() {
                   )}
                   {/* AI summary preview (owners/foremen) */}
                   {isOwnerOrForeman && insp.aiSummary && (
-                    <View style={{ marginTop: 8, padding: 8, backgroundColor: `${colors.primary}10`, borderRadius: 16 }}>
-                      <Text style={{ color: colors.primary, fontSize: 11, fontFamily: "NunitoSans_700Bold", marginBottom: 2 }}>✦ AI Summary</Text>
+                    <View style={{ marginTop: 8, padding: 8, backgroundColor: `${colors.primary}10`, borderRadius: 6 }}>
+                      <Text style={{ color: colors.primary, fontSize: 11, fontFamily: "Inter_700Bold", marginBottom: 2 }}>✦ AI Summary</Text>
                       <Text style={{ color: colors.text, fontSize: 12, lineHeight: 17 }} numberOfLines={2}>
                         {insp.aiSummary}
                       </Text>
@@ -781,38 +781,38 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 22, fontFamily: "NunitoSans_700Bold" },
-  newBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
-  cardTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
+  headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  newBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  card: { borderRadius: 12, borderWidth: 1, padding: 14, gap: 4 },
+  cardTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
   emptyState: { alignItems: "center", paddingTop: 60, gap: 12 },
-  emptyTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
-  emptyBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 16, marginTop: 4 },
-  alertsPanel: { borderRadius: 16, borderWidth: 1, padding: 12, marginBottom: 16 },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  emptyBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 4 },
+  alertsPanel: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 16 },
   alertsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   alertRow: { flexDirection: "row", alignItems: "flex-start" },
   // Modal
   modalContainer: { flex: 1 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  modalTitle: { fontSize: 16, fontFamily: "NunitoSans_700Bold" },
-  label: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
-  input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginTop: 8 },
-  typePill: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7 },
-  toggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderRadius: 16, padding: 14 },
-  toggle: { width: 44, height: 24, borderRadius: 16, position: "relative", justifyContent: "center" },
-  toggleKnob: { position: "absolute", width: 20, height: 20, borderRadius: 16, backgroundColor: "#fff" },
-  addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 },
+  modalTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  label: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginTop: 8 },
+  typePill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  toggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderRadius: 12, padding: 14 },
+  toggle: { width: 44, height: 24, borderRadius: 12, position: "relative", justifyContent: "center" },
+  toggleKnob: { position: "absolute", width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
+  addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   // Checklist item
-  checklistItem: { borderWidth: 1, borderRadius: 16, padding: 10 },
-  checklistInput: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, fontSize: 14 },
-  statusPill: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 4 },
-  emptyChecklist: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed", borderRadius: 16, padding: 32 },
+  checklistItem: { borderWidth: 1, borderRadius: 10, padding: 10 },
+  checklistInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 14 },
+  statusPill: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  emptyChecklist: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed", borderRadius: 12, padding: 32 },
   // Detail
-  riskBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 16, padding: 12 },
-  metaCard: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
+  riskBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 12, padding: 12 },
+  metaCard: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  aiCard: { borderWidth: 1, borderRadius: 16, padding: 14 },
-  failedCard: { borderWidth: 1, borderRadius: 16, padding: 14 },
-  checklistResultItem: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, padding: 10, marginBottom: 6 },
-  submitBtn: { borderRadius: 16, padding: 16, alignItems: "center", marginTop: 8 },
+  aiCard: { borderWidth: 1, borderRadius: 12, padding: 14 },
+  failedCard: { borderWidth: 1, borderRadius: 12, padding: 14 },
+  checklistResultItem: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 6 },
+  submitBtn: { borderRadius: 12, padding: 16, alignItems: "center", marginTop: 8 },
 });

@@ -1,19 +1,7 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
-import { FileDown, Loader2, ScanEye, Trash2, RefreshCw } from "lucide-react";
-import { useGetMe } from "@workspace/api-client-react";
+import { FileDown, Loader2, ScanEye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useSafetyScanList, useDeleteSafetyScan, type SafetyScanListItem } from "@/hooks/safety-scanner/useSafetyScan";
+import { useSafetyScanList } from "@/hooks/safety-scanner/useSafetyScan";
 
 const RISK_COLOR: Record<string, string> = {
   critical: "#dc2626", high: "#d97706", medium: "#ca8a04", low: "#16a34a",
@@ -22,12 +10,7 @@ const RISK_COLOR: Record<string, string> = {
 /** Scan history + linked corrective-action status + PDF report links — the audit log for the AI Safety Scanner. */
 export function ScanHistoryTab({ projectId }: { projectId?: number }) {
   const { data, isLoading, isError } = useSafetyScanList(projectId);
-  const { data: me } = useGetMe();
   const [, setLocation] = useLocation();
-  const [deleting, setDeleting] = useState<SafetyScanListItem | null>(null);
-  const deleteScan = useDeleteSafetyScan(() => setDeleting(null));
-
-  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   if (isLoading) return <div className="flex justify-center py-14"><Loader2 className="h-5 w-5 animate-spin text-zinc-500" /></div>;
   if (isError) return <div className="py-10 text-center text-sm text-red-400">Could not load scan history.</div>;
@@ -77,44 +60,10 @@ export function ScanHistoryTab({ projectId }: { projectId?: number }) {
                   <FileDown className="h-4 w-4" />
                 </a>
               )}
-              {isOwnerOrForeman && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleting(scan);
-                  }}
-                  className="shrink-0 p-2 rounded hover:bg-white/5 text-zinc-500 hover:text-red-400"
-                  title="Delete scan"
-                  aria-label="Delete scan"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
             </CardContent>
           </Card>
         );
       })}
-
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this safety scan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This scan and its photos will be permanently removed from the Web Dashboard. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => deleting && deleteScan.mutate(deleting.id)}
-            >
-              {deleteScan.isPending && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

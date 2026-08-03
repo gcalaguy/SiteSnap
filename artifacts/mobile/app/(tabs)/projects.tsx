@@ -23,8 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import { Chip, MediaCard } from "@/components/ui";
-import { elevation, layout, radius, spacing, typography } from "@/constants/theme";
+import { Chip } from "@/components/ui";
 import { ProjectFormSheet, type ProjectFormValues } from "@/components/sheets/ProjectFormSheet";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,73 +53,114 @@ function ProjectCard({ project }: { project: any }) {
       : `$${(project.budget / 1_000).toFixed(0)}K`
     : null;
 
-  // The old card spread location / budget / start date over three icon rows.
-  // A photo tile has one line of room under the title, so they collapse into a
-  // single middot-separated meta line — same information, one glance.
-  const meta = [project.location, budget, project.startDate && new Date(project.startDate).toLocaleDateString("en-CA")]
-    .filter(Boolean)
-    .join("  ·  ");
-
   return (
-    <MediaCard
-      objectPath={project.coverPhotoUrl}
-      seed={project.id}
-      fallbackIcon="home"
-      title={project.name}
-      meta={meta || undefined}
-      badge={
-        <View style={[styles.badge, { backgroundColor: `${statusColor}26`, borderColor: `${statusColor}59` }]}>
-          <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
-        </View>
-      }
+    <Pressable
+      style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push(`/project/${project.id}`);
       }}
-      style={styles.card}
-    />
+    >
+      {/* Status bar */}
+      <View style={[styles.cardAccent, { backgroundColor: statusColor }]} />
+
+      <View style={{ flex: 1, paddingLeft: 16 }}>
+        <View style={styles.cardHeader}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={2}>
+            {project.name}
+          </Text>
+          <View style={[styles.badge, { backgroundColor: `${statusColor}20` }]}>
+            <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cardMeta}>
+          {!!project.location && (
+            <View style={styles.metaRow}>
+              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {" "}{project.location}
+              </Text>
+            </View>
+          )}
+          {!!budget && (
+            <View style={styles.metaRow}>
+              <Feather name="dollar-sign" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                {" "}{budget}
+              </Text>
+            </View>
+          )}
+          {!!project.startDate && (
+            <View style={styles.metaRow}>
+              <Feather name="calendar" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                {" "}{new Date(project.startDate).toLocaleDateString("en-CA")}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <Feather name="chevron-right" size={18} color={colors.border} style={{ marginLeft: 8 }} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerArea: { paddingHorizontal: layout.gutter, paddingBottom: spacing.xl },
-  screenTitle: { ...typography.hero, marginBottom: spacing.xl },
+  headerArea: { paddingHorizontal: 20, paddingBottom: 16 },
+  screenTitle: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 14 },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 14,
-    gap: spacing.md,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
     borderWidth: 1,
-    marginBottom: spacing.lg,
+    marginBottom: 12,
   },
-  searchInput: { flex: 1, ...typography.body },
-  filterRow: { flexDirection: "row", gap: spacing.sm },
+  searchInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
+  filterRow: { flexDirection: "row", gap: 8 },
   card: {
-    marginHorizontal: layout.gutter,
-    marginBottom: spacing.lg,
-  },
-  badge: { paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radius.full, borderWidth: 1 },
-  badgeText: { ...typography.label, letterSpacing: 0.6 },
-  emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },
-  emptyText: { ...typography.heading, textAlign: "center", marginTop: spacing.lg },
-  emptySubtext: { ...typography.body, textAlign: "center", marginTop: spacing.sm },
-  count: { ...typography.caption, paddingHorizontal: layout.gutter, marginBottom: spacing.sm },
-  fab: {
-    position: "absolute",
-    right: spacing.xl,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 14,
-    borderRadius: radius.full,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 10,
     borderWidth: 1,
-    ...elevation.card,
+    overflow: "hidden",
   },
-  fabText: { ...typography.captionMedium },
+  cardAccent: { width: 4, alignSelf: "stretch" },
+  cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, paddingTop: 14 },
+  cardTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1, marginRight: 8 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  cardMeta: { gap: 4, paddingBottom: 14 },
+  metaRow: { flexDirection: "row", alignItems: "center" },
+  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },
+  emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
+  emptySubtext: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
+  count: { fontSize: 13, fontFamily: "Inter_400Regular", paddingHorizontal: 20, marginBottom: 8 },
+  fab: {
+    position: "absolute",
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  fabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 const ALL_STATUSES = ["all", "active", "on_hold", "completed"];
@@ -140,7 +180,7 @@ function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, f
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={[styles.headerArea, { paddingTop: topInsets + spacing.xxl }]}>
+    <View style={[styles.headerArea, { paddingTop: topInsets + 16 }]}>
       <Text style={[styles.screenTitle, { color: colors.foreground }]}>Projects</Text>
       <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
         <Feather name="search" size={16} color={colors.mutedForeground} />

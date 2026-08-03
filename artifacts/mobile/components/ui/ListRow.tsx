@@ -44,7 +44,7 @@ export function ListRow({
     >
       {icon ? (
         <View style={[styles.iconWrap, { backgroundColor: `${tint}1A` }]}>
-          <Feather name={icon} size={19} color={tint} />
+          <Feather name={icon} size={17} color={tint} />
         </View>
       ) : null}
       <View style={styles.textCol}>
@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.lg,
-    paddingVertical: spacing.lg,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",

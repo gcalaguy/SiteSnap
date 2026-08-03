@@ -375,7 +375,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                       <Text
                         style={{
                           fontSize: 12,
-                          fontFamily: "NunitoSans_500Medium",
+                          fontFamily: "Inter_500Medium",
                           textTransform: "capitalize",
                           color: active ? colors.primary : colors.mutedForeground,
                         }}
@@ -406,7 +406,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                 style={[styles.attachBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
               >
                 <Feather name="paperclip" size={16} color={colors.primary} />
-                <Text style={{ fontSize: 13, fontFamily: "NunitoSans_500Medium", color: colors.foreground }} numberOfLines={1}>
+                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground }} numberOfLines={1}>
                   {attachedFile ? (attachedFile.fileName ?? "Photo selected") : "Attach from library"}
                 </Text>
               </TouchableOpacity>
@@ -419,7 +419,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                 {saving ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>
+                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
                     {editing ? "Save Changes" : "Create Permit"}
                   </Text>
                 )}
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -453,27 +453,27 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 18,
   },
-  addBtnText: { color: "#FFFFFF", fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
+  addBtnText: { color: "#FFFFFF", fontSize: 12, fontFamily: "Inter_600SemiBold" },
   centerBox: { paddingVertical: 30, alignItems: "center" },
   emptyBox: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     borderStyle: "dashed",
     padding: 28,
     alignItems: "center",
     gap: 10,
   },
-  emptyText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center" },
-  card: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10 },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 10 },
   cardRow: { flexDirection: "row", gap: 12 },
-  cardIcon: { width: 36, height: 36, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  cardTitle: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  cardIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  cardTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   cardBadges: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  statusChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" },
-  expiryText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
+  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  statusChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
+  expiryText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   cardActions: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 2, paddingHorizontal: 8 },
-  actionText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
+  actionText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", paddingBottom: 20 },
   sheetHeader: {
@@ -493,24 +493,24 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  sheetTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetBody: { paddingHorizontal: 20, paddingTop: 12 },
-  label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginTop: 14, marginBottom: 6 },
+  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 14, marginBottom: 6 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   input: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    fontFamily: "NunitoSans_400Regular",
+    fontFamily: "Inter_400Regular",
   },
   attachBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     marginTop: 20,
   },
 });

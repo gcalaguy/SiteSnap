@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   groupTitle: {
     fontSize: 13,
-    fontFamily: "NunitoSans_600SemiBold",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 10,
