@@ -39,7 +39,7 @@ const hasMissingConfig = missingClerkKey || missingDomain;
 
 function MissingConfigScreen() {
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    try { SplashScreen.hideAsync(); } catch {}
   }, []);
 
   const missing: string[] = [];
@@ -124,7 +124,7 @@ const tokenCache = {
   },
 };
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+try { SplashScreen.preventAutoHideAsync(); } catch {}
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useAuth();
@@ -265,8 +265,7 @@ function RootLayoutNav() {
 
   // Terms must be accepted before the user can interact with any app screen.
   // Keep this above the routing effect so it can gate navigation.
-  // TODO: Re-enable terms and conditions
-  const needsTerms = false; // !!me && !me.termsAcceptedAt;
+  const needsTerms = !!me && !me.termsAcceptedAt;
 
   useEffect(() => {
     if (!isLoaded) return;
