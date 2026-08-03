@@ -358,13 +358,6 @@ export const emailMessagesTable = pgTable(
     bodyHtml: text("body_html"),
     hasAttachments: boolean("has_attachments").notNull().default(false),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
-    // Provider-native metadata, captured as-is at sync time (distinct from
-    // emailThreadsTable.category/flagged, which are admin/filing-rule-assigned).
-    // Outlook: msg.categories + msg.flag.flagStatus. Gmail: msg.labelIds
-    // (STARRED/IMPORTANT/CATEGORY_* etc, stored verbatim as providerCategories;
-    // providerFlagged derives from the STARRED label).
-    providerCategories: text("provider_categories").array(),
-    providerFlagged: boolean("provider_flagged").notNull().default(false),
     searchVector: tsvector("search_vector").generatedAlwaysAs(
       () =>
         sql`setweight(to_tsvector('english', coalesce(subject, '')), 'A') || setweight(to_tsvector('english', coalesce(body_text, '')), 'B')`,

@@ -291,13 +291,8 @@ export default function UncategorizedEmailsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
-  const hasPerm = (key: string): boolean => {
-    if (!me?.permissions) return true;
-    return (me.permissions as Record<string, boolean>)[key] !== false;
-  };
-  const canView = hasPerm("viewProjectCommunications");
-  const canManageFilingRules = hasPerm("manageFilingRules");
-  const canManageIntegrations = hasPerm("manageEmailIntegrations");
+  const isOwner = me?.role === "owner" || me?.systemRole === "super_admin";
+  const canView = !me?.permissions || (me.permissions as Record<string, boolean>).viewProjectCommunications !== false;
 
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selectMode, setSelectMode] = useState(false);
@@ -364,19 +359,19 @@ export default function UncategorizedEmailsPage() {
               <Search className="w-3.5 h-3.5 mr-1.5" /> Search Builder
             </Button>
           </Link>
-          {canManageFilingRules && (
-            <Link href="/email-filing-rules">
-              <Button variant="outline" size="sm" className="border-border">
-                <Filter className="w-3.5 h-3.5 mr-1.5" /> Filing Rules
-              </Button>
-            </Link>
-          )}
-          {canManageIntegrations && (
-            <Link href="/email-integrations">
-              <Button variant="outline" size="sm" className="border-border">
-                <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Integrations
-              </Button>
-            </Link>
+          {isOwner && (
+            <>
+              <Link href="/email-filing-rules">
+                <Button variant="outline" size="sm" className="border-border">
+                  <Filter className="w-3.5 h-3.5 mr-1.5" /> Filing Rules
+                </Button>
+              </Link>
+              <Link href="/email-integrations">
+                <Button variant="outline" size="sm" className="border-border">
+                  <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Integrations
+                </Button>
+              </Link>
+            </>
           )}
           <Button
             variant={selectMode ? "default" : "outline"}
