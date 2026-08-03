@@ -199,7 +199,7 @@ async function storeAttachments(
 // ── Outlook (Microsoft Graph) ────────────────────────────────────────────────
 
 const OUTLOOK_MESSAGE_SELECT =
-  "subject,from,toRecipients,ccRecipients,body,conversationId,sentDateTime,hasAttachments,categories,flag";
+  "subject,from,toRecipients,ccRecipients,body,conversationId,sentDateTime,hasAttachments";
 
 // Phase 4 — shared Outlook mailboxes: a "shared" account is accessed via the
 // connecting user's Exchange delegate permissions through Graph's
@@ -264,8 +264,6 @@ async function syncOutlookAccount(
         bodyHtml,
         hasAttachments: !!msg.hasAttachments,
         sentAt,
-        providerCategories: msg.categories ?? [],
-        providerFlagged: msg.flag?.flagStatus === "flagged",
       });
       synced++;
 
@@ -449,8 +447,6 @@ async function syncGmailAccount(
       bodyHtml,
       hasAttachments: attachmentParts.length > 0,
       sentAt,
-      providerCategories: msgResp.data.labelIds ?? [],
-      providerFlagged: (msgResp.data.labelIds ?? []).includes("STARRED"),
     });
     synced++;
 

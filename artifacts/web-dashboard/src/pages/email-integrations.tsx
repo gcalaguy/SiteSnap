@@ -333,25 +333,21 @@ function ProviderCard({
 export default function EmailIntegrationsPage() {
   const { data: me } = useGetMe();
   const queryClient = useQueryClient();
-  const hasPerm = (key: string): boolean => {
-    if (!me?.permissions) return true;
-    return (me.permissions as Record<string, boolean>)[key] !== false;
-  };
-  const canManage = hasPerm("manageEmailIntegrations");
+  const isOwner = me?.role === "owner" || me?.systemRole === "super_admin";
 
   const { data: status, isLoading } = useGetEmailIntegrationsStatus({
-    query: { queryKey: getGetEmailIntegrationsStatusQueryKey(), enabled: canManage },
+    query: { queryKey: getGetEmailIntegrationsStatusQueryKey(), enabled: isOwner },
   });
 
   function refetchStatus() {
     queryClient.invalidateQueries({ queryKey: getGetEmailIntegrationsStatusQueryKey() });
   }
 
-  if (!canManage) {
+  if (!isOwner) {
     return (
       <div className="py-16 flex flex-col items-center text-center">
         <AlertTriangle className="w-10 h-10 text-amber-400 mb-3" />
-        <p className="text-sm font-medium">You don't have permission to manage Email Integrations.</p>
+        <p className="text-sm font-medium">Only company owners can manage Email Integrations.</p>
       </div>
     );
   }

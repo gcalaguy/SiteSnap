@@ -179,17 +179,14 @@ app.use("/api/v1/invoices/:id/send-email", express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
-// Resolve publishable key from host (supports custom domains).
-// secretKey is intentionally omitted — Clerk derives it from the environment
-// automatically, which ensures test keys are used in dev and live keys in prod.
-// Passing secretKey explicitly here hardcodes the production key and breaks
-// dev session validation.
+// Resolve publishable key from host (supports custom domains)
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
       getClerkProxyHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,
     ),
+    secretKey: process.env.CLERK_SECRET_KEY,
   })),
 );
 

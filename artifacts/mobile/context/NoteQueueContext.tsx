@@ -9,17 +9,9 @@ import React, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { customFetch } from "@workspace/api-client-react";
-import { getCurrentUserId, onCurrentUserIdChange } from "@/utils/auth";
 
-// Namespaced per signed-in user (see queueKey()) so a note queued by one
-// account is never synced under a different account's session — that would
-// silently post it into the wrong tenant/project.
-const QUEUE_KEY_PREFIX = "offline_note_queue_v1";
+const QUEUE_KEY = "offline_note_queue_v1";
 const MAX_RETRIES = 3;
-
-function queueKey(userId: string): string {
-  return `${QUEUE_KEY_PREFIX}:${userId}`;
-}
 
 export interface QueuedNote {
   id: string;
@@ -59,17 +51,17 @@ export function useNoteQueue() {
   return useContext(NoteQueueContext);
 }
 
-async function loadQueue(userId: string): Promise<QueuedNote[]> {
+async function loadQueue(): Promise<QueuedNote[]> {
   try {
-    const raw = await AsyncStorage.getItem(queueKey(userId));
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
     return raw ? (JSON.parse(raw) as QueuedNote[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistQueue(userId: string, queue: QueuedNote[]): Promise<void> {
-  await AsyncStorage.setItem(queueKey(userId), JSON.stringify(queue));
+async function persistQueue(queue: QueuedNote[]): Promise<void> {
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
 export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
@@ -79,17 +71,9 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
   const syncLock = useRef(false);
   const prevOnline = useRef(true);
 
-  // Tracks the signed-in Clerk user id (see utils/auth.ts) so the queue can
-  // be reloaded from that account's own storage key whenever it changes —
-  // an account switch on the same device must never keep showing (or
-  // syncing) the previous account's queued notes.
-  const [userId, setUserId] = useState<string | null>(getCurrentUserId());
-  useEffect(() => onCurrentUserIdChange(setUserId), []);
-
   useEffect(() => {
-    if (!userId) { setQueue([]); return; }
-    loadQueue(userId).then(setQueue);
-  }, [userId]);
+    loadQueue().then(setQueue);
+  }, []);
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
@@ -105,12 +89,11 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const syncQueue = useCallback(async () => {
-    if (!userId) return;
     if (syncLock.current) return;
     syncLock.current = true;
     setIsSyncing(true);
     try {
-      let current = await loadQueue(userId);
+      let current = await loadQueue();
       const pending = current.filter((n) => n.status === "pending");
 
       for (const note of pending) {
@@ -141,12 +124,12 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Single write per pass — O(1) vs per-item O(N²).
-      await persistQueue(userId, current);
+      await persistQueue(current);
     } finally {
       setIsSyncing(false);
       syncLock.current = false;
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
@@ -162,7 +145,6 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
 
   const enqueueNote = useCallback(
     async (projectId: number, projectName: string, content: string) => {
-      if (!userId) return;
       const note: QueuedNote = {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         projectId,
@@ -175,27 +157,25 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
       // Functional updater prevents stale-closure note loss on rapid concurrent enqueues.
       let updated: QueuedNote[] = [];
       setQueue((prev) => { updated = [...prev, note]; return updated; });
-      await persistQueue(userId, updated);
+      await persistQueue(updated);
     },
-    [userId]
+    []
   );
 
   const retryFailed = useCallback(async () => {
-    if (!userId) return;
     const updated = queue.map((n) =>
       n.status === "failed" ? { ...n, status: "pending" as const, retries: 0 } : n
     );
     setQueue(updated);
-    await persistQueue(userId, updated);
+    await persistQueue(updated);
     syncQueue();
-  }, [queue, syncQueue, userId]);
+  }, [queue, syncQueue]);
 
   const clearFailed = useCallback(async () => {
-    if (!userId) return;
     const updated = queue.filter((n) => n.status !== "failed");
     setQueue(updated);
-    await persistQueue(userId, updated);
-  }, [queue, userId]);
+    await persistQueue(updated);
+  }, [queue]);
 
   const pendingCount = queue.filter((n) => n.status === "pending").length;
   const failedCount = queue.filter((n) => n.status === "failed").length;

@@ -22,13 +22,10 @@ import { ApiError } from "@workspace/api-client-react";
 import { I18nextProvider } from "react-i18next";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import i18n, { setAppLanguage } from "@/src/i18n";
-import { hydrateQueryCache, startCachePersistence, clearPersistedQueryCache } from "@/utils/queryPersister";
-import { setTokenGetter, setSignOut, setCurrentUserId } from "@/utils/auth";
+import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
+import { setTokenGetter, setSignOut } from "@/utils/auth";
 import { reportClientError } from "@/utils/errorReporting";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
-import { MediaQueueProvider } from "@/context/MediaQueueContext";
-import { NoteQueueProvider } from "@/context/NoteQueueContext";
 
 // ---------------------------------------------------------------------------
 // Build-time config validation
@@ -178,55 +175,13 @@ function RootLayoutNav() {
   }, []); // empty deps — stable via ref
 
   // Wire sign-out separately so its deps don't affect the auth getter.
-  // Also wipes the on-disk query cache (see cache-persistence effect below) —
-  // without this, a different account signing in on the same device would
-  // inherit the previous account's cached tenant/company/role data on the
-  // next cold start (cross-tenant "phantom owner" cache leak).
   useEffect(() => {
     setSignOut(async () => {
       queryClientRef.current.clear();
-      await clearPersistedQueryCache();
-      setCurrentUserId(null);
       await clerkSignOutRef.current();
     });
     return () => setSignOut(async () => {});
   }, []);
-
-  // Publish the signed-in Clerk user id so non-component modules (offline
-  // write queues — see utils/offlineQueue.ts and context/*QueueContext.tsx)
-  // can scope their AsyncStorage keys to it. Without this, a queued-but-
-  // unsent submission from one account (a safety form, note, or photo)
-  // could get flushed under a different account's session after an
-  // account switch on the same device, silently writing it into the wrong
-  // tenant.
-  useEffect(() => {
-    setCurrentUserId(isLoaded && isSignedIn ? clerkUser?.id ?? null : null);
-    return () => setCurrentUserId(null);
-  }, [isLoaded, isSignedIn, clerkUser?.id]);
-
-  // Cache-persistence lifecycle is keyed to the signed-in Clerk user id so a
-  // second account signing in on the same device never inherits the previous
-  // account's persisted tenant/company/role data. Must live here (inside
-  // ClerkProvider), not in AppRoot below, because AppRoot has no access to
-  // the signed-in user's id.
-  const persistStopRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUser?.id) return;
-    const userId = clerkUser.id;
-    let cancelled = false;
-
-    hydrateQueryCache(queryClient, userId).finally(() => {
-      if (cancelled) return;
-      persistStopRef.current?.();
-      persistStopRef.current = startCachePersistence(queryClient, userId);
-    });
-
-    return () => {
-      cancelled = true;
-      persistStopRef.current?.();
-      persistStopRef.current = null;
-    };
-  }, [isLoaded, isSignedIn, clerkUser?.id, queryClient]);
 
   const syncUser = useSyncUser();
   const syncedRef = useRef(false);
@@ -308,16 +263,11 @@ function RootLayoutNav() {
     );
   }, [isLoaded, isSignedIn, clerkUser]);
 
-  // Reset sync state when user signs out. Also wipes the persisted query
-  // cache here as a safety net for sign-outs that bypass the app's own
-  // signOut() wrapper (e.g. Clerk force-expiring/revoking a session) — this
-  // effect is driven purely by Clerk's own isSignedIn flag. Idempotent with
-  // the clearPersistedQueryCache() call in the signOut wrapper above.
+  // Reset sync state when user signs out
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       syncedRef.current = false;
       setSynced(false);
-      clearPersistedQueryCache().catch(() => {});
     }
   }, [isLoaded, isSignedIn]);
 
@@ -447,9 +397,13 @@ function AppRoot() {
     });
   });
 
-  // Cache hydration/persistence now lives in RootLayoutNav (inside
-  // ClerkProvider below), keyed to the signed-in Clerk user id — see the
-  // comment there. It can't happen here: AppRoot has no auth context.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    hydrateQueryCache(queryClient).finally(() => {
+      stop = startCachePersistence(queryClient);
+    });
+    return () => { stop?.(); };
+  }, [queryClient]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -459,23 +413,7 @@ function AppRoot() {
       >
         <QueryClientProvider client={queryClient}>
           <I18nextProvider i18n={i18n}>
-            {/* Restores offline-capture support (daily reports, timesheets, safety
-                forms, photos/documents, project notes) — these three providers were
-                dropped in an unrelated _layout.tsx rewrite (May 2026) and have been
-                silently inert since: useOfflineQueue()/useMediaQueue()/useNoteQueue()
-                were falling back to no-op context defaults everywhere they're
-                consumed (sync-queue.tsx, (tabs)/_layout.tsx's pending badge,
-                capture.tsx, log.tsx). Each provider scopes its AsyncStorage queue to
-                the signed-in user id (see utils/auth.ts's getCurrentUserId), so
-                queued-but-unsent items from one account can never be synced under a
-                different account's session on a shared device. */}
-            <OfflineQueueProvider>
-              <MediaQueueProvider>
-                <NoteQueueProvider>
-                  <RootLayoutNav />
-                </NoteQueueProvider>
-              </MediaQueueProvider>
-            </OfflineQueueProvider>
+            <RootLayoutNav />
           </I18nextProvider>
         </QueryClientProvider>
       </ClerkProvider>
