@@ -754,38 +754,38 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingBottom: 12 },
   backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  title: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  countText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  title: { fontSize: 28, fontFamily: "NunitoSans_700Bold" },
+  countText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
 
   newBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16,
   },
-  newBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  newBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#fff" },
   emptyNewBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, marginTop: 12,
+    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 16, marginTop: 12,
   },
 
   updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 4 },
-  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
+  updatedText: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "#9CA3AF" },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   statChip: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1,
   },
-  statValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  statValue: { fontSize: 13, fontFamily: "NunitoSans_700Bold" },
+  statLabel: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
 
   searchWrap: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_400Regular", paddingVertical: 0 },
 
   filterRow: { flexDirection: "row", gap: 8, paddingBottom: 4 },
   filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-  filterPillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  filterPillText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
 
   listContainer: { paddingHorizontal: 16, paddingTop: 8 },
   listItemWrap: { paddingHorizontal: 16 },
@@ -793,51 +793,51 @@ const styles = StyleSheet.create({
 
   row: {
     flexDirection: "row", alignItems: "flex-start", gap: 0,
-    marginBottom: 10, borderRadius: 12, borderWidth: 1, overflow: "hidden",
+    marginBottom: 10, borderRadius: 16, borderWidth: 1, overflow: "hidden",
   },
   priorityBar: { width: 4, alignSelf: "stretch" },
 
   rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4, paddingRight: 4, paddingTop: 12, paddingLeft: 12 },
-  rfiNumber: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  rfiNumber: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
+  statusText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
 
-  subject: { fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20, paddingHorizontal: 12, marginBottom: 8 },
+  subject: { fontSize: 14, fontFamily: "NunitoSans_500Medium", lineHeight: 20, paddingHorizontal: 12, marginBottom: 8 },
 
   rowMeta: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, paddingHorizontal: 12, marginBottom: 8 },
   projectChip: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16, borderWidth: 1,
   },
-  projectChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", maxWidth: 120 },
-  priorityChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-  priorityChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  projectChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", maxWidth: 120 },
+  priorityChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16 },
+  priorityChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  metaText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
 
   dueDateRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingBottom: 12 },
-  dueDateText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  dueDateText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
 
   emptyContainer: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
-  emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
-  emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6, lineHeight: 20 },
+  emptyText: { fontSize: 16, fontFamily: "NunitoSans_500Medium", textAlign: "center", marginTop: 12 },
+  emptySubText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", marginTop: 6, lineHeight: 20 },
 
   dateFilterLabel: {
-    width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center",
+    width: 28, height: 28, borderRadius: 16, alignItems: "center", justifyContent: "center",
   },
   customDateRow: {
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8,
   },
   dateInput: {
-    flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
-    fontSize: 12, fontFamily: "Inter_400Regular",
+    flex: 1, borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 7,
+    fontSize: 12, fontFamily: "NunitoSans_400Regular",
   },
-  dateSep: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  dateSep: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   activeDateChip: {
     flexDirection: "row", alignItems: "center", gap: 5,
     alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20, borderWidth: 1,
   },
-  activeDateChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  activeDateChipText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
 
   // Modal
   modalHeader: {
@@ -845,27 +845,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
     paddingTop: Platform.OS === "ios" ? 54 : 14,
   },
-  modalTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
-  modalSave: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  fieldLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  modalTitle: { fontSize: 16, fontFamily: "NunitoSans_700Bold" },
+  modalCancel: { fontSize: 15, fontFamily: "NunitoSans_400Regular" },
+  modalSave: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  fieldLabel: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
   textInput: {
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11,
-    fontSize: 14, fontFamily: "Inter_400Regular",
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11,
+    fontSize: 14, fontFamily: "NunitoSans_400Regular",
   },
   textArea: {
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11,
-    fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 120,
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11,
+    fontSize: 14, fontFamily: "NunitoSans_400Regular", minHeight: 120,
   },
   pickerBtn: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11,
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11,
   },
-  pickerBtnText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  pickerBtnText: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   priorityPill: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1,
   },
-  priorityPillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  priorityPillText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
 
   // Project picker sheet
   pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
@@ -874,10 +874,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40, maxHeight: "60%",
   },
   pickerHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginVertical: 10 },
-  pickerSheetTitle: { fontSize: 15, fontFamily: "Inter_700Bold", paddingHorizontal: 16, marginBottom: 8 },
+  pickerSheetTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", paddingHorizontal: 16, marginBottom: 8 },
   pickerRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  pickerRowText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  pickerRowText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
 });

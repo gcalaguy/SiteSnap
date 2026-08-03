@@ -13,12 +13,12 @@ runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
-mode = "parallel"
+mode = "sequential"
 author = "agent"
 
 [[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "web-dashboard-test"
+task = "shell.exec"
+args = "pnpm run start"
 
 [[workflows.workflow]]
 name = "web-dashboard-test"

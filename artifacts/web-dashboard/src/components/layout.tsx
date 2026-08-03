@@ -28,7 +28,9 @@ import {
   Menu,
   X,
   Package,
+  Download,
   DollarSign,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
@@ -43,6 +45,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 
@@ -148,6 +152,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const markOne = useMarkNotificationRead();
 
   const unreadCount = unreadData?.count ?? 0;
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   const handleMarkAll = () => {
     markAll.mutate(undefined, {
@@ -206,6 +211,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     // gated by its own permission (viewSchedules / viewTimesheets).
     ...(canViewWorkforce ? [{ name: "Workforce", href: "/workforce", icon: CalendarDays, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING", section: "operations" }] : []),
     { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub", section: "operations" },
+    // Landing page for the Project Communications Hub — Uncategorized inbox is
+    // the entry point; Search Builder, Email Integrations, and Filing Rules are
+    // reachable from there (mirrors the mobile app's Communications grouping).
+    { name: "Communications", href: "/uncategorized-emails", icon: Inbox, badge: 0, featureKey: "COMMS_HUB", permissionKey: "viewProjectCommunications", section: "operations" },
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI", section: "operations" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL", section: "operations" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, section: "operations" }] : []),
@@ -618,6 +627,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {canInstall && (
+                <DropdownMenuItem onClick={promptInstall} className="cursor-pointer">
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>Install App</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => signOut({ redirectUrl: basePath || "/" })}
                 className="text-destructive focus:text-destructive cursor-pointer"
@@ -631,6 +646,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        <OfflineBanner />
         {/* Mobile header */}
         <header className="flex md:hidden h-14 items-center justify-between gap-3 px-4 flex-shrink-0"
           style={{ background: BLACK, borderBottom: `1px solid ${GOLD_BORDER}` }}>

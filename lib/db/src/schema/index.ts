@@ -31,8 +31,14 @@ export * from "./voiceInspection";
 export * from "./backup";
 export * from "./psi";
 export * from "./documentTemplates";
+export * from "./communications";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+// Cross-file FK target for project_documents.source_email_attachment_id
+// (Phase 4) — safe circular import: communications.ts already imports
+// companiesTable/projectsTable/usersTable from this file the same way, and
+// drizzle's `.references(() => ...)` callback is only resolved lazily.
+import { emailAttachmentsTable } from "./communications";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -159,6 +165,9 @@ export const memberPermissionsSchema = z.object({
   viewEstimator: z.boolean().optional(),
   viewTradeHub: z.boolean().optional(),
   viewAskAI: z.boolean().optional(),
+  manageEmailIntegrations: z.boolean().optional(),
+  viewProjectCommunications: z.boolean().optional(),
+  manageFilingRules: z.boolean().optional(),
 });
 export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
 
@@ -237,10 +246,20 @@ export const projectsTable = pgTable("projects", {
   endDate: date("end_date"),
   budget: numeric("budget", { precision: 12, scale: 2 }),
   description: text("description"),
+  // Added for the Project Communications Hub's matching engine (Phase 2), which
+  // scores inbound emails against these identifiers. Nullable/free-text since
+  // orgs assign their own numbering schemes.
+  projectNumber: text("project_number"),
+  poNumber: text("po_number"),
+  primaryContactId: integer("primary_contact_id").references(() => contactsTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_projects_company_id").on(t.companyId),
   index("idx_projects_company_id_id").on(t.companyId, t.id),
+  index("idx_projects_primary_contact").on(t.primaryContactId),
+  uniqueIndex("uq_projects_company_project_number").on(t.companyId, t.projectNumber),
 ]);
 
 export const insertProjectSchema = createInsertSchema(projectsTable).omit({
@@ -599,12 +618,20 @@ export const documentStatusEnum = pgEnum("document_status", [
 
 export const projectDocumentsTable = pgTable("project_documents", {
   id: serial("id").primaryKey(),
+  // Backfilled from projects.company_id (see migration 0081) and RLS-enforced
+  // below — closes a pre-existing gap where this table (unlike every comms-hub
+  // table) had no direct tenant-scoping column of its own.
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projectsTable.id, { onDelete: "cascade" }),
-  uploadedByUserId: integer("uploaded_by_user_id")
-    .notNull()
-    .references(() => usersTable.id),
+  // Nullable (Phase 4): system-triggered promotions of an email attachment
+  // into the document library have no acting user.
+  uploadedByUserId: integer("uploaded_by_user_id").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
   filename: text("filename").notNull(),
   fileType: text("file_type").notNull(),
   objectPath: text("object_path").notNull(),
@@ -613,12 +640,26 @@ export const projectDocumentsTable = pgTable("project_documents", {
   extractedData: json("extracted_data"),
   aiSummary: text("ai_summary"),
   extractedText: text("extracted_text"),
+  // Phase 4: set when this document row was auto-promoted from a synced email
+  // attachment (see attachmentClassifier.ts / threadAssignmentHooks.ts) —
+  // preserves the link back to the original email without re-uploading bytes
+  // (same objectPath is reused).
+  sourceEmailAttachmentId: integer("source_email_attachment_id").references(
+    () => emailAttachmentsTable.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_project_documents_project_id").on(t.projectId),
   index("idx_project_documents_status").on(t.status),
   index("idx_project_documents_project_status").on(t.projectId, t.status),
-]);
+  index("idx_project_documents_company").on(t.companyId),
+  index("idx_project_documents_source_attachment").on(t.sourceEmailAttachmentId),
+  pgPolicy("tenant_isolation", {
+    as: "permissive",
+    using: sql`current_tenant_id() IS NULL OR ${t.companyId} = current_tenant_id()`,
+  }),
+]).enableRLS();
 
 export const insertProjectDocumentSchema = createInsertSchema(
   projectDocumentsTable,
@@ -1275,7 +1316,7 @@ export const proposalsTable = pgTable("proposals", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   builderEstimateId: integer("builder_estimate_id")
     .notNull()
     .references(() => builderEstimatesTable.id),
@@ -1474,7 +1515,7 @@ export const fileAttachmentsTable = pgTable("file_attachments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   uploadedByUserId: integer("uploaded_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -1600,7 +1641,7 @@ export const estimatorActualsTable = pgTable("estimator_actuals", {
     .references(() => estimatesTable.id, { onDelete: "cascade" }),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   estimatedCost: numeric("estimated_cost", { precision: 12, scale: 2 }).notNull(),
   actualCost: numeric("actual_cost", { precision: 12, scale: 2 }).notNull(),
   variancePct: numeric("variance_pct", { precision: 8, scale: 2 }),

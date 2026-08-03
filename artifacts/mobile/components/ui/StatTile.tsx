@@ -3,7 +3,7 @@ import { Platform, Pressable, StyleSheet, Text } from "react-native";
 import * as Haptics from "expo-haptics";
 
 import { useColors } from "@/hooks/useColors";
-import { radius, spacing, typography } from "@/constants/theme";
+import { elevation, radius, spacing, typography } from "@/constants/theme";
 import type { BadgeStatus } from "./Badge";
 
 interface StatTileProps {
@@ -37,10 +37,13 @@ export function StatTile({ label, value, status = "neutral", onPress }: StatTile
       onPress={onPress ? handlePress : undefined}
       style={({ pressed }) => [
         styles.tile,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed && onPress ? 0.85 : 1 },
+        elevation.card,
+        { backgroundColor: colors.cardElevated, borderColor: colors.borderSoft, opacity: pressed && onPress ? 0.85 : 1 },
       ]}
     >
-      <Text style={[typography.title, { color: tone[status] }]}>{value}</Text>
+      <Text style={[typography.display, { color: tone[status] }]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
       <Text style={[typography.caption, { color: colors.mutedForeground }]} numberOfLines={1}>
         {label}
       </Text>
@@ -53,8 +56,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     borderWidth: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: 2,
+    paddingVertical: 18,
+    paddingHorizontal: spacing.xl,
+    gap: 6,
   },
 });

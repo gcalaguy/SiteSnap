@@ -20,13 +20,26 @@ import type {
   SubmitTimesheetBody,
   CreateFormSubmissionBody,
 } from "@workspace/api-client-react";
+import { getCurrentUserId, onCurrentUserIdChange } from "@/utils/auth";
 
-const QUEUE_KEY = "offline_op_queue_v2";
-const HISTORY_KEY = "offline_op_history_v2";
+// Namespaced per signed-in user (see queueKey()/historyKey()) so a queued
+// daily report, timesheet, or safety form from one account is never synced
+// under a different account's session — that would silently submit it into
+// the wrong tenant/project.
+const QUEUE_KEY_PREFIX = "offline_op_queue_v2";
+const HISTORY_KEY_PREFIX = "offline_op_history_v2";
 const MAX_RETRIES = 3;
 const MAX_HISTORY = 20;
 const MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const LOCAL_DIR = `${FileSystem.documentDirectory}offline_photos/`;
+
+function queueKey(userId: string): string {
+  return `${QUEUE_KEY_PREFIX}:${userId}`;
+}
+
+function historyKey(userId: string): string {
+  return `${HISTORY_KEY_PREFIX}:${userId}`;
+}
 
 // ── Photo attachment (only used by daily-report operations) ──────────────────
 
@@ -133,30 +146,30 @@ export function useOfflineQueue() {
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-async function loadQueue(): Promise<QueuedItem[]> {
+async function loadQueue(userId: string): Promise<QueuedItem[]> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    const raw = await AsyncStorage.getItem(queueKey(userId));
     return raw ? (JSON.parse(raw) as QueuedItem[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistQueue(queue: QueuedItem[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+async function persistQueue(userId: string, queue: QueuedItem[]): Promise<void> {
+  await AsyncStorage.setItem(queueKey(userId), JSON.stringify(queue));
 }
 
-async function loadHistory(): Promise<SyncedItem[]> {
+async function loadHistory(userId: string): Promise<SyncedItem[]> {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY);
+    const raw = await AsyncStorage.getItem(historyKey(userId));
     return raw ? (JSON.parse(raw) as SyncedItem[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistHistory(history: SyncedItem[]): Promise<void> {
-  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+async function persistHistory(userId: string, history: SyncedItem[]): Promise<void> {
+  await AsyncStorage.setItem(historyKey(userId), JSON.stringify(history));
 }
 
 async function ensurePhotoDir(): Promise<void> {
@@ -238,17 +251,26 @@ export function OfflineQueueProvider({
   const syncLock = useRef(false);
   const prevOnline = useRef(true);
 
+  // Tracks the signed-in Clerk user id (see utils/auth.ts) so the queue and
+  // history can be reloaded from that account's own storage keys whenever
+  // it changes — an account switch on the same device must never keep
+  // showing (or syncing) the previous account's queued reports, timesheets,
+  // or safety forms.
+  const [userId, setUserId] = useState<string | null>(getCurrentUserId());
+  useEffect(() => onCurrentUserIdChange(setUserId), []);
+
   useEffect(() => {
-    loadQueue().then(async (q) => {
+    if (!userId) { setQueue([]); setSyncedHistory([]); return; }
+    loadQueue(userId).then(async (q) => {
       const cutoff = Date.now() - MAX_QUEUE_AGE_MS;
       const expired = q.filter((r) => new Date(r.createdAt).getTime() < cutoff);
       for (const r of expired) await deletePhotoFiles(r);
       const fresh = q.filter((r) => new Date(r.createdAt).getTime() >= cutoff);
-      if (expired.length > 0) await persistQueue(fresh);
+      if (expired.length > 0) await persistQueue(userId, fresh);
       setQueue(fresh);
     });
-    loadHistory().then(setSyncedHistory);
-  }, []);
+    loadHistory(userId).then(setSyncedHistory);
+  }, [userId]);
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
@@ -264,12 +286,13 @@ export function OfflineQueueProvider({
   }, []);
 
   const syncQueue = useCallback(async () => {
+    if (!userId) return;
     if (syncLock.current) return;
     syncLock.current = true;
     setIsSyncing(true);
     try {
-      let current = await loadQueue();
-      let history = await loadHistory();
+      let current = await loadQueue(userId);
+      let history = await loadHistory(userId);
       const pending = current.filter((r) => r.status === "pending");
 
       let historyChanged = false;
@@ -309,17 +332,17 @@ export function OfflineQueueProvider({
 
       // Single write per pass — O(1) vs per-item O(N²).
       // daily_report items carry clientIdempotencyKey so replays on crash are safe.
-      await persistQueue(current);
+      await persistQueue(userId, current);
       if (historyChanged) {
         setSyncedHistory([...history]);
-        await persistHistory(history);
+        await persistHistory(userId, history);
         if (lastSynced) setLastSyncedAt(lastSynced);
       }
     } finally {
       setIsSyncing(false);
       syncLock.current = false;
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
@@ -343,6 +366,7 @@ export function OfflineQueueProvider({
       reportData: DailyReportOp["reportData"],
       photos: QueuePhoto[],
     ) => {
+      if (!userId) return;
       await ensurePhotoDir();
       const stablePhotos: QueuePhoto[] = await Promise.all(
         photos.map(async (p) => {
@@ -366,12 +390,13 @@ export function OfflineQueueProvider({
       // React Native uses legacy synchronous mode so the updater runs before the next line.
       let updated: QueuedItem[] = [];
       setQueue((prev) => { updated = [...prev, item]; return updated; });
-      await persistQueue(updated);
+      await persistQueue(userId, updated);
     },
-    [],
+    [userId],
   );
 
   const enqueueTimesheet = useCallback(async (body: SubmitTimesheetBody) => {
+    if (!userId) return;
     const item: QueuedItem = {
       id: makeItemId(),
       op: { type: "timesheet", body },
@@ -381,10 +406,11 @@ export function OfflineQueueProvider({
     };
     let updated: QueuedItem[] = [];
     setQueue((prev) => { updated = [...prev, item]; return updated; });
-    await persistQueue(updated);
-  }, []);
+    await persistQueue(userId, updated);
+  }, [userId]);
 
   const enqueueSafetyForm = useCallback(async (body: CreateFormSubmissionBody) => {
+    if (!userId) return;
     const item: QueuedItem = {
       id: makeItemId(),
       op: { type: "safety_form", body },
@@ -394,30 +420,33 @@ export function OfflineQueueProvider({
     };
     let updated: QueuedItem[] = [];
     setQueue((prev) => { updated = [...prev, item]; return updated; });
-    await persistQueue(updated);
-  }, []);
+    await persistQueue(userId, updated);
+  }, [userId]);
 
   const retryFailed = useCallback(async () => {
+    if (!userId) return;
     const updated = queue.map((r) =>
       r.status === "failed" ? { ...r, status: "pending" as const, retries: 0 } : r,
     );
     setQueue(updated);
-    await persistQueue(updated);
+    await persistQueue(userId, updated);
     syncQueue();
-  }, [queue, syncQueue]);
+  }, [queue, syncQueue, userId]);
 
   const clearFailed = useCallback(async () => {
+    if (!userId) return;
     const failed = queue.filter((r) => r.status === "failed");
     for (const r of failed) await deletePhotoFiles(r);
     const updated = queue.filter((r) => r.status !== "failed");
     setQueue(updated);
-    await persistQueue(updated);
-  }, [queue]);
+    await persistQueue(userId, updated);
+  }, [queue, userId]);
 
   const clearHistory = useCallback(async () => {
+    if (!userId) return;
     setSyncedHistory([]);
-    await persistHistory([]);
-  }, []);
+    await persistHistory(userId, []);
+  }, [userId]);
 
   const pendingCount = queue.filter((r) => r.status === "pending").length;
   const failedCount = queue.filter((r) => r.status === "failed").length;

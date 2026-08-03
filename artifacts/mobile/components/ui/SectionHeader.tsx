@@ -7,11 +7,18 @@ import { spacing, typography } from "@/constants/theme";
 
 interface SectionHeaderProps {
   title: string;
+  /**
+   * Spaced uppercase kicker rendered above the title. Screens used to inline
+   * this as a bare `<Text style={typography.label}>TODAY'S PRIORITIES</Text>`
+   * block sitting in its own padded `View`; folding it into the header keeps
+   * the eyebrow/title gap consistent instead of set per-screen.
+   */
+  eyebrow?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-export function SectionHeader({ title, actionLabel, onAction }: SectionHeaderProps) {
+export function SectionHeader({ title, eyebrow, actionLabel, onAction }: SectionHeaderProps) {
   const colors = useColors();
 
   function handlePress() {
@@ -22,7 +29,12 @@ export function SectionHeader({ title, actionLabel, onAction }: SectionHeaderPro
 
   return (
     <View style={styles.header}>
-      <Text style={[typography.heading, { color: colors.foreground }]}>{title}</Text>
+      <View style={styles.titleCol}>
+        {eyebrow ? (
+          <Text style={[typography.label, { color: colors.primary }]}>{eyebrow.toUpperCase()}</Text>
+        ) : null}
+        <Text style={[typography.title, { color: colors.foreground }]}>{title}</Text>
+      </View>
       {actionLabel && onAction ? (
         <Pressable onPress={handlePress} hitSlop={8}>
           <Text style={[typography.captionMedium, { color: colors.primary }]}>{actionLabel}</Text>
@@ -36,7 +48,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.md,
+    alignItems: "flex-end",
+    marginBottom: spacing.lg,
   },
+  titleCol: { flex: 1, gap: spacing.xs },
 });

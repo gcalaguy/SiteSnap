@@ -21,15 +21,36 @@ interface CacheEntry {
 
 interface PersistedCache {
   timestamp: number;
+  // Clerk user ID this cache belongs to. Required so a different account
+  // signing in on the same device never inherits the previous account's
+  // cached tenant data (company info, role, financials, etc.) — see the
+  // cross-tenant "phantom owner" report this field fixes.
+  userId: string;
   entries: CacheEntry[];
 }
 
-export async function hydrateQueryCache(queryClient: QueryClient): Promise<void> {
+/** Wipe the persisted cache outright. Call this on sign-out. */
+export async function clearPersistedQueryCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CACHE_KEY);
+  } catch {
+  }
+}
+
+// userId must be the currently signed-in Clerk user's ID. Hydration only
+// applies a persisted cache back into the query client when it was written
+// by that same user — otherwise it's discarded. Without this check, a
+// device that goes straight from account A's session to account B's
+// (crash, force-quit, or any path that skips the sign-out cache clear)
+// would silently render account A's cached tenant/company/role data inside
+// account B's session on next cold start.
+export async function hydrateQueryCache(queryClient: QueryClient, userId: string | null): Promise<void> {
+  if (!userId) return;
   try {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
     if (!raw) return;
     const parsed: PersistedCache = JSON.parse(raw);
-    if (Date.now() - parsed.timestamp > MAX_AGE_MS) {
+    if (parsed.userId !== userId || Date.now() - parsed.timestamp > MAX_AGE_MS) {
       await AsyncStorage.removeItem(CACHE_KEY);
       return;
     }
@@ -43,7 +64,7 @@ export async function hydrateQueryCache(queryClient: QueryClient): Promise<void>
   }
 }
 
-export function startCachePersistence(queryClient: QueryClient): () => void {
+export function startCachePersistence(queryClient: QueryClient, userId: string): () => void {
   let dirty = false;
 
   const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
@@ -69,7 +90,7 @@ export function startCachePersistence(queryClient: QueryClient): () => void {
 
       if (entries.length === 0) return;
 
-      const payload: PersistedCache = { timestamp: Date.now(), entries };
+      const payload: PersistedCache = { timestamp: Date.now(), userId, entries };
       const serialised = JSON.stringify(payload);
 
       // M-SC2 fix: skip write if payload exceeds safe AsyncStorage size threshold

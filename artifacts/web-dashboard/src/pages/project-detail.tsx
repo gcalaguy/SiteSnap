@@ -32,6 +32,7 @@ import QuotesTab from "@/components/QuotesTab";
 import ClientMessagesTab from "@/components/ClientMessagesTab";
 import SafetyComplianceTab from "@/components/SafetyComplianceTab";
 import PermitsTab from "@/components/project-detail/PermitsTab";
+import { CommunicationsTab } from "@/components/project-detail/CommunicationsTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -178,7 +179,7 @@ export default function ProjectDetail() {
     changeOrders: false,
     safety: false,
   });
-  // Deep-linkable via /projects/:id?tab=overview|tasks|reports|cost|rfis|quotes|team|documents|client-messages|safety|change-orders|permits
+  // Deep-linkable via /projects/:id?tab=overview|tasks|reports|cost|rfis|quotes|team|documents|client-messages|communications|safety|change-orders|permits
   const search = useSearch();
   const [activeTab, setActiveTab] = useState(() => {
     const requestedTab = new URLSearchParams(search).get("tab");
@@ -195,6 +196,8 @@ export default function ProjectDetail() {
   const { data: featureData } = useCompanyFeatures(me?.activeCompanyId as number | null | undefined);
   const hasPermitsFeature =
     me?.systemRole === "super_admin" || (featureData?.features?.includes("PERMITS") ?? false);
+  const hasCommsHubFeature =
+    me?.systemRole === "super_admin" || (featureData?.features?.includes("COMMS_HUB") ?? false);
 
   const { data: members = [], isLoading: membersLoading } = useListCompanyMembers(
     companyId ?? 0,
@@ -318,6 +321,7 @@ export default function ProjectDetail() {
       hasPerm("viewRFIs") && { value: "rfis", label: "RFIs" },
       hasPerm("viewDocuments") && { value: "documents", label: "Documents", icon: FolderOpen },
       hasPerm("viewClientMessages") && { value: "client-messages", label: "Client Messages", icon: MessageCircle },
+      hasPerm("viewProjectCommunications") && hasCommsHubFeature && { value: "communications", label: "Communications", icon: Mail },
       isOwnerOrForeman && hasPermitsFeature && { value: "permits", label: "Permits", icon: BadgeCheck },
     ] as (TabItem | false)[]
   ).filter((t): t is TabItem => !!t);
@@ -806,6 +810,12 @@ export default function ProjectDetail() {
         {isOwnerOrForeman && hasPermitsFeature && (
           <TabsContent value="permits" className="mt-6">
             <PermitsTab projectId={projectId} />
+          </TabsContent>
+        )}
+
+        {hasPerm("viewProjectCommunications") && hasCommsHubFeature && (
+          <TabsContent value="communications" className="mt-6">
+            <CommunicationsTab projectId={projectId} />
           </TabsContent>
         )}
       </Tabs>

@@ -38,15 +38,22 @@ const DIRECT_TENANT_TABLES = [
 /**
  * Direct `company_id` columns that do NOT cascade (verified: no
  * `onDelete: "cascade"` on the FK). These would throw an FK violation on
- * `DELETE FROM companies` unless handled first. `tradehub_profiles` is
- * user-owned and cross-tenant, so it's detached (company_id set to NULL)
- * rather than deleted.
+ * `DELETE FROM companies` unless handled first.
+ *
+ * ⚠️  KEEP THIS LIST IN SYNC WITH THE SCHEMA.
+ * Any table added to lib/db/src/schema with a company_id → companies FK
+ * that lacks `{ onDelete: "cascade" }` MUST be listed here, or tenant
+ * deletion will fail with a FK violation and the company row will persist.
+ * Run: grep -rn "references.*companiesTable" lib/db/src/schema | grep -v onDelete
+ * to find uncovered FKs.
+ *
+ * - `quickbooks_connections`: deleted explicitly so the QB token is always
+ *   revoked before the row is removed (belt-and-suspenders against stale tokens).
+ * - `tradehub_profiles`: cross-tenant, user-owned — detached (company_id → NULL)
+ *   rather than deleted so the user's public profile survives.
  */
 const NON_CASCADING_EXCEPTIONS: Array<{ table: string; action: "delete" | "detach" }> = [
   { table: "quickbooks_connections", action: "delete" },
-  { table: "proposals", action: "delete" },
-  { table: "file_attachments", action: "delete" },
-  { table: "estimator_actuals", action: "delete" },
   { table: "tradehub_profiles", action: "detach" },
 ];
 

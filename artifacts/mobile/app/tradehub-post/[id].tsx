@@ -187,7 +187,7 @@ export default function TradeHubPostScreen() {
             onPress={() => refetch()}
             style={[styles.retryBtn, { backgroundColor: colors.primary }]}
           >
-            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Retry</Text>
+            <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 14 }}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : !post ? (
@@ -283,7 +283,7 @@ export default function TradeHubPostScreen() {
                         {myApplication ? (
                           <View style={[styles.appliedBadge, { borderColor: "#22C55E66", backgroundColor: "#22C55E0A" }]}>
                             <Feather name="check-circle" size={13} color="#22C55E" />
-                            <Text style={{ fontSize: 12, color: "#22C55E", fontFamily: "Inter_500Medium" }}>
+                            <Text style={{ fontSize: 12, color: "#22C55E", fontFamily: "NunitoSans_500Medium" }}>
                               Applied
                             </Text>
                           </View>
@@ -429,42 +429,42 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   iconBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  emptyText: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
+  emptyHint: { fontSize: 13, fontFamily: "NunitoSans_400Regular" },
   retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
-  card: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
+  card: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
   authorRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  authorName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  typeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  postTitle: { fontSize: 17, fontFamily: "Inter_700Bold", lineHeight: 24 },
-  postBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  avatar: { width: 36, height: 36, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 14, fontFamily: "NunitoSans_700Bold" },
+  authorName: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  metaText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
+  typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
+  typeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  postTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold", lineHeight: 24 },
+  postBody: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 21 },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
-  tagText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16, borderWidth: 1 },
+  tagText: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
   actionsRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingTop: 10, borderTopWidth: 1 },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
-  actionText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  applyBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  applyBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
-  appliedBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  sectionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 4 },
-  commentCard: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8 },
+  actionText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
+  applyBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  applyBtnText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
+  appliedBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
+  sectionLabel: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", marginTop: 4 },
+  commentCard: { borderRadius: 16, borderWidth: 1, padding: 12, gap: 8 },
   commentHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  commentAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  commentAvatarText: { fontSize: 11, fontFamily: "Inter_700Bold" },
-  commentAuthor: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  commentTime: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  commentBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  commentAvatar: { width: 28, height: 28, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  commentAvatarText: { fontSize: 11, fontFamily: "NunitoSans_700Bold" },
+  commentAuthor: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
+  commentTime: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
+  commentBody: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 20 },
   emptyComments: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 8 },
   inputBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontFamily: "Inter_400Regular", maxHeight: 100 },
-  sendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  input: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontFamily: "NunitoSans_400Regular", maxHeight: 100 },
+  sendBtn: { width: 36, height: 36, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   modal: { flex: 1 },
   modalHeader: {
     flexDirection: "row",
@@ -474,18 +474,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  modalTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  postBtn: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  modalTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
+  postBtn: { fontSize: 16, fontFamily: "NunitoSans_600SemiBold" },
   modalScroll: { flex: 1 },
   modalContent: { padding: 20, gap: 4 },
-  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 8 },
+  fieldLabel: { fontSize: 13, fontFamily: "NunitoSans_500Medium", marginBottom: 8 },
   textInput: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
   },
   bodyInput: { minHeight: 140 },
 });

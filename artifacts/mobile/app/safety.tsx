@@ -213,7 +213,7 @@ function FieldRenderer({ field, value, onChange, colors }: {
                 onPress={() => onChange(opt)}
                 style={[styles.optPill, { borderColor: sel ? colors.primary : colors.border, backgroundColor: sel ? `${colors.primary}15` : colors.card }]}
               >
-                <Text style={{ fontSize: 13, color: sel ? colors.primary : colors.mutedForeground, fontFamily: sel ? "Inter_600SemiBold" : "Inter_400Regular" }}>
+                <Text style={{ fontSize: 13, color: sel ? colors.primary : colors.mutedForeground, fontFamily: sel ? "NunitoSans_600SemiBold" : "NunitoSans_400Regular" }}>
                   {opt}
                 </Text>
               </Pressable>
@@ -309,7 +309,7 @@ function SubmissionCard({
             style={[styles.aiToggle, { borderTopColor: colors.border }]}
           >
             <Feather name="cpu" size={12} color={colors.primary} />
-            <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_500Medium", flex: 1 }}>
+            <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "NunitoSans_500Medium", flex: 1 }}>
               AI Summary
             </Text>
             <Feather name={expanded ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
@@ -438,7 +438,7 @@ export default function SafetyTab() {
             style={[styles.tabBtn, tab === key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
           >
             <Feather name={icon as any} size={15} color={tab === key ? colors.primary : colors.mutedForeground} />
-            <Text style={{ fontSize: 14, color: tab === key ? colors.primary : colors.mutedForeground, fontFamily: tab === key ? "Inter_600SemiBold" : "Inter_400Regular" }}>
+            <Text style={{ fontSize: 14, color: tab === key ? colors.primary : colors.mutedForeground, fontFamily: tab === key ? "NunitoSans_600SemiBold" : "NunitoSans_400Regular" }}>
               {label}
             </Text>
           </Pressable>
@@ -547,7 +547,7 @@ export default function SafetyTab() {
                             borderColor: active ? colors.primary : colors.border,
                           }]}
                         >
-                          <Text style={{ fontSize: 13, color: active ? "#fff" : colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+                          <Text style={{ fontSize: 13, color: active ? "#fff" : colors.foreground, fontFamily: "NunitoSans_600SemiBold" }}>
                             {cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : "All"}
                           </Text>
                         </Pressable>
@@ -597,14 +597,14 @@ export default function SafetyTab() {
                 {/* Back to templates */}
                 <TouchableOpacity onPress={resetForm} style={styles.backLink}>
                   <Feather name="chevron-left" size={16} color={colors.primary} />
-                  <Text style={{ fontSize: 14, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Change Form</Text>
+                  <Text style={{ fontSize: 14, color: colors.primary, fontFamily: "NunitoSans_600SemiBold" }}>Change Form</Text>
                 </TouchableOpacity>
 
                 {/* Form header */}
                 <View style={[styles.formHeader, { backgroundColor: "#FFF7F0", borderColor: "#FFDAB8" }]}>
                   <Feather name="shield" size={18} color="#D4AF37" />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#CC5200" }}>
+                    <Text style={{ fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#CC5200" }}>
                       {selectedTemplate.name}
                     </Text>
                     <Text style={{ fontSize: 12, color: "#CC5200", marginTop: 2, textTransform: "capitalize" }}>
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginLeft: -8 },
-  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  headerTitle: { fontSize: 24, fontFamily: "NunitoSans_700Bold" },
 
   tabBar: {
     flexDirection: "row",
@@ -707,37 +707,37 @@ const styles = StyleSheet.create({
 
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
 
-  sectionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
+  sectionLabel: { fontSize: 12, fontFamily: "NunitoSans_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
 
   quickGrid: { gap: 8 },
   quickRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
     minHeight: 56,
   },
-  quickRowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  quickRowText: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  quickRowIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  quickRowText: { flex: 1, fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
 
   subCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
     marginBottom: 8,
     padding: 12,
   },
-  subIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  subName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  subMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
-  subDate: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 3 },
+  subIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  subName: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  subMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 1 },
+  subDate: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 3 },
   catTag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
-  catTagText: { fontSize: 10, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
-  statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-  statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  catTagText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16 },
+  statusText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   aiToggle: {
     flexDirection: "row",
     alignItems: "center",
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
   aiSummaryBox: {
     marginTop: 8,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
   },
 
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 8,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 14,
   },
@@ -772,50 +772,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 14,
   },
-  templateIcon: { width: 42, height: 42, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  templateName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  templateMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  templateIcon: { width: 42, height: 42, borderRadius: 16, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  templateName: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  templateMeta: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
 
   formHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 12,
   },
-  fieldsCard: { borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 16 },
+  fieldsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
   fieldRow: { paddingBottom: 14 },
-  fieldLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  fieldLabel: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
+  input: { borderWidth: 1, borderRadius: 16, padding: 12, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   textarea: { minHeight: 90 },
   optPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  checkbox: { width: 22, height: 22, borderRadius: 16, borderWidth: 2, alignItems: "center", justifyContent: "center" },
 
   actionRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  draftBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, borderWidth: 1 },
-  draftBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  submitBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12 },
-  submitBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  draftBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 16, borderWidth: 1 },
+  draftBtnText: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
+  submitBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 16 },
+  submitBtnText: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
   submitNote: { fontSize: 12, textAlign: "center", lineHeight: 17, marginBottom: 4 },
   backLink: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 12 },
 
-  emptyBox: { borderRadius: 12, borderWidth: 1, padding: 32, alignItems: "center", gap: 10, marginTop: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
+  emptyBox: { borderRadius: 16, borderWidth: 1, padding: 32, alignItems: "center", gap: 10, marginTop: 8 },
+  emptyTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  emptyDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", lineHeight: 18 },
 
-  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  dateFieldText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10 },
+  dateFieldText: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 },
   modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14 },
-  modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
-  modalTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  modalDone: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  modalCancel: { fontSize: 15, fontFamily: "NunitoSans_400Regular" },
+  modalTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
+  modalDone: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
 });

@@ -27,6 +27,7 @@ import { QuotesTab } from "@/components/QuotesTab";
 import { PermitsTab } from "@/components/PermitsTab";
 import { TimesheetsTab } from "@/components/TimesheetsTab";
 import { ClientMessagesTab } from "@/components/ClientMessagesTab";
+import { CommunicationsTab } from "@/components/CommunicationsTab";
 import {
   ActivityIndicator,
   Alert,
@@ -66,7 +67,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Permits", "Hours", "Timesheets", "Messages", "Safety"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Permits", "Hours", "Timesheets", "Messages", "Communications", "Safety"] as const;
 type Tab = (typeof TABS)[number];
 
 // Main tabs stay as top-level pills; everything else groups into a category
@@ -77,7 +78,7 @@ const TAB_LABELS: Partial<Record<Tab, string>> = { Reports: "Daily Reports" };
 type CategoryKey = "financials" | "docs" | "safety";
 const TAB_CATEGORIES: { key: CategoryKey; label: string; tabs: Tab[] }[] = [
   { key: "financials", label: "Financials", tabs: ["Quotes", "Hours", "Timesheets"] },
-  { key: "docs", label: "Docs & Communication", tabs: ["RFIs", "Documents", "Messages", "Permits"] },
+  { key: "docs", label: "Docs & Communication", tabs: ["RFIs", "Documents", "Messages", "Communications", "Permits"] },
   { key: "safety", label: "Safety & Team", tabs: ["Schedules", "Safety"] },
 ];
 
@@ -100,9 +101,9 @@ function StatPill({ label, value, icon }: { label: string; value: string; icon: 
 }
 
 const stat = StyleSheet.create({
-  pill: { flex: 1, alignItems: "center", padding: 12, borderRadius: 10, gap: 4, borderWidth: 1 },
-  value: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  label: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  pill: { flex: 1, alignItems: "center", padding: 12, borderRadius: 16, gap: 4, borderWidth: 1 },
+  value: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
+  label: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
 });
 
 function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { report: any; projectId: number; isOwnerOrForeman: boolean; onPhotoDeleted: () => void }) {
@@ -137,7 +138,7 @@ function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { re
         <Text style={[styles.reportDateText, { color: colors.primary }]}>
           {new Date(report.reportDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
         </Text>
-        <Text style={[{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.primary, textAlign: "center" }]}>
+        <Text style={[{ fontSize: 10, fontFamily: "NunitoSans_400Regular", color: colors.primary, textAlign: "center" }]}>
           {new Date(report.reportDate).toLocaleDateString("en-CA", { weekday: "short" })}
         </Text>
       </View>
@@ -546,55 +547,55 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBg: { paddingHorizontal: 20, paddingBottom: 20 },
-  projectName: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#FFFFFF", marginBottom: 6 },
-  projectLoc: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 10 },
+  projectName: { fontSize: 22, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", marginBottom: 6 },
+  projectLoc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 10 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
+  statusText: { fontSize: 13, fontFamily: "NunitoSans_500Medium", color: "rgba(255,255,255,0.8)" },
   statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 16 },
   tabRow: { marginBottom: 16 },
   tabRowContent: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 20, gap: 6 },
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   tabDropdown: { flexDirection: "row", alignItems: "center", gap: 4 },
-  tabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  tabText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
   section: { paddingHorizontal: 20, marginBottom: 16 },
-  sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
+  sectionTitle: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  addBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  addBtnText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
   reportRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 8,
   },
-  reportDateBadge: { borderRadius: 6, padding: 8, minWidth: 44, alignItems: "center" },
-  reportDateText: { fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  reportMeta: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
-  reportSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 3 },
+  reportDateBadge: { borderRadius: 16, padding: 8, minWidth: 44, alignItems: "center" },
+  reportDateText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textAlign: "center" },
+  reportMeta: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 18 },
+  reportSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 3 },
   reportMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
   reportMetaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
   reportExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
   reportDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  reportDetailLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
-  reportDetailText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  reportAiBox: { borderRadius: 8, borderWidth: 1, padding: 10, gap: 2 },
+  reportDetailLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
+  reportDetailText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19 },
+  reportAiBox: { borderRadius: 16, borderWidth: 1, padding: 10, gap: 2 },
   taskItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 8,
   },
@@ -606,36 +607,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  taskTitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  taskTitle: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
   priorityDot: { width: 7, height: 7, borderRadius: 3.5 },
   taskMetaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" },
   taskPriorityDot: { width: 6, height: 6, borderRadius: 3 },
-  taskMetaText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  taskMetaText: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
   taskMetaSep: { fontSize: 12 },
   taskExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
   taskDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  taskDetailText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19, flex: 1 },
+  taskDetailText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19, flex: 1 },
   taskChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  taskChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  taskChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  taskCycleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 8 },
-  taskCycleBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
-  emptySection: { borderWidth: 1, borderRadius: 12, borderStyle: "dashed", padding: 28, alignItems: "center", gap: 10 },
-  descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  taskChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16 },
+  taskChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  taskCycleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 16 },
+  taskCycleBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#FFF" },
+  emptyText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingVertical: 20 },
+  emptySection: { borderWidth: 1, borderRadius: 16, borderStyle: "dashed", padding: 28, alignItems: "center", gap: 10 },
+  descText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
   infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
-  infoText: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
-  rfiBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  infoText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
+  rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16, marginTop: 5 },
+  rfiBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
   clientUploadHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  clientUploadBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  clientUploadBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#3B82F6" },
+  clientUploadBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 16 },
+  clientUploadBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: "#3B82F6" },
   overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
   },
   overviewCell: {
@@ -646,11 +647,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 0.5,
     borderBottomWidth: 0.5,
   },
-  overviewValue: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 2 },
-  overviewLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  overviewValue: { fontSize: 22, fontFamily: "NunitoSans_700Bold", marginBottom: 2 },
+  overviewLabel: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
   detailCard: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
   },
   detailRow: {
@@ -660,14 +661,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
   },
-  detailLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
-  detailValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  detailLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flex: 1 },
+  detailValue: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
   detailDivider: { height: StyleSheet.hairlineWidth, marginLeft: 14 },
   docRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 12,
     marginBottom: 10,
     gap: 12,
@@ -675,21 +676,21 @@ const styles = StyleSheet.create({
   docIcon: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  docFilename: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
-  docMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  docSummary: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 17 },
-  docStatusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  docStatusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  docFilename: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },
+  docMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
+  docSummary: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 4, lineHeight: 17 },
+  docStatusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 16 },
+  docStatusText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
 });
 
 const schedSt = StyleSheet.create({
   statCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     alignItems: "flex-start",
     gap: 6,
@@ -697,17 +698,17 @@ const schedSt = StyleSheet.create({
   },
   statValue: {
     fontSize: 26,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "NunitoSans_700Bold",
   },
   statLabel: {
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   emptyBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     borderStyle: "dashed",
     padding: 28,
     alignItems: "center",
@@ -715,7 +716,7 @@ const schedSt = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     textAlign: "center",
     lineHeight: 19,
   },
@@ -724,7 +725,7 @@ const schedSt = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 12,
     marginBottom: 8,
   },
@@ -738,37 +739,37 @@ const schedSt = StyleSheet.create({
   },
   avatarText: {
     fontSize: 14,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "NunitoSans_700Bold",
   },
   workerName: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
   },
   dateRange: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
   },
   assignNotes: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
     marginTop: 3,
     lineHeight: 17,
   },
   roleBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 16,
     alignSelf: "flex-start",
   },
   roleText: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
     textTransform: "capitalize",
   },
   eventRow: {
     flexDirection: "row",
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 16,
     marginBottom: 8,
     overflow: "hidden",
     padding: 12,
@@ -781,23 +782,23 @@ const schedSt = StyleSheet.create({
   },
   eventTitle: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
     flex: 1,
     marginRight: 8,
   },
   eventMeta: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "NunitoSans_400Regular",
   },
   typeBadge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 16,
     alignSelf: "flex-start",
   },
   typeBadgeText: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "NunitoSans_600SemiBold",
   },
   statusDot: {
     width: 6,
@@ -918,12 +919,12 @@ function ReportsTabSection({
           style={{
             flexDirection: "row", alignItems: "center", gap: 4,
             backgroundColor: expanded ? `${colors.primary}18` : colors.muted,
-            paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
+            paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
             borderWidth: 1, borderColor: expanded ? colors.primary : colors.border,
           }}
         >
           <Feather name={expanded ? "x" : "plus"} size={13} color={expanded ? colors.primary : colors.mutedForeground} />
-          <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: expanded ? colors.primary : colors.mutedForeground }}>
+          <Text style={{ fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: expanded ? colors.primary : colors.mutedForeground }}>
             {expanded ? "Cancel" : "Log Note"}
           </Text>
         </TouchableOpacity>
@@ -932,13 +933,13 @@ function ReportsTabSection({
       {/* Inline log panel */}
       {expanded && (
         <View style={{
-          borderWidth: 1, borderRadius: 12, borderColor: colors.primary,
+          borderWidth: 1, borderRadius: 16, borderColor: colors.primary,
           backgroundColor: colors.card, padding: 14, marginBottom: 14,
         }}>
           {/* Timestamp label */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
             <Feather name="clock" size={13} color={colors.mutedForeground} />
-            <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+            <Text style={{ fontSize: 12, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
               {nowLabel}
             </Text>
           </View>
@@ -946,15 +947,15 @@ function ReportsTabSection({
           {/* Weather + Crew Count */}
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
             <View style={{ flex: 2 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
+              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
                 WEATHER IMPACT
               </Text>
               <TextInput
                 style={{
-                  borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+                  borderRadius: 16, borderWidth: 1, borderColor: colors.border,
                   backgroundColor: colors.background, color: colors.foreground,
                   paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
-                  fontFamily: "Inter_400Regular",
+                  fontFamily: "NunitoSans_400Regular",
                 }}
                 value={weather}
                 onChangeText={setWeather}
@@ -963,15 +964,15 @@ function ReportsTabSection({
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
+              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
                 CREW COUNT
               </Text>
               <TextInput
                 style={{
-                  borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+                  borderRadius: 16, borderWidth: 1, borderColor: colors.border,
                   backgroundColor: colors.background, color: colors.foreground,
                   paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
-                  fontFamily: "Inter_400Regular",
+                  fontFamily: "NunitoSans_400Regular",
                 }}
                 value={crewCount}
                 onChangeText={setCrewCount}
@@ -989,7 +990,7 @@ function ReportsTabSection({
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Feather name="mic" size={12} color={colors.mutedForeground} />
-              <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
                 Use the global mic button below
               </Text>
             </View>
@@ -998,10 +999,10 @@ function ReportsTabSection({
           {/* Notes textarea */}
           <TextInput
             style={{
-              borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+              borderRadius: 16, borderWidth: 1, borderColor: colors.border,
               backgroundColor: colors.background, color: colors.foreground,
               paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
-              fontFamily: "Inter_400Regular", minHeight: 90, textAlignVertical: "top",
+              fontFamily: "NunitoSans_400Regular", minHeight: 90, textAlignVertical: "top",
             }}
             value={notes}
             onChangeText={setNotes}
@@ -1012,15 +1013,15 @@ function ReportsTabSection({
           />
 
           {/* Issues / Delays */}
-          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginTop: 10, marginBottom: 4 }}>
+          <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginTop: 10, marginBottom: 4 }}>
             ISSUES / DELAYS (OPTIONAL)
           </Text>
           <TextInput
             style={{
-              borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+              borderRadius: 16, borderWidth: 1, borderColor: colors.border,
               backgroundColor: colors.background, color: colors.foreground,
               paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
-              fontFamily: "Inter_400Regular", minHeight: 60, textAlignVertical: "top",
+              fontFamily: "NunitoSans_400Regular", minHeight: 60, textAlignVertical: "top",
             }}
             value={issues}
             onChangeText={setIssues}
@@ -1031,23 +1032,23 @@ function ReportsTabSection({
 
           {/* Submit / success */}
           {submitted ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, backgroundColor: "#D1FAE5", borderRadius: 8, padding: 10 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, backgroundColor: "#D1FAE5", borderRadius: 16, padding: 10 }}>
               <Feather name="check-circle" size={16} color="#16A34A" />
-              <Text style={{ color: "#15803D", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>Report saved!</Text>
+              <Text style={{ color: "#15803D", fontFamily: "NunitoSans_600SemiBold", fontSize: 13 }}>Report saved!</Text>
             </View>
           ) : (
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={createReport.isPending}
               style={{
-                marginTop: 10, borderRadius: 10, paddingVertical: 12, alignItems: "center",
+                marginTop: 10, borderRadius: 16, paddingVertical: 12, alignItems: "center",
                 backgroundColor: createReport.isPending ? colors.muted : colors.primary,
               }}
             >
               {createReport.isPending ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>Save Report</Text>
+                <Text style={{ color: "#FFF", fontFamily: "NunitoSans_700Bold", fontSize: 14 }}>Save Report</Text>
               )}
             </TouchableOpacity>
           )}
@@ -1101,6 +1102,7 @@ export default function ProjectDetailScreen() {
     Documents: "viewDocuments",
     Hours: "viewTimesheets",
     Messages: "viewClientMessages",
+    Communications: "viewProjectCommunications",
     RFIs: "viewRFIs",
     Safety: "viewSafetyTab",
   };
@@ -1438,7 +1440,7 @@ export default function ProjectDetailScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>
                   Change Orders
                 </Text>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                <Text style={{ fontSize: 12, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
                   {(changeOrders ?? []).length}
                 </Text>
               </View>
@@ -1477,7 +1479,7 @@ export default function ProjectDetailScreen() {
                         </Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
                           {amount != null && (
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                            <Text style={{ fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: colors.foreground }}>
                               ${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                           )}
@@ -1713,7 +1715,7 @@ export default function ProjectDetailScreen() {
                   >
                     <Text
                       style={[
-                        { fontSize: 13, fontFamily: "Inter_500Medium" },
+                        { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
                         { color: active ? "#FFFFFF" : colors.mutedForeground },
                       ]}
                     >
@@ -1778,6 +1780,11 @@ export default function ProjectDetailScreen() {
       {/* Client Messages tab */}
       {activeTab === "Messages" && (
         <ClientMessagesTab projectId={projectId} />
+      )}
+
+      {/* Project Communications tab (synced email threads) */}
+      {activeTab === "Communications" && (
+        <CommunicationsTab projectId={projectId} />
       )}
 
       {/* Safety & Compliance tab */}

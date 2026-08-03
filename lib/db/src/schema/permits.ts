@@ -30,6 +30,10 @@ export const permitsTable = pgTable(
       .notNull()
       .references(() => projectsTable.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    // Added for the Project Communications Hub's matching engine (Phase 2),
+    // which scores inbound emails against this identifier. Nullable/free-text
+    // since municipalities issue permit numbers in inconsistent formats.
+    permitNumber: text("permit_number"),
     status: text("status").notNull().default("active"),
     expirationDate: timestamp("expiration_date", { mode: "date" }),
     fileUrl: text("file_url"),
@@ -52,6 +56,7 @@ export const permitsTable = pgTable(
     index("idx_permits_company").on(t.companyId),
     index("idx_permits_company_project").on(t.companyId, t.projectId),
     index("idx_permits_expiration").on(t.expirationDate),
+    index("idx_permits_permit_number").on(t.permitNumber),
   ],
 );
 

@@ -153,7 +153,7 @@ export default function SignInScreen() {
     logo: {
       width: 56,
       height: 56,
-      borderRadius: 14,
+      borderRadius: 16,
       backgroundColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
@@ -163,13 +163,13 @@ export default function SignInScreen() {
       fontSize: 32,
       fontWeight: "700",
       color: "#FFFFFF",
-      fontFamily: "Inter_700Bold",
+      fontFamily: "NunitoSans_700Bold",
       marginBottom: 8,
     },
     tagline: {
       fontSize: 16,
       color: "rgba(255,255,255,0.55)",
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
     },
     form: {
       backgroundColor: colors.background,
@@ -182,20 +182,20 @@ export default function SignInScreen() {
       fontSize: 22,
       fontWeight: "700",
       color: colors.foreground,
-      fontFamily: "Inter_700Bold",
+      fontFamily: "NunitoSans_700Bold",
       marginBottom: 6,
     },
     formSubtitle: {
       fontSize: 14,
       color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
       marginBottom: 28,
     },
     label: {
       fontSize: 13,
       fontWeight: "600",
       color: colors.mutedForeground,
-      fontFamily: "Inter_600SemiBold",
+      fontFamily: "NunitoSans_600SemiBold",
       marginBottom: 8,
       textTransform: "uppercase",
       letterSpacing: 0.5,
@@ -207,7 +207,7 @@ export default function SignInScreen() {
       paddingVertical: 14,
       fontSize: 16,
       color: colors.foreground,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
       marginBottom: 16,
       borderWidth: 1,
       borderColor: colors.border,
@@ -223,7 +223,7 @@ export default function SignInScreen() {
       color: "#FFFFFF",
       fontSize: 16,
       fontWeight: "700",
-      fontFamily: "Inter_700Bold",
+      fontFamily: "NunitoSans_700Bold",
     },
     backButton: {
       flexDirection: "row",
@@ -234,7 +234,7 @@ export default function SignInScreen() {
     backText: {
       fontSize: 14,
       color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
     },
     error: {
       backgroundColor: "#FEE2E2",
@@ -245,12 +245,12 @@ export default function SignInScreen() {
     errorText: {
       color: colors.destructive,
       fontSize: 14,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
     },
     hint: {
       fontSize: 13,
       color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "NunitoSans_400Regular",
       textAlign: "center",
       marginTop: 8,
     },
@@ -265,7 +265,7 @@ export default function SignInScreen() {
         <View style={s.logoArea}>
           <Image
             source={require("../assets/images/sitesnap-logo.png")}
-            style={{ width: 80, height: 80, borderRadius: 16, marginBottom: 24 }}
+            style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 24 }}
             resizeMode="contain"
           />
           <Text style={s.appName}>Site Snap</Text>

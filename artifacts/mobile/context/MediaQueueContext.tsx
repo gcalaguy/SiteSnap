@@ -10,10 +10,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as FileSystem from "expo-file-system/legacy";
 import { customFetch } from "@workspace/api-client-react";
+import { getCurrentUserId, onCurrentUserIdChange } from "@/utils/auth";
 
-const QUEUE_KEY = "offline_media_queue_v1";
+// Namespaced per signed-in user (see queueKey()) so a photo/document queued
+// by one account is never uploaded under a different account's session —
+// that would silently attach it to the wrong tenant/project.
+const QUEUE_KEY_PREFIX = "offline_media_queue_v1";
 const LOCAL_DIR = `${FileSystem.documentDirectory}offline_media/`;
 const MAX_RETRIES = 3;
+
+function queueKey(userId: string): string {
+  return `${QUEUE_KEY_PREFIX}:${userId}`;
+}
 
 export type MediaType = "photo" | "document";
 
@@ -76,17 +84,17 @@ async function ensureDir(): Promise<void> {
   }
 }
 
-async function loadQueue(): Promise<QueuedMedia[]> {
+async function loadQueue(userId: string): Promise<QueuedMedia[]> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    const raw = await AsyncStorage.getItem(queueKey(userId));
     return raw ? (JSON.parse(raw) as QueuedMedia[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistQueue(queue: QueuedMedia[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+async function persistQueue(userId: string, queue: QueuedMedia[]): Promise<void> {
+  await AsyncStorage.setItem(queueKey(userId), JSON.stringify(queue));
 }
 
 async function uploadAndPost(item: QueuedMedia): Promise<void> {
@@ -132,10 +140,18 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
   const syncLock = useRef(false);
   const prevOnline = useRef(true);
 
+  // Tracks the signed-in Clerk user id (see utils/auth.ts) so the queue can
+  // be reloaded from that account's own storage key whenever it changes —
+  // an account switch on the same device must never keep showing (or
+  // uploading) the previous account's queued media.
+  const [userId, setUserId] = useState<string | null>(getCurrentUserId());
+  useEffect(() => onCurrentUserIdChange(setUserId), []);
+
   useEffect(() => {
     ensureDir().catch(() => {});
-    loadQueue().then(setQueue);
-  }, []);
+    if (!userId) { setQueue([]); return; }
+    loadQueue(userId).then(setQueue);
+  }, [userId]);
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
@@ -151,11 +167,12 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const syncQueue = useCallback(async () => {
+    if (!userId) return;
     if (syncLock.current) return;
     syncLock.current = true;
     setIsSyncing(true);
     try {
-      let current = await loadQueue();
+      let current = await loadQueue(userId);
       const pending = current.filter((m) => m.status === "pending");
 
       for (const item of pending) {
@@ -182,12 +199,12 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Single write per pass — O(1) vs per-item O(N²).
-      await persistQueue(current);
+      await persistQueue(userId, current);
     } finally {
       setIsSyncing(false);
       syncLock.current = false;
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
@@ -221,6 +238,7 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
       endpoint: string;
       body?: Record<string, unknown>;
     }) => {
+      if (!userId) return;
       await ensureDir();
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const ext = fileName.split(".").pop() ?? (type === "photo" ? "jpg" : "bin");
@@ -246,31 +264,33 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
       // M-SC5 fix: functional updater avoids stale closure on rapid enqueue
       setQueue((prev) => {
         const updated = [...prev, item];
-        persistQueue(updated).catch(() => {});
+        persistQueue(userId, updated).catch(() => {});
         return updated;
       });
     },
-    []
+    [userId]
   );
 
   const retryFailed = useCallback(async () => {
+    if (!userId) return;
     const updated = queue.map((m) =>
       m.status === "failed" ? { ...m, status: "pending" as const, retries: 0 } : m
     );
     setQueue(updated);
-    await persistQueue(updated);
+    await persistQueue(userId, updated);
     syncQueue();
-  }, [queue, syncQueue]);
+  }, [queue, syncQueue, userId]);
 
   const clearFailed = useCallback(async () => {
+    if (!userId) return;
     const toDelete = queue.filter((m) => m.status === "failed");
     for (const item of toDelete) {
       await FileSystem.deleteAsync(item.localPath, { idempotent: true });
     }
     const updated = queue.filter((m) => m.status !== "failed");
     setQueue(updated);
-    await persistQueue(updated);
-  }, [queue]);
+    await persistQueue(userId, updated);
+  }, [queue, userId]);
 
   const pendingCount = queue.filter((m) => m.status === "pending").length;
   const failedCount = queue.filter((m) => m.status === "failed").length;

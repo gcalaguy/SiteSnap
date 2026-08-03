@@ -1522,6 +1522,847 @@ paths:
               schema:
                 $ref: "#/components/schemas/QuickBooksSyncResult"
 
+  /email-integrations/status:
+    get:
+      operationId: getEmailIntegrationsStatus
+      tags: [emailIntegrations]
+      summary: List connected Outlook/Gmail accounts and provider configuration status
+      responses:
+        "200":
+          description: Email integrations status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIntegrationsStatus"
+
+  /email-integrations/outlook/auth-url:
+    get:
+      operationId: getEmailIntegrationsOutlookAuthUrl
+      tags: [emailIntegrations]
+      summary: Get the OAuth authorization URL to connect an Outlook mailbox
+      parameters:
+        - name: sharedMailboxAddress
+          in: query
+          required: false
+          description: If set, connects this shared mailbox (via the signing-in user's Exchange delegate access) instead of the user's own inbox.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Auth URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIntegrationAuthUrl"
+        "503":
+          description: Outlook integration not configured
+
+  /email-integrations/gmail/auth-url:
+    get:
+      operationId: getEmailIntegrationsGmailAuthUrl
+      tags: [emailIntegrations]
+      summary: Get the OAuth authorization URL to connect a Gmail mailbox
+      responses:
+        "200":
+          description: Auth URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIntegrationAuthUrl"
+        "503":
+          description: Gmail integration not configured
+
+  /email-integrations/{accountId}/folders:
+    get:
+      operationId: listEmailIntegrationFolders
+      tags: [emailIntegrations]
+      summary: List mail folders/labels available on a connected account, for the folder-selection picker
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Folders/labels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [folders]
+                properties:
+                  folders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailMailFolder"
+
+  /email-integrations/{accountId}:
+    patch:
+      operationId: updateEmailIntegrationAccount
+      tags: [emailIntegrations]
+      summary: Update folder selection and/or sync frequency for a connected account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailIntegrationAccountUpdate"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailAccount"
+    delete:
+      operationId: disconnectEmailIntegrationAccount
+      tags: [emailIntegrations]
+      summary: Disconnect a connected email account (soft — history is retained)
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Disconnected
+
+  /email-integrations/{accountId}/sync-now:
+    post:
+      operationId: syncEmailIntegrationAccountNow
+      tags: [emailIntegrations]
+      summary: Manually trigger an immediate sync pass for a connected account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailSyncResult"
+
+  /email-integrations/threads/{threadId}/assign-project:
+    patch:
+      operationId: assignEmailThreadToProject
+      tags: [emailIntegrations]
+      summary: Manually assign (or unassign) an email thread to a project
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId:
+                  type: ["integer", "null"]
+      responses:
+        "200":
+          description: Updated thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailThread"
+
+  /projects/{projectId}/communications/threads:
+    get:
+      operationId: listProjectCommunicationThreads
+      tags: [projectCommunications]
+      summary: List email threads assigned to a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Threads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailThread"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/threads/{threadId}:
+    get:
+      operationId: getProjectCommunicationThread
+      tags: [projectCommunications]
+      summary: Get a thread and its messages
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Thread with messages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [thread, messages]
+                properties:
+                  thread:
+                    $ref: "#/components/schemas/EmailThread"
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailMessage"
+
+  /projects/{projectId}/communications/search:
+    get:
+      operationId: searchProjectCommunications
+      tags: [projectCommunications]
+      summary: Keyword search over a project's synced emails
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailSearchResult"
+
+  /projects/{projectId}/communications/attachments/{attachmentId}/url:
+    get:
+      operationId: getProjectCommunicationAttachmentUrl
+      tags: [projectCommunications]
+      summary: Get a short-lived signed read URL for an email attachment
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, filename, contentType]
+                properties:
+                  url:
+                    type: string
+                  filename:
+                    type: string
+                  contentType:
+                    type: ["string", "null"]
+
+  /projects/{projectId}/communications/attachments:
+    get:
+      operationId: listProjectCommunicationAttachments
+      tags: [projectCommunications]
+      summary: List categorized email attachments across a project's threads
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectAttachment"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/summaries:
+    get:
+      operationId: listProjectCommunicationSummaries
+      tags: [projectCommunications]
+      summary: AI summaries feed for a project's synced emails
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MessageSummary"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/timeline:
+    get:
+      operationId: listProjectCommunicationTimeline
+      tags: [projectCommunications]
+      summary: AI-derived chronological project events, each linking back to its source email
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: eventType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Timeline events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommunicationTimelineEvent"
+                  total:
+                    type: integer
+
+  /projects/{projectId}/communications/match-keywords:
+    get:
+      operationId: listProjectMatchKeywords
+      tags: [projectCommunications]
+      summary: List user-defined keywords the matching engine scores this project against
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Keywords
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectMatchKeyword"
+    post:
+      operationId: addProjectMatchKeyword
+      tags: [projectCommunications]
+      summary: Add a user-defined matching keyword to a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyword]
+              properties:
+                keyword:
+                  type: string
+      responses:
+        "201":
+          description: Created keyword
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMatchKeyword"
+
+  /projects/{projectId}/communications/match-keywords/{keywordId}:
+    delete:
+      operationId: removeProjectMatchKeyword
+      tags: [projectCommunications]
+      summary: Remove a user-defined matching keyword from a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: keywordId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /uncategorized-emails:
+    get:
+      operationId: listUncategorizedEmails
+      tags: [uncategorizedEmails]
+      summary: List email threads the matching engine couldn't confidently file (the global inbox)
+      parameters:
+        - name: status
+          in: query
+          description: Comma-separated triage statuses to include (default unassigned,suggested)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: suggestedProjectId
+          in: query
+          description: Phase 4 — scope to threads the matching engine suggested for this one project (used by the mobile per-project "Suggested Matches" tab).
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Threads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailThread"
+                  total:
+                    type: integer
+
+  /uncategorized-emails/{threadId}/archive:
+    post:
+      operationId: archiveUncategorizedEmail
+      tags: [uncategorizedEmails]
+      summary: Archive an uncategorized thread
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailThread"
+
+  /uncategorized-emails/{threadId}/ignore:
+    post:
+      operationId: ignoreUncategorizedEmail
+      tags: [uncategorizedEmails]
+      summary: Ignore an uncategorized thread
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailThread"
+
+  /uncategorized-emails/bulk-assign:
+    post:
+      operationId: bulkAssignUncategorizedEmails
+      tags: [uncategorizedEmails]
+      summary: Assign multiple uncategorized threads to a project at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [threadIds, projectId]
+              properties:
+                threadIds:
+                  type: array
+                  items:
+                    type: integer
+                projectId:
+                  type: integer
+      responses:
+        "200":
+          description: Updated threads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailThread"
+
+  /uncategorized-emails/merge:
+    post:
+      operationId: mergeUncategorizedEmailThreads
+      tags: [uncategorizedEmails]
+      summary: Merge one thread's messages into another (same real conversation, two provider threads)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceThreadId, targetThreadId]
+              properties:
+                sourceThreadId:
+                  type: integer
+                targetThreadId:
+                  type: integer
+      responses:
+        "200":
+          description: Updated target thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailThread"
+
+  /uncategorized-emails/{threadId}/create-project-and-assign:
+    post:
+      operationId: createProjectAndAssignUncategorizedEmail
+      tags: [uncategorizedEmails]
+      summary: Create a new project from an uncategorized thread and assign it
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, address, city, province]
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                province:
+                  type: string
+      responses:
+        "201":
+          description: Created project and updated thread
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [project, thread]
+                properties:
+                  project:
+                    $ref: "#/components/schemas/Project"
+                  thread:
+                    $ref: "#/components/schemas/EmailThread"
+
+  /email-filing-rules:
+    get:
+      operationId: listEmailFilingRules
+      tags: [emailFilingRules]
+      summary: List automatic filing rules, priority-ordered
+      responses:
+        "200":
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailFilingRule"
+    post:
+      operationId: createEmailFilingRule
+      tags: [emailFilingRules]
+      summary: Create an automatic filing rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, conditions, actions]
+              properties:
+                name:
+                  type: string
+                isEnabled:
+                  type: boolean
+                priority:
+                  type: integer
+                conditionLogic:
+                  type: string
+                  enum: [AND, OR]
+                conditions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FilingRuleCondition"
+                actions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FilingRuleAction"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailFilingRule"
+
+  /email-filing-rules/{ruleId}:
+    patch:
+      operationId: updateEmailFilingRule
+      tags: [emailFilingRules]
+      summary: Update an automatic filing rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                isEnabled:
+                  type: boolean
+                priority:
+                  type: integer
+                conditionLogic:
+                  type: string
+                  enum: [AND, OR]
+                conditions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FilingRuleCondition"
+                actions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FilingRuleAction"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailFilingRule"
+    delete:
+      operationId: deleteEmailFilingRule
+      tags: [emailFilingRules]
+      summary: Delete an automatic filing rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /communications/ai-search:
+    post:
+      operationId: searchCommunicationsAi
+      tags: [communicationsAiSearch]
+      summary: Natural-language search over synced emails ("Show all plumbing emails", "What invoices arrived this month?")
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+      responses:
+        "200":
+          description: AI-parsed search results, with a synthesized answer if the query implied summarization
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer, results]
+                properties:
+                  answer:
+                    type: ["string", "null"]
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AiSearchResult"
+
+  /communications/search:
+    post:
+      operationId: searchCommunications
+      tags: [communicationSearch]
+      summary: Structured, company-wide email search (Search Builder)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunicationSearchCriteria"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StructuredEmailSearchResult"
+
+  /communications/search-templates:
+    get:
+      operationId: listCommunicationSearchTemplates
+      tags: [communicationSearch]
+      summary: List saved search templates
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommunicationSearchTemplate"
+    post:
+      operationId: createCommunicationSearchTemplate
+      tags: [communicationSearch]
+      summary: Save a search as a reusable named template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, criteria]
+              properties:
+                name:
+                  type: string
+                criteria:
+                  $ref: "#/components/schemas/CommunicationSearchCriteria"
+      responses:
+        "201":
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunicationSearchTemplate"
+
+  /communications/search-templates/{templateId}:
+    delete:
+      operationId: deleteCommunicationSearchTemplate
+      tags: [communicationSearch]
+      summary: Delete a saved search template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /companies/{companyId}/settings:
     get:
       operationId: getCompanySettings
@@ -5718,6 +6559,13 @@ components:
         complianceAlert:
           type: boolean
           nullable: true
+        coverPhotoUrl:
+          type: string
+          nullable: true
+          description: >-
+            Storage object path of the project's most recent site photo, used as
+            the card image in the mobile project list. Null when the project has
+            no photos yet. Clients must sign this path before rendering it.
         createdAt:
           type: string
           format: date-time
@@ -6644,14 +7492,17 @@ components:
     # ── Documents ──────────────────────────────────────────────────────────────
     ProjectDocument:
       type: object
-      required: [id, projectId, uploadedByUserId, filename, fileType, objectPath, status, createdAt]
+      required: [id, projectId, companyId, uploadedByUserId, filename, fileType, objectPath, status, createdAt]
       properties:
         id:
           type: integer
         projectId:
           type: integer
-        uploadedByUserId:
+        companyId:
           type: integer
+        uploadedByUserId:
+          type: ["integer", "null"]
+          description: Null when this document was auto-promoted from a synced email attachment rather than manually uploaded.
         filename:
           type: string
         fileType:
@@ -6663,7 +7514,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pending, processing, ready, failed]
+          enum: [pending, processing, processing_ocr, ready, failed]
         extractedData:
           type: object
           nullable: true
@@ -6671,6 +7522,9 @@ components:
         aiSummary:
           type: string
           nullable: true
+        sourceEmailAttachmentId:
+          type: ["integer", "null"]
+          description: Set when this document was promoted from an email attachment (Phase 4) — links back to the original email.
         createdAt:
           type: string
           format: date-time
@@ -9781,3 +10635,577 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ComplianceDirective"
+
+    EmailAccount:
+      type: object
+      required: [id, provider, emailAddress, status, syncFrequency]
+      properties:
+        id:
+          type: integer
+        provider:
+          type: string
+          enum: [outlook, gmail]
+        emailAddress:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, disconnected, error, reauth_required]
+        selectedFolders:
+          nullable: true
+          type: array
+          items:
+            type: string
+        syncFrequency:
+          type: string
+          enum: ["15min", hourly, daily]
+        lastSyncAt:
+          type: ["string", "null"]
+          format: date-time
+        lastSyncError:
+          type: ["string", "null"]
+        mailboxType:
+          type: string
+          enum: [personal, shared]
+
+    EmailIntegrationsStatus:
+      type: object
+      required: [accounts, outlookConfigured, gmailConfigured]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAccount"
+        outlookConfigured:
+          type: boolean
+        gmailConfigured:
+          type: boolean
+
+    EmailIntegrationAuthUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+
+    EmailMailFolder:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    EmailIntegrationAccountUpdate:
+      type: object
+      properties:
+        selectedFolders:
+          type: array
+          items:
+            type: string
+        syncFrequency:
+          type: string
+          enum: ["15min", hourly, daily]
+
+    EmailSyncResult:
+      type: object
+      required: [synced]
+      properties:
+        synced:
+          type: integer
+        error:
+          type: string
+
+    EmailMatchReason:
+      type: object
+      required: [signal, value, points]
+      properties:
+        signal:
+          type: string
+        value:
+          type: string
+        points:
+          type: integer
+
+    EmailThread:
+      type: object
+      required: [id, providerThreadId, messageCount, triageStatus, flagged, priority]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: ["integer", "null"]
+        providerThreadId:
+          type: string
+        subject:
+          type: ["string", "null"]
+        participantEmails:
+          nullable: true
+          type: array
+          items:
+            type: string
+        lastMessageAt:
+          type: ["string", "null"]
+          format: date-time
+        messageCount:
+          type: integer
+        triageStatus:
+          type: string
+          enum: [unassigned, suggested, assigned, archived, ignored, merged]
+        suggestedProjectId:
+          type: ["integer", "null"]
+        matchConfidence:
+          type: ["integer", "null"]
+        matchReasons:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/EmailMatchReason"
+        matchSource:
+          type: ["string", "null"]
+          enum: [engine, rule, manual, null]
+        category:
+          type: ["string", "null"]
+        flagged:
+          type: boolean
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        mergedIntoThreadId:
+          type: ["integer", "null"]
+        # Phase 3: hydrated by listProjectCommunicationThreads from the
+        # thread's latest message — not a column on email_threads itself.
+        latestAiSummary:
+          type: ["string", "null"]
+        latestAiTrade:
+          type: ["string", "null"]
+
+    EmailMessage:
+      type: object
+      required: [id, threadId, sentAt, hasAttachments]
+      properties:
+        id:
+          type: integer
+        threadId:
+          type: integer
+        fromEmail:
+          type: ["string", "null"]
+        fromName:
+          type: ["string", "null"]
+        toEmails:
+          nullable: true
+          type: array
+          items:
+            type: string
+        ccEmails:
+          nullable: true
+          type: array
+          items:
+            type: string
+        subject:
+          type: ["string", "null"]
+        bodyText:
+          type: ["string", "null"]
+        bodyHtml:
+          type: ["string", "null"]
+        hasAttachments:
+          type: boolean
+        sentAt:
+          type: string
+          format: date-time
+        aiTrade:
+          type: ["string", "null"]
+        aiSummary:
+          type: ["string", "null"]
+        aiEntities:
+          allOf:
+            - $ref: "#/components/schemas/EmailAiEntities"
+          nullable: true
+        aiExtractedAt:
+          type: ["string", "null"]
+          format: date-time
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAttachment"
+
+    EmailAiDeadline:
+      type: object
+      required: [description, date]
+      properties:
+        description:
+          type: string
+        date:
+          type: ["string", "null"]
+
+    EmailAiEntities:
+      type: object
+      properties:
+        projectMentions:
+          type: array
+          items:
+            type: string
+        clientMentions:
+          type: array
+          items:
+            type: string
+        vendorMentions:
+          type: array
+          items:
+            type: string
+        inspectionMentioned:
+          type: boolean
+        permitNumbers:
+          type: array
+          items:
+            type: string
+        invoiceNumbers:
+          type: array
+          items:
+            type: string
+        quoteNumbers:
+          type: array
+          items:
+            type: string
+        poNumbers:
+          type: array
+          items:
+            type: string
+        changeOrderMentions:
+          type: array
+          items:
+            type: string
+        deadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAiDeadline"
+        risks:
+          type: array
+          items:
+            type: string
+        actionItems:
+          type: array
+          items:
+            type: string
+
+    AiSearchResult:
+      type: object
+      required: [id, thread_id, sent_at]
+      properties:
+        id:
+          type: integer
+        thread_id:
+          type: integer
+        subject:
+          type: ["string", "null"]
+        from_email:
+          type: ["string", "null"]
+        from_name:
+          type: ["string", "null"]
+        sent_at:
+          type: string
+          format: date-time
+        project_id:
+          type: ["integer", "null"]
+        ai_summary:
+          type: ["string", "null"]
+        ai_trade:
+          type: ["string", "null"]
+
+    EmailAttachment:
+      type: object
+      required: [id, filename]
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        contentType:
+          type: ["string", "null"]
+        sizeBytes:
+          type: ["integer", "null"]
+        category:
+          type: ["string", "null"]
+          enum: [pdf, word, excel, image, cad, blueprint, quote, invoice, inspection_report, permit, other, null]
+
+    ProjectAttachment:
+      allOf:
+        - $ref: "#/components/schemas/EmailAttachment"
+        - type: object
+          required: [threadId, documentId]
+          properties:
+            threadId:
+              type: integer
+            documentId:
+              type: ["integer", "null"]
+              description: Set once this attachment has been promoted into the project's document library.
+
+    MessageSummary:
+      type: object
+      required: [id, thread_id, sent_at, ai_summary]
+      properties:
+        id:
+          type: integer
+        thread_id:
+          type: integer
+        subject:
+          type: ["string", "null"]
+        from_email:
+          type: ["string", "null"]
+        from_name:
+          type: ["string", "null"]
+        sent_at:
+          type: string
+          format: date-time
+        ai_summary:
+          type: string
+        ai_trade:
+          type: ["string", "null"]
+
+    CommunicationTimelineEvent:
+      type: object
+      required: [id, threadId, messageId, eventType, description, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: ["integer", "null"]
+        threadId:
+          type: integer
+        messageId:
+          type: integer
+          description: Links this event back to its source email.
+        eventType:
+          type: string
+          enum: [permit_submitted, permit_approved, permit_rejected, inspection_scheduled, inspection_passed, inspection_failed, change_order_received, change_order_approved, invoice_sent, invoice_paid, payment_requested, quote_sent, quote_accepted, other]
+        eventDate:
+          type: ["string", "null"]
+          format: date-time
+        description:
+          type: string
+        confidence:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    EmailSearchResult:
+      type: object
+      required: [id, thread_id, sent_at, rank]
+      properties:
+        id:
+          type: integer
+        thread_id:
+          type: integer
+        subject:
+          type: ["string", "null"]
+        from_email:
+          type: ["string", "null"]
+        from_name:
+          type: ["string", "null"]
+        sent_at:
+          type: string
+          format: date-time
+        rank:
+          type: number
+
+    StructuredEmailSearchResult:
+      type: object
+      required: [id, thread_id, sent_at]
+      properties:
+        id:
+          type: integer
+        thread_id:
+          type: integer
+        subject:
+          type: ["string", "null"]
+        from_email:
+          type: ["string", "null"]
+        from_name:
+          type: ["string", "null"]
+        sent_at:
+          type: string
+          format: date-time
+        project_id:
+          type: ["integer", "null"]
+
+    ProjectMatchKeyword:
+      type: object
+      required: [id, companyId, projectId, keyword]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+        keyword:
+          type: string
+        createdByUserId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    FilingRuleCondition:
+      type: object
+      required: [field, operator, value]
+      properties:
+        field:
+          type: string
+          enum: [subject, from_email, from_name, to_emails, cc_emails, body_text]
+        operator:
+          type: string
+          enum: [contains, equals, starts_with]
+        value:
+          type: string
+
+    FilingRuleAction:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [move_to_project, assign_category]
+        projectId:
+          type: integer
+        category:
+          type: string
+
+    EmailFilingRule:
+      type: object
+      required: [id, name, isEnabled, priority, conditionLogic, conditions, actions]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        name:
+          type: string
+        isEnabled:
+          type: boolean
+        priority:
+          type: integer
+        conditionLogic:
+          type: string
+          enum: [AND, OR]
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilingRuleCondition"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilingRuleAction"
+        createdByUserId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SearchCondition:
+      type: object
+      required: [field, operator]
+      properties:
+        field:
+          type: string
+          enum: [subject, from_email, from_name, to_emails, cc_emails, body_text, thread_category, priority, flagged, attachment_type, project_number, date_sent]
+        operator:
+          type: string
+          enum: [contains, not_contains, equals, starts_with, before, after, is_true, is_false]
+        value:
+          type: string
+
+    SearchConditionLeafGroup:
+      type: object
+      required: [logic, conditions]
+      properties:
+        logic:
+          type: string
+          enum: [AND, OR]
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchCondition"
+
+    SearchConditionGroup:
+      type: object
+      required: [logic, conditions]
+      description: Nesting capped at one level — conditions may include a SearchConditionLeafGroup, which cannot itself nest further.
+      properties:
+        logic:
+          type: string
+          enum: [AND, OR]
+        conditions:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/SearchCondition"
+              - $ref: "#/components/schemas/SearchConditionLeafGroup"
+
+    CommunicationSearchCriteria:
+      type: object
+      properties:
+        keywords:
+          type: string
+        subject:
+          type: string
+        sender:
+          type: string
+        recipient:
+          type: string
+        client:
+          type: string
+        vendor:
+          type: string
+        address:
+          type: string
+        projectNumber:
+          type: string
+        dateFrom:
+          type: string
+        dateTo:
+          type: string
+        attachmentTypes:
+          type: array
+          items:
+            type: string
+            enum: [pdf, word, excel, image, cad, blueprint, quote, invoice, inspection_report, permit, other]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        flagged:
+          type: boolean
+        hasConversation:
+          type: boolean
+        projectId:
+          type: ["integer", "null"]
+        conditionTree:
+          $ref: "#/components/schemas/SearchConditionGroup"
+
+    CommunicationSearchTemplate:
+      type: object
+      required: [id, name, criteria]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        createdByUserId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        criteria:
+          $ref: "#/components/schemas/CommunicationSearchCriteria"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

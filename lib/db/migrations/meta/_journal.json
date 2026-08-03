@@ -316,6 +316,13 @@
       "when": 1751414400000,
       "tag": "0044_auditor_portal_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1754006400000,
+      "tag": "0085_tenant_fk_cascade_proposals_files_actuals",
+      "breakpoints": true
     }
   ]
 }
