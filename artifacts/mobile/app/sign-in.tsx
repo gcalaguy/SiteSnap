@@ -18,6 +18,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
+// This Clerk instance requires a password on every account (instance-level
+// `password: "required"`), so brand-new sign-ups must collect one — the old
+// code called signUp.create({ emailAddress }) with no password, which this
+// instance rejects. Existing accounts, however, also support the "email_code"
+// passwordless first factor, so returning users keep the one-tap-code flow;
+// password is only ever asked for as a fallback when email_code genuinely
+// isn't offered for that account (instead of dead-ending on a contact-support
+// message), and up front for brand-new accounts since Clerk demands it.
+type Step = "email" | "code" | "password" | "signup-password";
+
 export default function SignInScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -28,7 +38,8 @@ export default function SignInScreen() {
 
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<Step>("email");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,9 +52,10 @@ export default function SignInScreen() {
 
     try {
       const si = await signIn!.create({ identifier: email.trim() });
-      const emailFactor = si.supportedFirstFactors?.find(
-        (f: any) => f.strategy === "email_code"
-      ) as any;
+      const factors = si.supportedFirstFactors ?? [];
+      const emailFactor = factors.find((f: any) => f.strategy === "email_code") as any;
+      const passwordFactor = factors.find((f: any) => f.strategy === "password") as any;
+
       if (emailFactor) {
         await signIn!.prepareFirstFactor({
           strategy: "email_code",
@@ -51,23 +63,62 @@ export default function SignInScreen() {
         });
         setIsSignUp(false);
         setStep("code");
+      } else if (passwordFactor) {
+        setIsSignUp(false);
+        setStep("password");
       } else {
-        setError("Email verification is not available for this account. Please contact support.");
+        setError("This account can't sign in yet. Please contact support.");
       }
     } catch (e: any) {
       const code0 = e?.errors?.[0]?.code;
       if (code0 === "form_identifier_not_found") {
-        try {
-          await signUp!.create({ emailAddress: email.trim() });
-          await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
-          setIsSignUp(true);
-          setStep("code");
-        } catch (su: any) {
-          setError(su?.errors?.[0]?.message ?? "Could not send verification code.");
-        }
+        // Brand-new email — this Clerk instance requires a password on every
+        // account, so collect one before creating it.
+        setIsSignUp(true);
+        setStep("signup-password");
       } else {
-        setError(e?.errors?.[0]?.message ?? "Could not send verification code.");
+        setError(e?.errors?.[0]?.message ?? "Could not sign in.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordSignIn = async () => {
+    if (!signInLoaded || !password) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signIn!.attemptFirstFactor({ strategy: "password", password });
+      if (result.status === "complete") {
+        await setSignInActive!({ session: result.createdSessionId });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        setError("Sign in incomplete. Please try again.");
+      }
+    } catch (e: any) {
+      const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Incorrect password. Please try again.";
+      setError(errMsg);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUpPassword = async () => {
+    if (!signUpLoaded || !password) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    setError("");
+
+    try {
+      await signUp!.create({ emailAddress: email.trim(), password });
+      await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
+      setStep("code");
+    } catch (e: any) {
+      setError(e?.errors?.[0]?.message ?? "Could not create your account.");
     } finally {
       setLoading(false);
     }
@@ -134,6 +185,13 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const goBackToEmail = () => {
+    setStep("email");
+    setCode("");
+    setPassword("");
+    setError("");
   };
 
   // M-P5 fix: useMemo so StyleSheet.create only re-runs when colors change
@@ -273,7 +331,7 @@ export default function SignInScreen() {
         </View>
 
         <View style={s.form}>
-          {step === "email" ? (
+          {step === "email" && (
             <>
               <Text style={s.formTitle}>Sign in</Text>
               <Text style={s.formSubtitle}>Enter your work email to continue</Text>
@@ -316,9 +374,110 @@ export default function SignInScreen() {
               </TouchableOpacity>
               <Text style={s.hint}>A verification code will be sent to your email</Text>
             </>
-          ) : (
+          )}
+
+          {step === "password" && (
             <>
-              <TouchableOpacity style={s.backButton} onPress={() => { setStep("email"); setCode(""); setError(""); }}>
+              <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
+                <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
+                <Text style={s.backText}>Back</Text>
+              </TouchableOpacity>
+
+              <Text style={s.formTitle}>Enter your password</Text>
+              <Text style={s.formSubtitle}>Sign in as {email}</Text>
+
+              {!!error && (
+                <View style={s.error}>
+                  <Text style={s.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Text style={s.label}>Password</Text>
+              <TextInput
+                style={s.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handlePasswordSignIn}
+                returnKeyType="done"
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={[s.button, (!password || loading) && { opacity: 0.5 }]}
+                onPress={handlePasswordSignIn}
+                disabled={!password || loading}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+                accessibilityState={{ disabled: !password || loading }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.buttonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === "signup-password" && (
+            <>
+              <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
+                <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
+                <Text style={s.backText}>Back</Text>
+              </TouchableOpacity>
+
+              <Text style={s.formTitle}>Create your account</Text>
+              <Text style={s.formSubtitle}>Choose a password for {email}</Text>
+
+              {!!error && (
+                <View style={s.error}>
+                  <Text style={s.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Text style={s.label}>Password</Text>
+              <TextInput
+                style={s.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="At least 8 characters"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleSignUpPassword}
+                returnKeyType="done"
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={[s.button, (!password || loading) && { opacity: 0.5 }]}
+                onPress={handleSignUpPassword}
+                disabled={!password || loading}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Create account"
+                accessibilityState={{ disabled: !password || loading }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.buttonText}>Continue</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={s.hint}>We'll email you a verification code next</Text>
+            </>
+          )}
+
+          {step === "code" && (
+            <>
+              <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
                 <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
                 <Text style={s.backText}>Back</Text>
               </TouchableOpacity>
