@@ -17,12 +17,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Truck, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Truck, MapPin, Pencil, Trash2 } from "lucide-react";
 import {
   GOLD, GOLD_BUTTON, BORDER, SURFACE2, SURFACE3, TEXT, MUTED, SCHEDULE_COLORS,
-  EmptyBlock, AddAssetModal, type AssetScheduleRow, type InventoryAsset,
+  EmptyBlock, AssetModal, type AssetScheduleRow, type InventoryAsset,
 } from "@/components/inventory/shared";
-import { useAssetsByCategory } from "@/hooks/inventory/useInventoryAssets";
+import { useAssetsByCategory, useDeleteAsset } from "@/hooks/inventory/useInventoryAssets";
 import { useAssetSchedules, useDeleteSchedule, useSaveAssetSchedule } from "@/hooks/inventory/useAssetSchedules";
 import { useActiveCompanyMembers } from "@/hooks/inventory/useCompanyMembers";
 
@@ -36,9 +36,11 @@ interface AssetRowProps {
   getScheduleForCell: (assetId: number, day: Date) => AssetScheduleRow | undefined;
   onOpenSchedule: (payload: { open: boolean; assetId: number; assetName: string; date?: Date; existing?: AssetScheduleRow }) => void;
   onDeleteSchedule: (id: number) => void;
+  onEditAsset: (asset: InventoryAsset) => void;
+  onDeleteAsset: (asset: InventoryAsset) => void;
 }
 
-const AssetRow = memo(function AssetRow({ asset, days, getScheduleForCell, onOpenSchedule, onDeleteSchedule }: AssetRowProps) {
+const AssetRow = memo(function AssetRow({ asset, days, getScheduleForCell, onOpenSchedule, onDeleteSchedule, onEditAsset, onDeleteAsset }: AssetRowProps) {
   return (
     <div className="flex last:border-b-0 group" style={{ borderBottom: `1px solid ${SURFACE3}`, ...ROW_CONTAINMENT_STYLE }}>
       {/* Asset name column */}
@@ -49,9 +51,27 @@ const AssetRow = memo(function AssetRow({ asset, days, getScheduleForCell, onOpe
         >
           <Truck size={13} style={{ color: GOLD }} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold truncate" style={{ color: TEXT }}>{asset.name}</p>
           <p className="text-[10px] capitalize" style={{ color: MUTED }}>{asset.assetType}</p>
+        </div>
+        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button
+            className="p-1 rounded-md"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            onClick={() => onEditAsset(asset)}
+            aria-label={`Edit ${asset.name}`}
+          >
+            <Pencil size={11} style={{ color: MUTED }} />
+          </button>
+          <button
+            className="p-1 rounded-md hover:bg-red-50"
+            onClick={() => onDeleteAsset(asset)}
+            aria-label={`Delete ${asset.name}`}
+          >
+            <Trash2 size={11} className="text-red-400" />
+          </button>
         </div>
       </div>
 
@@ -144,6 +164,8 @@ export function DispatchTab() {
   } | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [addAssetModal, setAddAssetModal] = useState(false);
+  const [editAsset, setEditAsset] = useState<InventoryAsset | null>(null);
+  const [deleteAsset, setDeleteAsset] = useState<InventoryAsset | null>(null);
 
   const weekEnd = addDays(weekStart, 6);
   const days = useMemo(() => eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) }), [weekStart]);
@@ -179,6 +201,7 @@ export function DispatchTab() {
   );
 
   const deleteSchedule = useDeleteSchedule(() => setDeleteId(null));
+  const deleteAssetMutation = useDeleteAsset(() => setDeleteAsset(null));
 
   const getScheduleForCell = useCallback((assetId: number, day: Date): AssetScheduleRow | undefined => {
     const schedules = schedulesByAsset.get(assetId) ?? [];
@@ -301,6 +324,8 @@ export function DispatchTab() {
               getScheduleForCell={getScheduleForCell}
               onOpenSchedule={setScheduleModal}
               onDeleteSchedule={setDeleteId}
+              onEditAsset={setEditAsset}
+              onDeleteAsset={setDeleteAsset}
             />
           ))
         )}
@@ -321,15 +346,16 @@ export function DispatchTab() {
         />
       )}
 
-      {/* Add Asset Modal */}
-      <AddAssetModal
-        open={addAssetModal}
-        category="fleet"
-        onClose={() => setAddAssetModal(false)}
-        onSaved={() => setAddAssetModal(false)}
+      {/* Add/Edit Asset Modal */}
+      <AssetModal
+        open={addAssetModal || editAsset !== null}
+        category={editAsset?.category === "heavy_equipment" ? "heavy_equipment" : "fleet"}
+        existing={editAsset}
+        onClose={() => { setAddAssetModal(false); setEditAsset(null); }}
+        onSaved={() => { setAddAssetModal(false); setEditAsset(null); }}
       />
 
-      {/* Delete Confirm */}
+      {/* Delete Schedule Confirm */}
       <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -343,6 +369,28 @@ export function DispatchTab() {
               onClick={() => deleteId !== null && deleteSchedule.mutate(deleteId)}
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Asset Confirm */}
+      <AlertDialog open={deleteAsset !== null} onOpenChange={() => setDeleteAsset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteAsset?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this asset along with its schedule and dispatch history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => deleteAsset && deleteAssetMutation.mutate(deleteAsset.id)}
+            >
+              {deleteAssetMutation.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

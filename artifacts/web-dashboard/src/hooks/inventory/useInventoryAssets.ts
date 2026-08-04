@@ -18,7 +18,7 @@ export function useAssetsByCategory(category: AssetCategory, search?: string) {
   });
 }
 
-export interface CreateAssetBody {
+export interface SaveAssetBody {
   name: string;
   assetType: string;
   make: string;
@@ -27,27 +27,53 @@ export interface CreateAssetBody {
   serialNumber: string;
   notes: string;
   category: AssetCategory;
-  status: "available";
 }
 
-export function useCreateAsset(onDone?: () => void) {
+/** Creates a new asset, or updates one in place when `existingId` is given. */
+export function useSaveAsset(existingId: number | undefined, onDone?: () => void) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateAssetBody) =>
-      customFetch("/api/inventory/assets", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: (body: SaveAssetBody) =>
+      existingId
+        ? customFetch(`/api/inventory/assets/${existingId}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : customFetch("/api/inventory/assets", {
+            method: "POST",
+            body: JSON.stringify({ ...body, status: "available" }),
+          }),
     onSuccess: () => {
-      toast({ title: "Asset added" });
+      toast({ title: existingId ? "Asset updated" : "Asset added" });
       queryClient.invalidateQueries({
         queryKey: ["/inventory/assets"],
         exact: false,
       });
+      queryClient.invalidateQueries({ queryKey: ["/inventory/summary"] });
       onDone?.();
     },
     onError: () =>
       toast({ title: "Failed to save asset", variant: "destructive" }),
+  });
+}
+
+export function useDeleteAsset(onDone?: () => void) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/inventory/assets/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast({ title: "Asset removed" });
+      queryClient.invalidateQueries({
+        queryKey: ["/inventory/assets"],
+        exact: false,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/inventory/summary"] });
+      onDone?.();
+    },
+    onError: () =>
+      toast({ title: "Failed to delete asset", variant: "destructive" }),
   });
 }

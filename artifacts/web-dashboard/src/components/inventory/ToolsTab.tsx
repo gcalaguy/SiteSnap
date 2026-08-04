@@ -12,14 +12,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Loader2, Wrench, Package, CheckCircle2, RotateCcw, ArrowRightLeft } from "lucide-react";
+import { Plus, Loader2, Wrench, Package, CheckCircle2, RotateCcw, ArrowRightLeft, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  GOLD, GOLD_BUTTON, ASSET_TYPE_ICONS,
+  GOLD, GOLD_BUTTON, MUTED, SURFACE2, ASSET_TYPE_ICONS,
   debounce, getInitials, Pill, SearchBox, StatTile, EmptyBlock, SkeletonCard,
-  AddAssetModal, type InventoryAsset, type CheckoutRow,
+  AssetModal, type InventoryAsset, type CheckoutRow,
 } from "@/components/inventory/shared";
-import { useAssetsByCategory } from "@/hooks/inventory/useInventoryAssets";
+import { useAssetsByCategory, useDeleteAsset } from "@/hooks/inventory/useInventoryAssets";
 import { useToolCheckouts, useReturnTool, useCheckoutTool } from "@/hooks/inventory/useToolCheckouts";
 import { useActiveCompanyMembers } from "@/hooks/inventory/useCompanyMembers";
 
@@ -32,9 +32,11 @@ interface ToolCardProps {
   checkout: CheckoutRow | undefined;
   onCheckout: (tool: InventoryAsset) => void;
   onReturn: (checkoutId: number, assetName: string) => void;
+  onEdit: (tool: InventoryAsset) => void;
+  onDelete: (tool: InventoryAsset) => void;
 }
 
-const ToolCard = memo(function ToolCard({ tool, checkout, onCheckout, onReturn }: ToolCardProps) {
+const ToolCard = memo(function ToolCard({ tool, checkout, onCheckout, onReturn, onEdit, onDelete }: ToolCardProps) {
   const isOut = !!checkout;
   const holderName = checkout
     ? checkout.userFirstName
@@ -49,6 +51,26 @@ const ToolCard = memo(function ToolCard({ tool, checkout, onCheckout, onReturn }
       className="rounded-2xl bg-white p-4 flex flex-col items-center text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] group relative"
       style={{ border: `1px solid ${isOut ? "#fde68a" : "#E5E5E5"}`, ...CARD_CONTAINMENT_STYLE }}
     >
+      {/* Action menu */}
+      <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          className="p-1 rounded-md"
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+          onClick={() => onEdit(tool)}
+          aria-label={`Edit ${tool.name}`}
+        >
+          <Pencil size={12} style={{ color: MUTED }} />
+        </button>
+        <button
+          className="p-1 rounded-md hover:bg-red-50"
+          onClick={() => onDelete(tool)}
+          aria-label={`Delete ${tool.name}`}
+        >
+          <Trash2 size={12} className="text-red-400" />
+        </button>
+      </div>
+
       {/* Tool Icon or Photo */}
       <div
         className="h-14 w-14 rounded-xl flex items-center justify-center mb-3"
@@ -110,6 +132,8 @@ export function ToolsTab() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [checkoutModal, setCheckoutModal] = useState<InventoryAsset | null>(null);
   const [addToolModal, setAddToolModal] = useState(false);
+  const [editTool, setEditTool] = useState<InventoryAsset | null>(null);
+  const [deleteTool, setDeleteTool] = useState<InventoryAsset | null>(null);
   const [returnId, setReturnId] = useState<{ checkoutId: number; assetName: string } | null>(null);
 
   const debounceFn = useCallback(debounce((v: string) => setDebouncedSearch(v), 300), []);
@@ -121,6 +145,7 @@ export function ToolsTab() {
   const { data: projectsData } = useListProjects();
 
   const returnTool = useReturnTool(() => setReturnId(null));
+  const deleteAsset = useDeleteAsset(() => setDeleteTool(null));
 
   const tools = toolsData?.data ?? [];
   const checkouts = checkoutsData ?? [];
@@ -169,6 +194,8 @@ export function ToolsTab() {
               checkout={checkoutsByAsset.get(tool.id)}
               onCheckout={setCheckoutModal}
               onReturn={(checkoutId, assetName) => setReturnId({ checkoutId, assetName })}
+              onEdit={setEditTool}
+              onDelete={setDeleteTool}
             />
           ))}
         </div>
@@ -185,13 +212,36 @@ export function ToolsTab() {
         />
       )}
 
-      {/* Add Tool Modal */}
-      <AddAssetModal
-        open={addToolModal}
+      {/* Add/Edit Tool Modal */}
+      <AssetModal
+        open={addToolModal || editTool !== null}
         category="small_tool"
-        onClose={() => setAddToolModal(false)}
-        onSaved={() => setAddToolModal(false)}
+        existing={editTool}
+        onClose={() => { setAddToolModal(false); setEditTool(null); }}
+        onSaved={() => { setAddToolModal(false); setEditTool(null); }}
       />
+
+      {/* Delete Tool Confirm */}
+      <AlertDialog open={deleteTool !== null} onOpenChange={() => setDeleteTool(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTool?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this tool along with its checkout history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => deleteTool && deleteAsset.mutate(deleteTool.id)}
+            >
+              {deleteAsset.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Return Confirm */}
       <AlertDialog open={returnId !== null} onOpenChange={() => setReturnId(null)}>

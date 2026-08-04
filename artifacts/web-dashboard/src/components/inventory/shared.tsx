@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import {
 import {
   Loader2, Truck, Wrench, Package, Search, CheckCircle2,
 } from "lucide-react";
-import { useCreateAsset, type AssetCategory } from "@/hooks/inventory/useInventoryAssets";
+import { useSaveAsset, type AssetCategory } from "@/hooks/inventory/useInventoryAssets";
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 // Shared visual language with the Projects screen (pages/projects.tsx):
@@ -184,19 +184,33 @@ export function SkeletonCard() {
 }
 
 // ─── Shared Modal (used by both the Dispatch and Tools tabs) ─────────────────
+// Handles both create and edit — pass `existing` to edit an asset in place.
 
-export function AddAssetModal({
-  open, category, onClose, onSaved,
+const EMPTY_ASSET_FORM = { name: "", assetType: "other", make: "", model: "", year: "", serialNumber: "", notes: "" };
+
+export function AssetModal({
+  open, category, existing, onClose, onSaved,
 }: {
-  open: boolean; category: AssetCategory;
+  open: boolean; category: AssetCategory; existing?: InventoryAsset | null;
   onClose: () => void; onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
-    name: "", assetType: "other", make: "", model: "", year: "", serialNumber: "", notes: "",
-  });
+  const [form, setForm] = useState(EMPTY_ASSET_FORM);
 
-  const createAsset = useCreateAsset(() => {
-    setForm({ name: "", assetType: "other", make: "", model: "", year: "", serialNumber: "", notes: "" });
+  useEffect(() => {
+    if (existing) {
+      setForm({
+        name: existing.name, assetType: existing.assetType,
+        make: existing.make ?? "", model: existing.model ?? "",
+        year: existing.year ?? "", serialNumber: existing.serialNumber ?? "",
+        notes: existing.notes ?? "",
+      });
+    } else {
+      setForm(EMPTY_ASSET_FORM);
+    }
+  }, [existing, open]);
+
+  const saveAsset = useSaveAsset(existing?.id, () => {
+    setForm(EMPTY_ASSET_FORM);
     onSaved();
   });
 
@@ -206,14 +220,14 @@ export function AddAssetModal({
 
   function handleSave() {
     if (!form.name.trim()) return;
-    createAsset.mutate({ ...form, category, status: "available" });
+    saveAsset.mutate({ ...form, category });
   }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add {CATEGORY_LABELS[category]} Asset</DialogTitle>
+          <DialogTitle>{existing ? "Edit" : "Add"} {CATEGORY_LABELS[category]} Asset</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div>
@@ -256,9 +270,9 @@ export function AddAssetModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={createAsset.isPending || !form.name.trim()}>
-            {createAsset.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
-            Add Asset
+          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={saveAsset.isPending || !form.name.trim()}>
+            {saveAsset.isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+            {existing ? "Save Changes" : "Add Asset"}
           </Button>
         </DialogFooter>
       </DialogContent>

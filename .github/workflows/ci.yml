@@ -132,3 +132,35 @@ jobs:
           # Dummy values to satisfy import-time guards in lib/integrations-openai-ai-server
           AI_INTEGRATIONS_OPENAI_BASE_URL: http://localhost:11434/v1
           AI_INTEGRATIONS_OPENAI_API_KEY: dummy-key-for-ci
+
+  # ── Mobile production bundle ────────────────────────────────────────────
+  # Runs the same Metro production build used at deploy time so a broken
+  # bundle (bad import, unresolved module, syntax error) fails CI instead of
+  # only surfacing once Replit's autoscale deployment tries to build it.
+  mobile-build:
+    name: Mobile production bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production Expo bundle (iOS + Android)
+        run: pnpm --filter @workspace/mobile run build
+        env:
+          # Placeholder values so build-time config checks pass; the resulting
+          # bundle is discarded, so these never need to be real credentials.
+          EXPO_PUBLIC_DOMAIN: ci-placeholder.replit.app
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy-key-for-ci
