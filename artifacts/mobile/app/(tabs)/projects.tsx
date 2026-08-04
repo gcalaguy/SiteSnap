@@ -2,6 +2,8 @@ import {
   useListProjects,
   useGetMe,
   useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
   getListProjectsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +25,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import { Chip, MediaCard } from "@/components/ui";
+import { Chip, MediaCard, SwipeableRow } from "@/components/ui";
 import { elevation, layout, radius, spacing, typography } from "@/constants/theme";
 import { ProjectFormSheet, type ProjectFormValues } from "@/components/sheets/ProjectFormSheet";
 
@@ -32,6 +34,7 @@ const STATUS_LABELS: Record<string, string> = {
   active: "Active",
   completed: "Completed",
   on_hold: "On Hold",
+  archived: "Archived",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -41,10 +44,21 @@ const STATUS_COLORS: Record<string, string> = {
   on_hold: "#F59E0B",
 };
 
-function ProjectCard({ project }: { project: any }) {
+function ProjectCard({
+  project,
+  canManage,
+  onArchive,
+  onDelete,
+}: {
+  project: any;
+  canManage: boolean;
+  onArchive: (project: any) => void;
+  onDelete: (project: any) => void;
+}) {
   const colors = useColors();
   const router = useRouter();
 
+  const archived = !!project.archivedAt;
   const statusColor = STATUS_COLORS[project.status] ?? colors.mutedForeground;
   const statusLabel = STATUS_LABELS[project.status] ?? project.status;
 
@@ -61,7 +75,7 @@ function ProjectCard({ project }: { project: any }) {
     .filter(Boolean)
     .join("  ·  ");
 
-  return (
+  const card = (
     <MediaCard
       objectPath={project.coverPhotoUrl}
       seed={project.id}
@@ -69,16 +83,45 @@ function ProjectCard({ project }: { project: any }) {
       title={project.name}
       meta={meta || undefined}
       badge={
-        <View style={[styles.badge, { backgroundColor: `${statusColor}26`, borderColor: `${statusColor}59` }]}>
-          <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+        <View style={styles.badgeRow}>
+          {archived && (
+            <View style={[styles.badge, { backgroundColor: "rgba(107,114,128,0.35)", borderColor: "rgba(255,255,255,0.3)" }]}>
+              <Text style={[styles.badgeText, { color: "#FFFFFF" }]}>Archived</Text>
+            </View>
+          )}
+          <View style={[styles.badge, { backgroundColor: `${statusColor}26`, borderColor: `${statusColor}59` }]}>
+            <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
         </View>
       }
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push(`/project/${project.id}`);
       }}
-      style={styles.card}
     />
+  );
+
+  if (!canManage) return <View style={styles.card}>{card}</View>;
+
+  return (
+    <View style={styles.card}>
+      <SwipeableRow
+        leftAction={{
+          icon: archived ? "rotate-ccw" : "archive",
+          label: archived ? "Restore" : "Archive",
+          color: archived ? "#22C55E" : "#F59E0B",
+          onTrigger: () => onArchive(project),
+        }}
+        rightAction={{
+          icon: "trash-2",
+          label: "Delete",
+          color: colors.destructive,
+          onTrigger: () => onDelete(project),
+        }}
+      >
+        {card}
+      </SwipeableRow>
+    </View>
   );
 }
 
@@ -102,6 +145,7 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.gutter,
     marginBottom: spacing.lg,
   },
+  badgeRow: { flexDirection: "row", gap: spacing.sm },
   badge: { paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radius.full, borderWidth: 1 },
   badgeText: { ...typography.label, letterSpacing: 0.6 },
   emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },
@@ -132,12 +176,14 @@ type HeaderProps = {
   onStatus: (v: string) => void;
   isLoading: boolean;
   filteredCount: number;
+  showArchived: boolean;
 };
 
-function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, filteredCount }: HeaderProps) {
+function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, filteredCount, showArchived }: HeaderProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+  const chipStatuses = showArchived ? [...ALL_STATUSES, "archived"] : ALL_STATUSES;
 
   return (
     <View style={[styles.headerArea, { paddingTop: topInsets + spacing.xxl }]}>
@@ -158,7 +204,7 @@ function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, f
         )}
       </View>
       <View style={styles.filterRow}>
-        {ALL_STATUSES.map(s => (
+        {chipStatuses.map(s => (
           <Chip
             key={s}
             label={s === "all" ? "All" : STATUS_LABELS[s]}
@@ -181,10 +227,12 @@ export default function ProjectsScreen() {
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom;
   const qc = useQueryClient();
-  const { data: projects, isLoading, refetch } = useListProjects();
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const { data: projects, isLoading, refetch } = useListProjects(
+    isOwnerOrForeman ? { includeArchived: true } : undefined,
+  );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -220,11 +268,53 @@ export default function ProjectsScreen() {
     });
   }
 
+  const updateProject = useUpdateProject({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        refetch();
+      },
+      onError: () => Alert.alert("Failed to update project"),
+    },
+  });
+
+  function handleArchiveToggle(project: any) {
+    const archiving = !project.archivedAt;
+    updateProject.mutate({ projectId: project.id, data: { archived: archiving } });
+  }
+
+  const deleteProject = useDeleteProject({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        refetch();
+      },
+      onError: () => Alert.alert("Failed to delete project"),
+    },
+  });
+
+  function handleDeleteProject(project: any) {
+    Alert.alert(
+      "Delete Project",
+      `Permanently delete "${project.name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteProject.mutate({ projectId: project.id }),
+        },
+      ],
+    );
+  }
+
   const filtered = (projects ?? []).filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || ((p as any).location ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all"
-      || p.status === statusFilter
-      || (statusFilter === "active" && p.status === "planning");
+    const matchStatus = statusFilter === "archived"
+      ? !!(p as any).archivedAt
+      : statusFilter === "all"
+      ? !(p as any).archivedAt
+      : !(p as any).archivedAt && (p.status === statusFilter || (statusFilter === "active" && p.status === "planning"));
     return matchSearch && matchStatus;
   });
 
@@ -249,9 +339,17 @@ export default function ProjectsScreen() {
           onStatus={setStatusFilter}
           isLoading={isLoading}
           filteredCount={filtered.length}
+          showArchived={isOwnerOrForeman}
         />
       }
-      renderItem={({ item }) => <ProjectCard project={item} />}
+      renderItem={({ item }) => (
+        <ProjectCard
+          project={item}
+          canManage={isOwnerOrForeman}
+          onArchive={handleArchiveToggle}
+          onDelete={handleDeleteProject}
+        />
+      )}
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
           {isLoading ? (
@@ -260,11 +358,13 @@ export default function ProjectsScreen() {
             <>
               <Feather name="folder" size={48} color={colors.border} />
               <Text style={[styles.emptyText, { color: colors.foreground }]}>
-                {search ? "No matching projects" : "No projects yet"}
+                {search ? "No matching projects" : statusFilter === "archived" ? "No archived projects" : "No projects yet"}
               </Text>
               <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
                 {search
                   ? "Try a different search term or clear your filters."
+                  : statusFilter === "archived"
+                  ? "Projects you archive will show up here."
                   : isWorker
                   ? "You haven't been assigned to any projects yet. Ask your manager to add you to a project."
                   : isOwnerOrForeman

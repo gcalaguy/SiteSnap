@@ -4,8 +4,11 @@ import { Link } from "wouter";
 import {
   useListProjects,
   useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
   useListProjectMembers,
   useGetProjectSummary,
+  useGetMe,
 } from "@workspace/api-client-react";
 import type { Project, ProjectMember } from "@workspace/api-client-react";
 import { ApiError } from "@workspace/api-client-react";
@@ -21,6 +24,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -47,6 +55,10 @@ import {
   Wallet,
   FileText,
   ExternalLink,
+  MoreVertical,
+  Archive,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 
 const GOLD = "#D4AF37";
@@ -77,7 +89,7 @@ const projectSchema = z.object({
   description: z.string().optional(),
 });
 
-type Filter = "All" | "Active" | "OnHold" | "Complete";
+type Filter = "All" | "Active" | "OnHold" | "Complete" | "Archived";
 type ViewMode = "grid" | "list";
 
 function StatusPill({ status }: { status: string }) {
@@ -96,13 +108,73 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function ArchivedPill() {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold whitespace-nowrap"
+      style={{ background: "#F3F4F6", color: "#4B5563", border: "1px solid #E5E7EB" }}
+    >
+      <Archive size={9} /> Archived
+    </span>
+  );
+}
+
+function ProjectOptionsMenu({
+  project,
+  onArchiveToggle,
+  onDelete,
+}: {
+  project: Project;
+  onArchiveToggle: (project: Project) => void;
+  onDelete: (project: Project) => void;
+}) {
+  const archived = !!(project as any).archivedAt;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-md p-1.5 hover:bg-[#F0F0F0] transition-colors"
+          aria-label="Project options"
+        >
+          <MoreVertical size={14} style={{ color: MUTED }} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem onClick={() => onArchiveToggle(project)}>
+          {archived ? (
+            <><RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore Project</>
+          ) : (
+            <><Archive className="mr-2 h-3.5 w-3.5" /> Archive Project</>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(project)}>
+          <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete Project
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function useProjectCrew(projectId: number) {
   const { data: members = [], isLoading } = useListProjectMembers(projectId);
   const foreman = (members as ProjectMember[]).find((m) => m.role === "foreman") ?? null;
   return { members: members as ProjectMember[], foreman, crewCount: members.length, isLoading };
 }
 
-function ProjectCard({ project, onOpen }: { project: Project; onOpen: (p: Project) => void }) {
+function ProjectCard({
+  project,
+  onOpen,
+  canManage,
+  onArchiveToggle,
+  onDelete,
+}: {
+  project: Project;
+  onOpen: (p: Project) => void;
+  canManage: boolean;
+  onArchiveToggle: (p: Project) => void;
+  onDelete: (p: Project) => void;
+}) {
   const { foreman, crewCount, isLoading } = useProjectCrew(project.id);
   const budget = project.budget ? parseFloat(String(project.budget)) : null;
   const spent = project.financials?.totalPaid ?? null;
@@ -124,7 +196,13 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: (p: Projec
           </p>
           <p className="text-[10px] font-medium mt-0.5" style={{ color: MUTED }}>#{project.id}</p>
         </div>
-        <StatusPill status={project.status} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!!(project as any).archivedAt && <ArchivedPill />}
+          <StatusPill status={project.status} />
+          {canManage && (
+            <ProjectOptionsMenu project={project} onArchiveToggle={onArchiveToggle} onDelete={onDelete} />
+          )}
+        </div>
       </div>
 
       {/* Hero metric — budget progress bar */}
@@ -259,6 +337,7 @@ function ProjectDrawer({ project, onClose }: { project: Project | null; onClose:
           <p className="text-[11px] font-medium" style={{ color: MUTED }}>#{project.id}</p>
           <SheetTitle className="text-xl font-extrabold pr-6">{project.name}</SheetTitle>
           <div className="flex items-center gap-2 pt-0.5">
+            {!!(project as any).archivedAt && <ArchivedPill />}
             <StatusPill status={project.status} />
             {project.complianceAlert === true && (
               <span
@@ -386,11 +465,16 @@ function ProjectDrawer({ project, onClose }: { project: Project | null; onClose:
 }
 
 export default function Projects() {
-  const { data: projects, isLoading, dataUpdatedAt } = useListProjects();
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const { data: projects, isLoading, dataUpdatedAt } = useListProjects(
+    isOwnerOrForeman ? { includeArchived: true } : undefined,
+  );
   const createProject = useCreateProject();
   const { toast } = useToast();
   const [search, setSearch]           = useState("");
   const [filter, setFilter]           = useState<Filter>("All");
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortCol, setSortCol]         = useState<string | null>(null);
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc");
@@ -449,20 +533,44 @@ export default function Projects() {
     );
   }
 
+  const updateProject = useUpdateProject({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() }),
+      onError: (err: ApiError) => toast({ title: "Failed to update project", description: err?.message, variant: "destructive" }),
+    },
+  });
+
+  function handleArchiveToggle(project: Project) {
+    updateProject.mutate({ projectId: project.id, data: { archived: !(project as any).archivedAt } });
+  }
+
+  const deleteProject = useDeleteProject({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        toast({ title: "Project deleted" });
+        setDeleteTarget(null);
+      },
+      onError: (err: ApiError) => toast({ title: "Failed to delete project", description: err?.message, variant: "destructive" }),
+    },
+  });
+
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   };
 
   const allProjects = projects ?? [];
+  const activeProjects = allProjects.filter(p => !(p as any).archivedAt);
+  const archivedCount = allProjects.length - activeProjects.length;
 
-  const activeCount    = allProjects.filter(p => p.status === "active" || p.status === "planning").length;
-  const completedCount = allProjects.filter(p => p.status === "completed").length;
-  const onHoldCount    = allProjects.filter(p => p.status === "on_hold").length;
-  const totalBudget    = allProjects.reduce((sum, p) => sum + (p.budget ? parseFloat(String(p.budget)) : 0), 0);
+  const activeCount    = activeProjects.filter(p => p.status === "active" || p.status === "planning").length;
+  const completedCount = activeProjects.filter(p => p.status === "completed").length;
+  const onHoldCount    = activeProjects.filter(p => p.status === "on_hold").length;
+  const totalBudget    = activeProjects.reduce((sum, p) => sum + (p.budget ? parseFloat(String(p.budget)) : 0), 0);
 
   const statCards: { label: string; value: string; icon: React.ElementType; sub: string; filterKey: Filter }[] = [
-    { label: "Total Budget", value: totalBudget > 0 ? `$${(totalBudget / 1_000_000).toFixed(1)}M` : "—", icon: DollarSign, sub: `${allProjects.length} projects`, filterKey: "All" },
+    { label: "Total Budget", value: totalBudget > 0 ? `$${(totalBudget / 1_000_000).toFixed(1)}M` : "—", icon: DollarSign, sub: `${activeProjects.length} projects`, filterKey: "All" },
     { label: "Active",        value: String(activeCount),    icon: TrendingUp,  sub: "in progress", filterKey: "Active" },
     { label: "On Hold",       value: String(onHoldCount),    icon: Clock,       sub: "paused",      filterKey: "OnHold" },
     { label: "Completed",     value: String(completedCount), icon: CheckCircle2, sub: "finished",   filterKey: "Complete" },
@@ -471,7 +579,10 @@ export default function Projects() {
   let filtered = allProjects.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q) || p.address.toLowerCase().includes(q);
+    const archived = !!(p as any).archivedAt;
     const matchFilter =
+      filter === "Archived" ? archived :
+      archived              ? false :
       filter === "All"      ? true :
       filter === "Active"   ? (p.status === "active" || p.status === "planning") :
       filter === "OnHold"   ? p.status === "on_hold" :
@@ -666,7 +777,11 @@ export default function Projects() {
           <span className="text-xs" style={{ color: MUTED }}>{filtered.length} projects</span>
           <div style={{ width: 1, height: 16, background: BORDER }} />
           <div className="flex items-center gap-1">
-            {(["All", "Active", "OnHold", "Complete"] as Filter[]).map(f => (
+            {(
+              isOwnerOrForeman
+                ? (["All", "Active", "OnHold", "Complete", "Archived"] as Filter[])
+                : (["All", "Active", "OnHold", "Complete"] as Filter[])
+            ).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -678,6 +793,7 @@ export default function Projects() {
                 }}
               >
                 {f === "OnHold" ? "On Hold" : f}
+                {f === "Archived" && archivedCount > 0 ? ` (${archivedCount})` : ""}
               </button>
             ))}
           </div>
@@ -704,7 +820,14 @@ export default function Projects() {
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(project => (
-            <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onOpen={setSelectedProject}
+              canManage={isOwnerOrForeman}
+              onArchiveToggle={handleArchiveToggle}
+              onDelete={setDeleteTarget}
+            />
           ))}
         </div>
       ) : (
@@ -779,6 +902,7 @@ export default function Projects() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
+                        {!!(project as any).archivedAt && <ArchivedPill />}
                         <span
                           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
                           style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}`, fontSize: 10 }}
@@ -803,11 +927,16 @@ export default function Projects() {
                       {format(new Date(project.createdAt), "MMM d, yyyy")}
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/projects/${project.id}`} onClick={(e) => e.stopPropagation()}>
-                        <button className="rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "transparent", border: "none", cursor: "pointer" }} title="Open full project">
-                          <ExternalLink size={14} style={{ color: MUTED }} />
-                        </button>
-                      </Link>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link href={`/projects/${project.id}`} onClick={(e) => e.stopPropagation()}>
+                          <button className="rounded-md p-1" style={{ background: "transparent", border: "none", cursor: "pointer" }} title="Open full project">
+                            <ExternalLink size={14} style={{ color: MUTED }} />
+                          </button>
+                        </Link>
+                        {isOwnerOrForeman && (
+                          <ProjectOptionsMenu project={project} onArchiveToggle={handleArchiveToggle} onDelete={setDeleteTarget} />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -828,6 +957,26 @@ export default function Projects() {
       )}
 
       <ProjectDrawer project={selectedProject} onClose={() => setSelectedProject(null)} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the project and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteProject.mutate({ projectId: deleteTarget.id })}
+            >
+              {deleteProject.isPending ? <Loader2 size={14} className="animate-spin" /> : "Delete Project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

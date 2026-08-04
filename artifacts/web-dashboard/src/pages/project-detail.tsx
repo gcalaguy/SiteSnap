@@ -12,9 +12,13 @@ import {
   useAddProjectMember,
   useRemoveProjectMember,
   useListChangeOrders,
+  useUpdateProject,
+  useDeleteProject,
   getListProjectMembersQueryKey,
   getListCompanyMembersQueryKey,
   getListChangeOrdersQueryKey,
+  getListProjectsQueryKey,
+  getGetProjectQueryKey,
   customFetch,
   ApiError,
 } from "@workspace/api-client-react";
@@ -45,12 +49,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck, Mail } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck, Mail, MoreVertical, Archive, RotateCcw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 
@@ -305,6 +313,27 @@ export default function ProjectDetail() {
     }
   };
 
+  const updateProject = useUpdateProject({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+      },
+      onError: (err: ApiError) => toast({ title: "Failed to update project", description: err?.message, variant: "destructive" }),
+    },
+  });
+  const deleteProject = useDeleteProject({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        toast({ title: "Project deleted" });
+        setLocation("/projects");
+      },
+      onError: (err: ApiError) => toast({ title: "Failed to delete project", description: err?.message, variant: "destructive" }),
+    },
+  });
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   if (projectLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading project...</div>;
   if (!project) return <div className="p-8 text-center">Project not found</div>;
 
@@ -343,6 +372,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
             {getStatusBadge(project.status)}
+            {!!(project as any).archivedAt && <Badge variant="secondary">Archived</Badge>}
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {project.address}, {project.city}, {project.province}</span>
@@ -371,6 +401,30 @@ export default function ProjectDetail() {
           <Printer className="h-4 w-4" />
           Export PDF
         </Button>
+
+        {isOwnerOrForeman && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0" aria-label="Project options">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => updateProject.mutate({ projectId, data: { archived: !(project as any).archivedAt } })}
+              >
+                {(project as any).archivedAt ? (
+                  <><RotateCcw className="mr-2 h-4 w-4" /> Restore Project</>
+                ) : (
+                  <><Archive className="mr-2 h-4 w-4" /> Archive Project</>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {isOwnerOrForeman && members.length > 0 && (
           <div className="shrink-0 flex items-center gap-2">
@@ -1065,6 +1119,26 @@ export default function ProjectDetail() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {project.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the project and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteProject.mutate({ projectId })}
+            >
+              {deleteProject.isPending ? <Loader2 size={14} className="animate-spin" /> : "Delete Project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -267,6 +267,8 @@ export interface Project {
   complianceAlert?: boolean | null;
   /** Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it. */
   coverPhotoUrl?: string | null;
+  /** When the project was archived. Null when active. Archived projects are hidden from the default project list but remain otherwise accessible. */
+  archivedAt?: string | null;
   createdAt: string;
 }
 
@@ -302,6 +304,8 @@ export interface UpdateProjectBody {
   budget?: number;
   /** @maxLength 5000 */
   description?: string;
+  /** Set true to archive the project, false to restore it. */
+  archived?: boolean;
 }
 
 export interface ProjectSummary {
@@ -3929,6 +3933,13 @@ export type CreateCommunicationSearchTemplateBody = {
 export type AcceptInvitation410 = {
   error?: string;
   resent?: boolean;
+};
+
+export type ListProjectsParams = {
+  /**
+   * When true, include archived projects in the response. Defaults to false.
+   */
+  includeArchived?: boolean;
 };
 
 export type ListAllDailyReportsParams = {

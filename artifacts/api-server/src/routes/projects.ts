@@ -13,7 +13,7 @@ import {
   projectNotesTable,
   sitePhotosTable,
 } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull } from "drizzle-orm";
 import {
   requireAuth,
   requireCompany,
@@ -84,6 +84,7 @@ router.get(
   "/projects",
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
+    const includeArchived = req.query.includeArchived === "true";
 
     // Pre-fetch financial summaries for the tenant; failures are isolated so
     // they never prevent the project list from returning.
@@ -120,6 +121,7 @@ router.get(
           and(
             eq(projectsTable.companyId, companyId),
             inArray(projectsTable.id, accessibleIds),
+            includeArchived ? undefined : isNull(projectsTable.archivedAt),
           ),
         );
 
@@ -153,7 +155,12 @@ router.get(
     const projects = await db
       .select()
       .from(projectsTable)
-      .where(eq(projectsTable.companyId, companyId));
+      .where(
+        and(
+          eq(projectsTable.companyId, companyId),
+          includeArchived ? undefined : isNull(projectsTable.archivedAt),
+        ),
+      );
 
     const projectIds = projects.map((p) => p.id);
     let complianceAlertIds = new Set<number>();
@@ -346,11 +353,13 @@ router.put(
       startDate: ud,
       endDate: ue,
       budget: ub,
+      archived,
       ...updateRest
     } = parsed.data as {
       startDate?: Date | string | null;
       endDate?: Date | string | null;
       budget?: number | string | null;
+      archived?: boolean;
       name?: string;
       address?: string;
       city?: string;
@@ -368,6 +377,7 @@ router.put(
         endDate:
           ue !== undefined ? (ue ? toDateOnlyString(ue) : null) : undefined,
         budget: ub !== undefined ? (ub != null ? String(ub) : null) : undefined,
+        archivedAt: archived !== undefined ? (archived ? new Date() : null) : undefined,
       })
       .where(
         and(
@@ -379,12 +389,21 @@ router.put(
 
     if (!project) throw new NotFoundError("Project not found");
 
-    logAuditEventFromRequest(
-      req,
-      "Project Updated",
-      `Updated project "${project.name}"`,
-      { projectName: project.name },
-    ).catch(() => {});
+    if (archived !== undefined) {
+      logAuditEventFromRequest(
+        req,
+        archived ? "Project Archived" : "Project Restored",
+        `${archived ? "Archived" : "Restored"} project "${project.name}"`,
+        { projectName: project.name },
+      ).catch(() => {});
+    } else {
+      logAuditEventFromRequest(
+        req,
+        "Project Updated",
+        `Updated project "${project.name}"`,
+        { projectName: project.name },
+      ).catch(() => {});
+    }
 
     res.json(project);
   }),

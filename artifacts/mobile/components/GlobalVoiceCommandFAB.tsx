@@ -30,6 +30,7 @@ import {
   getListCostAnalysesQueryKey,
   getListProjectsQueryKey,
   getListTimesheetsQueryKey,
+  getListTasksQueryKey,
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -343,7 +344,7 @@ export function GlobalVoiceCommandFAB() {
   // Helper: fetch tasks for a project, find the match, and mark it done
   async function markTaskDoneOnProject(projectId: number, taskName: string) {
     const tasksData = await qc.fetchQuery({
-      queryKey: ["/api/projects", projectId, "tasks"],
+      queryKey: getListTasksQueryKey(projectId),
       queryFn: () => customFetch<Task[]>(`/api/projects/${projectId}/tasks`),
     });
     const tasks = Array.isArray(tasksData) ? tasksData : [];
@@ -371,7 +372,7 @@ export function GlobalVoiceCommandFAB() {
         { projectId, taskId: task.id, data: { status: "done" } }
       );
       addResult("check", "Complete task", `"${task.title}" marked done`, "ok");
-      qc.invalidateQueries({ queryKey: ["/api/projects", projectId, "tasks"] });
+      qc.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
       invalidateDashboard();
     } catch {
       addResult("x", "Complete task", "Failed to update", "error");

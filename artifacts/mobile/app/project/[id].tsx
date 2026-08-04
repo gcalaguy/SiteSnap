@@ -13,6 +13,9 @@ import {
   getListDailyReportsQueryKey,
   useListChangeOrders,
   useListFormSubmissions,
+  useUpdateProject,
+  useDeleteProject,
+  getListProjectsQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
 import { TaskFormSheet, type TaskFormValues } from "@/components/sheets/TaskFormSheet";
@@ -547,6 +550,21 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBg: { paddingHorizontal: 20, paddingBottom: 20 },
+  headerOptionsButton: { position: "absolute", right: 20, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  archivedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(107,114,128,0.35)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  archivedPillText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
   projectName: { fontSize: 22, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", marginBottom: 6 },
   projectLoc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 10 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -1151,6 +1169,48 @@ export default function ProjectDetailScreen() {
     enabled: perms.viewSafetyTab,
   });
 
+  const qc = useQueryClient();
+  const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const updateProject = useUpdateProject({
+    mutation: {
+      onSuccess: () => {
+        refetchProject();
+        qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        setShowOptionsSheet(false);
+      },
+      onError: () => Alert.alert("Failed to update project"),
+    },
+  });
+  const deleteProject = useDeleteProject({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        setShowOptionsSheet(false);
+        router.back();
+      },
+      onError: () => Alert.alert("Failed to delete project"),
+    },
+  });
+
+  function handleArchiveToggle() {
+    if (!project) return;
+    const archiving = !(project as any).archivedAt;
+    updateProject.mutate({ projectId, data: { archived: archiving } });
+  }
+
+  function handleDeleteProject() {
+    if (!project) return;
+    setShowOptionsSheet(false);
+    Alert.alert(
+      "Delete Project",
+      `Permanently delete "${project.name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteProject.mutate({ projectId }) },
+      ],
+    );
+  }
+
   const [showTaskSheet, setShowTaskSheet] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const createTask = useCreateTask({
@@ -1281,6 +1341,24 @@ export default function ProjectDetailScreen() {
     >
       {/* Project header */}
       <View style={[styles.headerBg, { backgroundColor: colors.sidebar, paddingTop: topInsets + 20 }]}>
+        {isOwnerOrForeman && (
+          <Pressable
+            style={[styles.headerOptionsButton, { top: topInsets + 20 }]}
+            hitSlop={10}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowOptionsSheet(true);
+            }}
+          >
+            <Feather name="more-vertical" size={20} color="#FFFFFF" />
+          </Pressable>
+        )}
+        {!!(project as any)?.archivedAt && (
+          <View style={styles.archivedPill}>
+            <Feather name="archive" size={11} color="#FFFFFF" />
+            <Text style={styles.archivedPillText}>Archived</Text>
+          </View>
+        )}
         <Text style={styles.projectName}>{project?.name ?? "Project"}</Text>
         {!!(project as any)?.location && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
@@ -1903,6 +1981,30 @@ export default function ProjectDetailScreen() {
               trailing={activeTab === tab ? <Feather name="check" size={18} color={colors.primary} /> : undefined}
             />
           ))}
+        </View>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={showOptionsSheet}
+        onClose={() => setShowOptionsSheet(false)}
+        title="Project Options"
+        scrollable={false}
+      >
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <ListRow
+            icon={(project as any)?.archivedAt ? "rotate-ccw" : "archive"}
+            iconColor={(project as any)?.archivedAt ? "#22C55E" : "#F59E0B"}
+            title={(project as any)?.archivedAt ? "Restore Project" : "Archive Project"}
+            subtitle={(project as any)?.archivedAt ? "Move this project back to your active list" : "Hide this project from the default list"}
+            onPress={handleArchiveToggle}
+          />
+          <ListRow
+            icon="trash-2"
+            iconColor={colors.destructive}
+            title="Delete Project"
+            subtitle="Permanently remove this project and its data"
+            onPress={handleDeleteProject}
+          />
         </View>
       </BottomSheet>
     </>

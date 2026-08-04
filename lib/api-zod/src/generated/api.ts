@@ -4011,6 +4011,15 @@ export const AcceptInvitationResponse = zod
 /**
  * @summary List all projects for the current user's company
  */
+export const ListProjectsQueryParams = zod.object({
+  includeArchived: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, include archived projects in the response. Defaults to false.",
+    ),
+});
+
 export const ListProjectsResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4038,6 +4047,12 @@ export const ListProjectsResponseItem = zod.object({
     .nullish()
     .describe(
       "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+    ),
+  archivedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the project was archived. Null when active. Archived projects are hidden from the default project list but remain otherwise accessible.",
     ),
   createdAt: zod.coerce.date(),
 });
@@ -4105,6 +4120,12 @@ export const GetProjectResponse = zod.object({
     .describe(
       "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
     ),
+  archivedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the project was archived. Null when active. Archived projects are hidden from the default project list but remain otherwise accessible.",
+    ),
   createdAt: zod.coerce.date(),
 });
 
@@ -4137,6 +4158,10 @@ export const UpdateProjectBody = zod.object({
   endDate: zod.coerce.date().optional(),
   budget: zod.number().optional(),
   description: zod.string().max(updateProjectBodyDescriptionMax).optional(),
+  archived: zod
+    .boolean()
+    .optional()
+    .describe("Set true to archive the project, false to restore it."),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -4166,6 +4191,12 @@ export const UpdateProjectResponse = zod.object({
     .nullish()
     .describe(
       "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+    ),
+  archivedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the project was archived. Null when active. Archived projects are hidden from the default project list but remain otherwise accessible.",
     ),
   createdAt: zod.coerce.date(),
 });
@@ -9201,6 +9232,12 @@ export const GetComplianceDashboardResponseItem = zod.object({
       .nullish()
       .describe(
         "Storage object path of the project's most recent site photo, used as the card image in the mobile project list. Null when the project has no photos yet. Clients must sign this path before rendering it.",
+      ),
+    archivedAt: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When the project was archived. Null when active. Archived projects are hidden from the default project list but remain otherwise accessible.",
       ),
     createdAt: zod.coerce.date(),
   }),

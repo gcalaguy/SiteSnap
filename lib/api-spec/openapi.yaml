@@ -2645,6 +2645,13 @@ paths:
       operationId: listProjects
       tags: [projects]
       summary: List all projects for the current user's company
+      parameters:
+        - name: includeArchived
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: When true, include archived projects in the response. Defaults to false.
       responses:
         "200":
           description: Projects list
@@ -6566,6 +6573,14 @@ components:
             Storage object path of the project's most recent site photo, used as
             the card image in the mobile project list. Null when the project has
             no photos yet. Clients must sign this path before rendering it.
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the project was archived. Null when active. Archived projects
+            are hidden from the default project list but remain otherwise
+            accessible.
         createdAt:
           type: string
           format: date-time
@@ -6633,6 +6648,9 @@ components:
         description:
           type: string
           maxLength: 5000
+        archived:
+          type: boolean
+          description: Set true to archive the project, false to restore it.
 
     ProjectSummary:
       type: object

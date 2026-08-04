@@ -255,11 +255,13 @@ export const projectsTable = pgTable("projects", {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 }, (t) => [
   index("idx_projects_company_id").on(t.companyId),
   index("idx_projects_company_id_id").on(t.companyId, t.id),
   index("idx_projects_primary_contact").on(t.primaryContactId),
   uniqueIndex("uq_projects_company_project_number").on(t.companyId, t.projectNumber),
+  index("idx_projects_company_archived").on(t.companyId, t.archivedAt),
 ]);
 
 export const insertProjectSchema = createInsertSchema(projectsTable).omit({
