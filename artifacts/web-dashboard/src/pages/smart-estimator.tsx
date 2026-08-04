@@ -7,6 +7,7 @@ import {
   useUpdateCostModel,
   useDeleteCostModel,
   getListCostModelsQueryKey,
+  getListAllQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -351,7 +352,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     onSuccess: (data) => {
       setCreatedQuoteNumber(data.quoteNumber);
       setShowToQuoteDialog(false);
-      queryClient.invalidateQueries({ queryKey: ["quotes"] });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey() });
       toast({
         title: "Quote created!",
         description: `${data.quoteNumber} has been added to your Quotes section as a draft.`,

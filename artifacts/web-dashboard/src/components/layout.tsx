@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { HelpChatWidget } from "@/components/HelpChatWidget";
-import { useGetMe, customFetch, useListNotifications, useGetNotificationsUnreadCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
+import { useGetMe, customFetch, useListNotifications, useGetNotificationsUnreadCount, useMarkAllNotificationsRead, useMarkNotificationRead, getListNotificationsQueryKey, getGetNotificationsUnreadCountQueryKey } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
   Building2,
@@ -157,8 +157,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const handleMarkAll = () => {
     markAll.mutate(undefined, {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+        qc.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetNotificationsUnreadCountQueryKey() });
       },
     });
   };
@@ -167,8 +167,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     e.stopPropagation();
     markOne.mutate({ id }, {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+        qc.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetNotificationsUnreadCountQueryKey() });
       },
     });
   };

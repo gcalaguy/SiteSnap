@@ -8,6 +8,8 @@ import {
   useMarkNotificationRead,
   useGetMe,
   customFetch,
+  getListNotificationsQueryKey,
+  getGetNotificationsUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -546,8 +548,8 @@ export default function Dashboard() {
   const handleMarkAll = () => {
     markAll.mutate(undefined, {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+        qc.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetNotificationsUnreadCountQueryKey() });
       },
     });
   };
@@ -555,8 +557,8 @@ export default function Dashboard() {
   const handleMarkOne = (id: number) => {
     markOne.mutate({ id }, {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+        qc.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetNotificationsUnreadCountQueryKey() });
       },
     });
   };

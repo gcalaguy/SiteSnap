@@ -1,5 +1,9 @@
 import { QueryClient, QueryCache, MutationCache, keepPreviousData } from "@tanstack/react-query";
-import { ApiError } from "@workspace/api-client-react";
+import {
+  ApiError,
+  getGetDashboardSummaryQueryKey,
+  getGetRecentActivityQueryKey,
+} from "@workspace/api-client-react";
 
 // B2 fix: auto sign-out on any 401 response so expired sessions never silently
 // linger on the web dashboard. Both query and mutation errors are intercepted
@@ -22,9 +26,25 @@ function handle401(error: unknown) {
   }
 }
 
+// Every create/update/delete mutation across the app changes something the
+// Dashboard's stat cards or Recent Activity feed could reflect, but individual
+// pages only invalidate their own list (e.g. the Projects page invalidates
+// ["/api/projects"]). Without this, the Dashboard silently serves up to
+// staleTime-old data after any mutation, since nothing else ever marks its
+// queries stale. Invalidating here (rather than per call site) means new
+// mutation flows get this for free instead of relying on each one to
+// remember it.
+function invalidateDashboard() {
+  queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: handle401 }),
-  mutationCache: new MutationCache({ onError: handle401 }),
+  mutationCache: new MutationCache({
+    onError: handle401,
+    onSuccess: invalidateDashboard,
+  }),
   defaultOptions: {
     queries: {
       staleTime: 300_000,

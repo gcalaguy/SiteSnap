@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { customFetch, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { downloadEstimatePDF, downloadEstimateDocx, printEstimate, type CompanyInfo } from "@/lib/estimateExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -443,7 +443,7 @@ function EstimateEditor({
             hstNumber: coHst,
           }),
         });
-        queryClient.invalidateQueries({ queryKey: ["me"] });
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       }
 
       const matTotal = sumLines(materials);

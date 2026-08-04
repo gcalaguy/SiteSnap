@@ -4,6 +4,8 @@ import {
   useCreateContact,
   useUpdateContact,
   useDeleteContact,
+  getListContactsQueryKey,
+  getGetDashboardSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -139,8 +141,8 @@ export default function Contacts() {
   const createContact = useCreateContact({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["listContacts"] });
-        queryClient.invalidateQueries({ queryKey: ["getDashboardSummary"] });
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         toast({ title: "Contact created" });
         setDialogOpen(false);
         setForm(EMPTY_FORM);
@@ -152,7 +154,7 @@ export default function Contacts() {
   const updateContact = useUpdateContact({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["listContacts"] });
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
         toast({ title: "Contact updated" });
         setDialogOpen(false);
         setEditId(null);
@@ -165,8 +167,8 @@ export default function Contacts() {
   const deleteContact = useDeleteContact({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["listContacts"] });
-        queryClient.invalidateQueries({ queryKey: ["getDashboardSummary"] });
+        queryClient.invalidateQueries({ queryKey: getListContactsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         toast({ title: "Contact deleted" });
         setDeleteId(null);
       },

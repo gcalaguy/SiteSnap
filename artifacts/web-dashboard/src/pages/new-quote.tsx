@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useCreateQuote, useGetMe } from "@workspace/api-client-react";
+import { useCreateQuote, useGetMe, getListAllQuotesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createQuoteBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ export default function NewQuote() {
   const { toast } = useToast();
   const createQuote = useCreateQuote();
   const { data: me } = useGetMe();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState("");
   const [clientName, setClientName] = useState("");
@@ -84,6 +86,7 @@ export default function NewQuote() {
           validUntil: validUntil || undefined,
         },
       });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey() });
       toast({ title: "Quote created" });
       draft.clearDraft();
       setLocation(`/quotes/${quote.id}`);
