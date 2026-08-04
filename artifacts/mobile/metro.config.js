@@ -5,6 +5,15 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver = config.resolver ?? {};
 
+// Polyfill Node.js built-ins that third-party packages (e.g. react-native-svg@15
+// fetchData.ts) import directly. Metro does not bundle these automatically.
+// `buffer` is listed as an explicit dependency in package.json so
+// require.resolve always returns a real file path regardless of lockfile changes.
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  buffer: require.resolve("buffer/index.js"),
+};
+
 // Block Metro from watching pdf-parse tmp test directories (server-only package)
 // Also block Vite/Vitest node_modules and all test files from the RN bundle
 config.resolver.blockList = [
