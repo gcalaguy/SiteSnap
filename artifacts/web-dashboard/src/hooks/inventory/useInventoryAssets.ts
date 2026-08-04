@@ -10,7 +10,10 @@ export function useAssetsByCategory(category: AssetCategory, search?: string) {
   const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
   return useQuery<{ data: InventoryAsset[] }>({
     queryKey: ["/inventory/assets", category, search ?? ""],
-    queryFn: () => customFetch(`/api/inventory/assets?category=${category}&limit=200${searchParam}`),
+    queryFn: () =>
+      customFetch(
+        `/api/inventory/assets?category=${category}&limit=200${searchParam}`,
+      ),
     staleTime: 20_000,
   });
 }
@@ -32,12 +35,19 @@ export function useCreateAsset(onDone?: () => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateAssetBody) =>
-      customFetch("/api/inventory/assets", { method: "POST", body: JSON.stringify(body) }),
+      customFetch("/api/inventory/assets", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     onSuccess: () => {
       toast({ title: "Asset added" });
-      queryClient.invalidateQueries({ queryKey: ["/inventory/assets"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/inventory/assets"],
+        exact: false,
+      });
       onDone?.();
     },
-    onError: () => toast({ title: "Failed to save asset", variant: "destructive" }),
+    onError: () =>
+      toast({ title: "Failed to save asset", variant: "destructive" }),
   });
 }

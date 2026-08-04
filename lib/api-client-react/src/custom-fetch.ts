@@ -418,8 +418,15 @@ export async function customFetch<T = unknown>(
       await sleep(RETRY_DELAY_MS * Math.pow(2, attempt - 1));
     }
     try {
+      // Every caller here is an API request whose response reflects live
+      // server state — the browser's HTTP cache must never serve a stale
+      // GET response out from under React Query's own (correctly invalidated)
+      // cache. Long-lived sessions (e.g. an embedded preview iframe kept open
+      // across many requests) can accumulate cached entries for these exact
+      // URLs; a fresh browser profile has none yet, which is why the same
+      // create-then-list flow looks fine there and stale everywhere else.
       const response = await withTimeout(
-        fetch(input, { ...init, method, headers }),
+        fetch(input, { ...init, method, headers, cache: init.cache ?? "no-store" }),
         timeoutMs ?? DEFAULT_TIMEOUT_MS,
       );
 

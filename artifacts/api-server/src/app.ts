@@ -190,6 +190,15 @@ app.use(
   })),
 );
 
+// Every /api response reflects live, per-request tenant state — never let an
+// intermediate cache (a reverse proxy in front of the dev domain, a stale
+// browser HTTP cache entry from a long-lived session) serve an old response
+// out from under a client that just correctly invalidated its own cache.
+app.use(["/api", "/api/v1"], (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 // Mount at /api/v1 (versioned) and /api (legacy backward-compatible alias).
 // New clients should use /api/v1; existing clients on /api continue to work.
 app.use("/api/v1", router);

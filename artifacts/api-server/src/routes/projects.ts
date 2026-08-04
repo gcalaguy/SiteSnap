@@ -14,7 +14,12 @@ import {
   sitePhotosTable,
 } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
+import {
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  requireTenantCtx,
+} from "../lib/auth";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 import { z } from "zod";
@@ -32,7 +37,10 @@ import {
 } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { logger } from "../lib/logger";
-import { getTenantFinancialSummaries, type TenantFinancialSummary } from "../services/dashboardMetrics";
+import {
+  getTenantFinancialSummaries,
+  type TenantFinancialSummary,
+} from "../services/dashboardMetrics";
 import {
   validateWorkerCompliance,
   getProjectsWithComplianceAlerts,
@@ -54,7 +62,9 @@ function toDateOnlyString(value: Date | string): string {
 // One DISTINCT ON query for the whole page rather than a per-project fetch —
 // `idx_site_photos_project_created` covers exactly this ordering. Returns
 // storage object paths; the client signs them.
-async function getCoverPhotoUrls(projectIds: number[]): Promise<Map<number, string>> {
+async function getCoverPhotoUrls(
+  projectIds: number[],
+): Promise<Map<number, string>> {
   if (projectIds.length === 0) return new Map();
 
   const rows = await db
@@ -85,10 +95,17 @@ router.get(
       }
     } catch (err) {
       // Aggregation errors must not crash the core project list response.
-      req.log?.warn({ err }, "dashboardMetrics: failed to load financial summaries");
+      req.log?.warn(
+        { err },
+        "dashboardMetrics: failed to load financial summaries",
+      );
     }
 
-    const accessibleIds = await getAccessibleProjectIds(companyId, req.userId!, req.userRole ?? "worker");
+    const accessibleIds = await getAccessibleProjectIds(
+      companyId,
+      req.userId!,
+      req.userRole ?? "worker",
+    );
 
     if (req.userRole === "worker" && !req.userPermissions?.viewAllProjects) {
       if (accessibleIds.length === 0) {
@@ -99,12 +116,20 @@ router.get(
       const projects = await db
         .select()
         .from(projectsTable)
-        .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, accessibleIds)));
+        .where(
+          and(
+            eq(projectsTable.companyId, companyId),
+            inArray(projectsTable.id, accessibleIds),
+          ),
+        );
 
       const projectIds = projects.map((p) => p.id);
       let complianceAlertIds = new Set<number>();
       try {
-        complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
+        complianceAlertIds = await getProjectsWithComplianceAlerts(
+          companyId,
+          projectIds,
+        );
       } catch {}
 
       let coverPhotos = new Map<number, string>();
@@ -133,7 +158,10 @@ router.get(
     const projectIds = projects.map((p) => p.id);
     let complianceAlertIds = new Set<number>();
     try {
-      complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
+      complianceAlertIds = await getProjectsWithComplianceAlerts(
+        companyId,
+        projectIds,
+      );
     } catch {}
 
     let coverPhotos = new Map<number, string>();
@@ -189,12 +217,37 @@ router.post(
 
     // Auto-create default tasks for new projects
     const defaultTasks = [
-      { title: "Site Assessment & Setup", description: "Initial site walkthrough, safety plan, and equipment staging.", priority: "high" as const },
-      { title: "Permits & Documentation", description: "Obtain all required permits and submit documentation.", priority: "high" as const },
-      { title: "Foundation & Ground Work", description: "Excavation, grading, and foundation preparation.", priority: "medium" as const },
-      { title: "Framing & Structure", description: "Structural framing, walls, and roofing.", priority: "medium" as const },
-      { title: "Inspections", description: "Schedule and pass all required building inspections.", priority: "medium" as const },
-      { title: "Final Cleanup & Handover", description: "Site cleanup, punch list, and client walkthrough.", priority: "low" as const },
+      {
+        title: "Site Assessment & Setup",
+        description:
+          "Initial site walkthrough, safety plan, and equipment staging.",
+        priority: "high" as const,
+      },
+      {
+        title: "Permits & Documentation",
+        description: "Obtain all required permits and submit documentation.",
+        priority: "high" as const,
+      },
+      {
+        title: "Foundation & Ground Work",
+        description: "Excavation, grading, and foundation preparation.",
+        priority: "medium" as const,
+      },
+      {
+        title: "Framing & Structure",
+        description: "Structural framing, walls, and roofing.",
+        priority: "medium" as const,
+      },
+      {
+        title: "Inspections",
+        description: "Schedule and pass all required building inspections.",
+        priority: "medium" as const,
+      },
+      {
+        title: "Final Cleanup & Handover",
+        description: "Site cleanup, punch list, and client walkthrough.",
+        priority: "low" as const,
+      },
     ];
 
     if (project) {
@@ -209,7 +262,12 @@ router.post(
       );
     }
 
-    logAuditEventFromRequest(req, "Project Created", `Created project "${project.name}"`, { projectName: project.name }).catch(() => {});
+    logAuditEventFromRequest(
+      req,
+      "Project Created",
+      `Created project "${project.name}"`,
+      { projectName: project.name },
+    ).catch(() => {});
 
     res.status(201).json(project);
   }),
@@ -220,12 +278,18 @@ router.get(
   "/projects/:projectId",
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
       .select()
       .from(projectsTable)
-      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      )
       .limit(1);
 
     if (!project) throw new NotFoundError("Project not found");
@@ -235,17 +299,28 @@ router.get(
       const [membership] = await db
         .select()
         .from(projectMembersTable)
-        .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, req.userId!)))
+        .where(
+          and(
+            eq(projectMembersTable.projectId, projectId),
+            eq(projectMembersTable.userId, req.userId!),
+          ),
+        )
         .limit(1);
 
       if (!membership) {
         const [schedule] = await db
           .select()
           .from(workerSchedulesTable)
-          .where(and(eq(workerSchedulesTable.projectId, projectId), eq(workerSchedulesTable.userId, req.userId!)))
+          .where(
+            and(
+              eq(workerSchedulesTable.projectId, projectId),
+              eq(workerSchedulesTable.userId, req.userId!),
+            ),
+          )
           .limit(1);
 
-        if (!schedule) throw new ForbiddenError("You are not assigned to this project");
+        if (!schedule)
+          throw new ForbiddenError("You are not assigned to this project");
       }
     }
 
@@ -259,14 +334,20 @@ router.put(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     const parsed = UpdateProjectBody.safeParse(req.body);
     if (!parsed.success) {
       throw new ValidationError("Invalid project data", parsed.error.issues);
     }
 
-    const { startDate: ud, endDate: ue, budget: ub, ...updateRest } = parsed.data as {
+    const {
+      startDate: ud,
+      endDate: ue,
+      budget: ub,
+      ...updateRest
+    } = parsed.data as {
       startDate?: Date | string | null;
       endDate?: Date | string | null;
       budget?: number | string | null;
@@ -282,16 +363,28 @@ router.put(
       .update(projectsTable)
       .set({
         ...updateRest,
-        startDate: ud !== undefined ? (ud ? toDateOnlyString(ud) : null) : undefined,
-        endDate: ue !== undefined ? (ue ? toDateOnlyString(ue) : null) : undefined,
+        startDate:
+          ud !== undefined ? (ud ? toDateOnlyString(ud) : null) : undefined,
+        endDate:
+          ue !== undefined ? (ue ? toDateOnlyString(ue) : null) : undefined,
         budget: ub !== undefined ? (ub != null ? String(ub) : null) : undefined,
       })
-      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      )
       .returning();
 
     if (!project) throw new NotFoundError("Project not found");
 
-    logAuditEventFromRequest(req, "Project Updated", `Updated project "${project.name}"`, { projectName: project.name }).catch(() => {});
+    logAuditEventFromRequest(
+      req,
+      "Project Updated",
+      `Updated project "${project.name}"`,
+      { projectName: project.name },
+    ).catch(() => {});
 
     res.json(project);
   }),
@@ -303,13 +396,23 @@ router.delete(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     await db
       .delete(projectsTable)
-      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)));
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      );
 
-    logAuditEventFromRequest(req, "Project Deleted", `Deleted project ID ${projectId}`).catch(() => {});
+    logAuditEventFromRequest(
+      req,
+      "Project Deleted",
+      `Deleted project ID ${projectId}`,
+    ).catch(() => {});
 
     res.status(204).send();
   }),
@@ -320,12 +423,18 @@ router.get(
   "/projects/:projectId/summary",
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
       .select()
       .from(projectsTable)
-      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      )
       .limit(1);
 
     if (!project) throw new NotFoundError("Project not found");
@@ -336,32 +445,58 @@ router.get(
       const [membership] = await db
         .select()
         .from(projectMembersTable)
-        .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, req.userId!)))
+        .where(
+          and(
+            eq(projectMembersTable.projectId, projectId),
+            eq(projectMembersTable.userId, req.userId!),
+          ),
+        )
         .limit(1);
 
       if (!membership) {
         const [schedule] = await db
           .select()
           .from(workerSchedulesTable)
-          .where(and(eq(workerSchedulesTable.projectId, projectId), eq(workerSchedulesTable.userId, req.userId!)))
+          .where(
+            and(
+              eq(workerSchedulesTable.projectId, projectId),
+              eq(workerSchedulesTable.userId, req.userId!),
+            ),
+          )
           .limit(1);
 
-        if (!schedule) throw new ForbiddenError("You are not assigned to this project");
+        if (!schedule)
+          throw new ForbiddenError("You are not assigned to this project");
       }
     }
 
     const [reports, rfis, analyses, tasks] = await Promise.all([
-      db.select().from(dailyReportsTable).where(eq(dailyReportsTable.projectId, projectId)),
+      db
+        .select()
+        .from(dailyReportsTable)
+        .where(eq(dailyReportsTable.projectId, projectId)),
       db.select().from(rfisTable).where(eq(rfisTable.projectId, projectId)),
-      db.select().from(costAnalysesTable).where(eq(costAnalysesTable.projectId, projectId)),
+      db
+        .select()
+        .from(costAnalysesTable)
+        .where(eq(costAnalysesTable.projectId, projectId)),
       db.select().from(tasksTable).where(eq(tasksTable.projectId, projectId)),
     ]);
 
-    const totalSpent = analyses.reduce((sum, a) => sum + parseFloat(a.totalCost), 0);
+    const totalSpent = analyses.reduce(
+      (sum, a) => sum + parseFloat(a.totalCost),
+      0,
+    );
     const budget = project.budget ? parseFloat(project.budget) : null;
-    const openRFIs = rfis.filter((r) => r.status === "open" || r.status === "in_review").length;
-    const closedRFIs = rfis.filter((r) => r.status === "answered" || r.status === "closed").length;
-    const lastReport = reports.sort((a, b) => b.reportDate.localeCompare(a.reportDate))[0];
+    const openRFIs = rfis.filter(
+      (r) => r.status === "open" || r.status === "in_review",
+    ).length;
+    const closedRFIs = rfis.filter(
+      (r) => r.status === "answered" || r.status === "closed",
+    ).length;
+    const lastReport = reports.sort((a, b) =>
+      b.reportDate.localeCompare(a.reportDate),
+    )[0];
 
     res.json({
       projectId: project.id,
@@ -369,14 +504,17 @@ router.get(
       status: project.status,
       totalBudget: budget,
       totalSpent,
-      budgetUtilizationPercent: budget ? Math.round((totalSpent / budget) * 100) : null,
+      budgetUtilizationPercent: budget
+        ? Math.round((totalSpent / budget) * 100)
+        : null,
       reportCount: reports.length,
       openRFICount: openRFIs,
       closedRFICount: closedRFIs,
       lastReportDate: lastReport?.reportDate ?? null,
       taskTotal: tasks.length,
       taskTodoCount: tasks.filter((t) => t.status === "todo").length,
-      taskInProgressCount: tasks.filter((t) => t.status === "in_progress").length,
+      taskInProgressCount: tasks.filter((t) => t.status === "in_progress")
+        .length,
       taskDoneCount: tasks.filter((t) => t.status === "done").length,
     });
   }),
@@ -387,7 +525,8 @@ router.get(
   "/projects/:projectId/members",
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     const rows = await db
       .select({
@@ -407,7 +546,12 @@ router.get(
           eq(userMembershipsTable.companyId, req.companyId!),
         ),
       )
-      .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.companyId, req.companyId!)));
+      .where(
+        and(
+          eq(projectMembersTable.projectId, projectId),
+          eq(projectMembersTable.companyId, req.companyId!),
+        ),
+      );
 
     res.json(rows);
   }),
@@ -419,17 +563,24 @@ router.post(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
-    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+    if (isNaN(projectId))
+      throw new BadRequestError("projectId must be a number");
 
     const parsed = AddProjectMemberBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError("userId must be a positive integer");
+    if (!parsed.success)
+      throw new BadRequestError("userId must be a positive integer");
     const { userId } = parsed.data;
 
     const [[project], [user]] = await Promise.all([
       db
         .select()
         .from(projectsTable)
-        .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+        .where(
+          and(
+            eq(projectsTable.id, projectId),
+            eq(projectsTable.companyId, req.companyId!),
+          ),
+        )
         .limit(1),
       db
         .select()
@@ -504,7 +655,8 @@ router.delete(
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     const memberId = parseInt(req.params.memberId as string);
-    if (isNaN(projectId) || isNaN(memberId)) throw new BadRequestError("Invalid IDs");
+    if (isNaN(projectId) || isNaN(memberId))
+      throw new BadRequestError("Invalid IDs");
 
     await db
       .delete(projectMembersTable)
@@ -582,7 +734,8 @@ router.delete(
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     const noteId = parseInt(req.params.noteId as string);
-    if (isNaN(projectId) || isNaN(noteId)) throw new BadRequestError("Invalid IDs");
+    if (isNaN(projectId) || isNaN(noteId))
+      throw new BadRequestError("Invalid IDs");
 
     await db
       .delete(projectNotesTable)

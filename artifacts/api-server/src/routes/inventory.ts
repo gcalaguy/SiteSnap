@@ -110,41 +110,29 @@ router.get("/inventory/assets", requireAuth, requireCompany, requireTenantCtx, a
     conditions.push(eq(inventoryAssetsTable.category, category) as any);
   }
 
-  let baseQuery = db
-    .select()
-    .from(inventoryAssetsTable)
-    .where(
-      search
-        ? and(
-            and(...conditions),
-            or(
-              ilike(inventoryAssetsTable.name, `%${search}%`),
-              ilike(inventoryAssetsTable.serialNumber, `%${search}%`),
-            ),
-          )
-        : and(...conditions),
-    )
-    .$dynamic();
+  // Extract WHERE clause to reuse in both queries
+  const whereClause = search
+    ? and(
+        and(...conditions),
+        or(
+          ilike(inventoryAssetsTable.name, `%${search}%`),
+          ilike(inventoryAssetsTable.serialNumber, `%${search}%`),
+        ),
+      )
+    : and(...conditions);
 
   const [rows, countResult] = await Promise.all([
-    baseQuery
+    db
+      .select()
+      .from(inventoryAssetsTable)
+      .where(whereClause)
       .orderBy(inventoryAssetsTable.name)
       .limit(limit)
       .offset(offset),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(inventoryAssetsTable)
-      .where(
-        search
-          ? and(
-              and(...conditions),
-              or(
-                ilike(inventoryAssetsTable.name, `%${search}%`),
-                ilike(inventoryAssetsTable.serialNumber, `%${search}%`),
-              ),
-            )
-          : and(...conditions),
-      ),
+      .where(whereClause),
   ]);
 
   res.json({ data: rows, total: countResult[0]?.count ?? 0, page, limit });
