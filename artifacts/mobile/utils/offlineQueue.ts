@@ -12,6 +12,10 @@
  * queueOffline(formData)          – push one failed submission onto the queue.
  * flushOfflineQueue(apiSubmitFn)  – drain the queue, re-submitting each item
  *                                   through apiSubmitFn when the network is up.
+ * getDeadLetterQueue()            – read items that permanently failed (bad
+ *                                   payload or exhausted retries).
+ * clearDeadLetterQueue()          – clear the dead-letter queue after manual
+ *                                   recovery.
  *
  * The module also registers a single, long-lived NetInfo listener (once, on
  * first import) so that any pending items are flushed automatically whenever
@@ -100,6 +104,11 @@ export async function queueOffline(formData: any): Promise<void> {
   await writeQueue(queue);
 }
 
+// AsyncStorage key that holds permanently-failed items, kept separate from
+// the retry queue so support/debugging tooling can inspect them without
+// wading through items that are still actively retrying.
+const DEAD_LETTER_KEY = "safety_form_offline_queue_deadletter";
+
 /**
  * flushOfflineQueue
  *
@@ -109,10 +118,8 @@ export async function queueOffline(formData: any): Promise<void> {
  * from the queue.  Items that fail with a transient error (network issue,
  * 5xx, 429, 408) are left in place, up to MAX_RETRIES attempts, so the next
  * flush can retry them.  Items that fail with a permanent error (any other
- * 4xx – the payload itself is invalid) or that exhaust MAX_RETRIES are marked
- * `_failed` and skipped by future flushes — kept in storage rather than
- * silently discarded, since nothing else in this module can recover them once
- * gone.
+ * 4xx – the payload itself is invalid) or that exhaust MAX_RETRIES are moved
+ * to the dead-letter queue and persisted separately — see getDeadLetterQueue.
  *
  * Storing `apiSubmitFn` in module scope also keeps the global NetInfo listener
  * (see below) up-to-date with the caller's latest reference.
@@ -134,12 +141,13 @@ export async function flushOfflineQueue(
 
   // Work through the queue one item at a time; track which items survive.
   const remaining: any[] = [];
+  const deadLetterCandidates: any[] = [];
 
   for (const item of queue) {
     if (item._failed) {
-      // Already given up on this item in a previous flush — leave it in
-      // storage untouched instead of retrying it forever.
-      remaining.push(item);
+      // Already given up on this item in a previous flush — move to the
+      // dead-letter queue instead of retrying it forever.
+      deadLetterCandidates.push(item);
       continue;
     }
 
@@ -151,9 +159,15 @@ export async function flushOfflineQueue(
     } catch (err) {
       const retries = (item._retries ?? 0) + 1;
       if (isPermanentFailure(err) || retries >= MAX_RETRIES) {
-        // Payload is invalid, or we've retried enough times — stop trying,
-        // but keep the item around so it isn't silently lost.
-        remaining.push({ ...item, _retries: retries, _failed: true });
+        // Payload is invalid, or we've retried enough times — move to the
+        // dead-letter queue rather than retrying it forever.
+        deadLetterCandidates.push({
+          ...item,
+          _retries: retries,
+          _failed: true,
+          _failedAt: new Date().toISOString(),
+          _error: err instanceof Error ? err.message : "Unknown error",
+        });
         continue;
       }
       // Transient failure – keep the item, with its retry count bumped, for
@@ -162,8 +176,58 @@ export async function flushOfflineQueue(
     }
   }
 
-  // Persist every item that either still needs retrying or has terminally failed.
+  // Persist dead-lettered items separately for support/manual recovery. If
+  // that write fails, fall back to keeping them in the main queue rather than
+  // losing them — they'll simply be re-evaluated as dead-letter candidates on
+  // the next flush.
+  if (deadLetterCandidates.length > 0) {
+    try {
+      const existing = JSON.parse(
+        (await AsyncStorage.getItem(DEAD_LETTER_KEY)) || "[]"
+      );
+      const allDlq = Array.isArray(existing)
+        ? [...existing, ...deadLetterCandidates]
+        : deadLetterCandidates;
+      await AsyncStorage.setItem(DEAD_LETTER_KEY, JSON.stringify(allDlq));
+      console.warn(
+        `[OfflineQueue] ${deadLetterCandidates.length} item(s) moved to dead-letter queue`
+      );
+    } catch {
+      // DLQ write failed — keep the items in the main queue instead of
+      // losing them.
+      remaining.push(...deadLetterCandidates);
+    }
+  }
+
+  // Persist every item that still needs retrying (or fell back from a failed
+  // dead-letter write).
   await writeQueue(remaining);
+}
+
+/**
+ * Get all items that have permanently failed and moved to the dead-letter queue.
+ * Used by support staff to identify and manually recover stuck submissions.
+ */
+export async function getDeadLetterQueue(): Promise<any[]> {
+  try {
+    const raw = await AsyncStorage.getItem(DEAD_LETTER_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Clear the dead-letter queue (after manual recovery/support intervention).
+ */
+export async function clearDeadLetterQueue(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(DEAD_LETTER_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 // ---------------------------------------------------------------------------

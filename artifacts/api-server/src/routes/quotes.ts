@@ -667,9 +667,7 @@ router.post("/:quoteId/send-email", requirePermission("manageQuotes"), asyncHand
 }))
 
 // POST /:quoteId/convert-to-invoice
-router.post("/:quoteId/convert-to-invoice", asyncHandler(async (req, res) => {
-  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
-
+router.post("/:quoteId/convert-to-invoice", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const quoteId = parseInt(req.params.quoteId as string);
   const [quote] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
