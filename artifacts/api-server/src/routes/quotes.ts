@@ -18,6 +18,7 @@ import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { Resend } from "resend";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { logger } from "../lib/logger";
 import { sendPushNotification } from "../lib/push.js";
 import { buildQuotePdfBuffer } from "../lib/quotePdf.js";
 import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer.js";
@@ -354,26 +355,51 @@ router.post("/:quoteId/submit", requirePermission("manageQuotes"), asyncHandler(
   });
 
   // Push notifications to owners/foremans so mobile users see the pending approval.
-  db.select({ pushToken: usersTable.pushToken })
-    .from(usersTable)
-    .innerJoin(userMembershipsTable, and(
-      eq(userMembershipsTable.userId, usersTable.id),
-      eq(userMembershipsTable.companyId, updated.companyId),
-    ))
-    .where(inArray(userMembershipsTable.role, ["owner", "foreman"]))
-    .then((recipients) => {
-      const totalFormatted = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" })
-        .format(parseFloat(updated.total));
-      for (const r of recipients) {
-        sendPushNotification(
-          r.pushToken,
-          "Quote Submitted for Review",
-          `${updated.quoteNumber} — ${updated.clientName} · ${totalFormatted}`,
-          { type: "quote_submitted", quoteId: updated.id },
+  Promise.resolve()
+    .then(async () => {
+      try {
+        const recipients = await db
+          .select({ pushToken: usersTable.pushToken })
+          .from(usersTable)
+          .innerJoin(
+            userMembershipsTable,
+            and(
+              eq(userMembershipsTable.userId, usersTable.id),
+              eq(userMembershipsTable.companyId, updated.companyId),
+            )
+          )
+          .where(inArray(userMembershipsTable.role, ["owner", "foreman"]));
+
+        const totalFormatted = new Intl.NumberFormat("en-CA", {
+          style: "currency",
+          currency: "CAD",
+        }).format(parseFloat(updated.total));
+
+        await Promise.all(
+          recipients.map((r) =>
+            sendPushNotification(
+              r.pushToken,
+              "Quote Submitted for Review",
+              `${updated.quoteNumber} — ${updated.clientName} · ${totalFormatted}`,
+              { type: "quote_submitted", quoteId: updated.id }
+            ).catch((err) => {
+              logger.warn(
+                { err, pushToken: r.pushToken },
+                "Failed to send quote submission push notification"
+              );
+            })
+          )
+        );
+      } catch (err) {
+        logger.error(
+          { err, quoteId: updated.id },
+          "Failed to fetch recipients for quote submission notification"
         );
       }
     })
-    .catch(() => {});
+    .catch((err) => {
+      logger.error({ err }, "Unexpected error in quote notification handler");
+    });
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
