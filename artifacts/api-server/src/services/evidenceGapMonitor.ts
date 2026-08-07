@@ -8,7 +8,7 @@ import {
   userMembershipsTable,
 } from "@workspace/db";
 import { and, inArray, sql } from "drizzle-orm";
-import { logger } from "../lib/logger.js";
+import { logger, alertOnHighErrorRate } from "../lib/logger.js";
 
 // Core IHSA elements that require recurring active evidence on a live site.
 // Administrative/policy elements (management commitment, emergency plans, etc.)
@@ -285,6 +285,8 @@ export async function checkEvidenceGaps(): Promise<EvidenceGapResult> {
       errors++;
     }
   }
+
+  alertOnHighErrorRate("Evidence gap monitor", { gaps: gaps.length, notified, skipped, errors }, errors, notified + skipped + errors);
 
   return { gaps: gaps.length, notified, skipped, errors };
 }

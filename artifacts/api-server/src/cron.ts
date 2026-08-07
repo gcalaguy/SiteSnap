@@ -26,7 +26,7 @@ import { buildCredentialExpiryHtml } from "./lib/corAlerts.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { checkEvidenceGaps } from "./services/evidenceGapMonitor.js";
 import { runDueBackupsAndPurge } from "./services/backupEngine.js";
-import { logger } from "./lib/logger.js";
+import { logger, alertOnHighErrorRate } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
 import { ObjectStorageService } from "./lib/objectStorage.js";
 import {
@@ -125,6 +125,8 @@ export async function sendDigestForAllCompanies(): Promise<{
     }
   }
   } // end while page loop
+
+  alertOnHighErrorRate("Digest send", { sent, skipped, errors }, errors, sent + skipped + errors);
 
   return { sent, skipped, errors };
 }
@@ -318,6 +320,8 @@ export async function cleanupOrphanedStorageObjects(): Promise<{
     }
   }
 
+  alertOnHighErrorRate("Orphan cleanup", { scanned: allGcsPaths.length, deleted, errors }, errors, deleted + errors);
+
   return { scanned: allGcsPaths.length, deleted, errors };
 }
 
@@ -440,6 +444,8 @@ export async function sendCredentialExpiryAlerts(): Promise<{
     }
   }
 
+  alertOnHighErrorRate("Credential expiry alert", { alerted, skipped, errors }, errors, alerted + skipped + errors);
+
   return { alerted, skipped, errors };
 }
 
@@ -466,6 +472,8 @@ export async function syncDueEmailAccounts(): Promise<{ synced: number; failed: 
       else synced++;
     }
   }
+
+  alertOnHighErrorRate("Email sync", { synced, failed }, failed, synced + failed);
 
   return { synced, failed };
 }

@@ -16,7 +16,7 @@ import {
   getThread,
 } from "../repositories/emailIntegrations";
 import { triageThread } from "./emailSyncService";
-import { logger } from "../lib/logger";
+import { logger, alertOnHighErrorRate } from "../lib/logger";
 
 /**
  * Phase 3 — AI Communications Intelligence. Runs as a background cron job
@@ -225,6 +225,8 @@ export async function extractDueEmailIntelligence(): Promise<{
     },
     { concurrency: 3, retries: 1 },
   );
+
+  alertOnHighErrorRate("Email AI extraction", { processed, failed, skippedQuota }, failed, processed + failed + skippedQuota);
 
   return { processed, failed, skippedQuota };
 }

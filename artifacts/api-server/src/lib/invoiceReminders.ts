@@ -1,7 +1,7 @@
 import { db, invoicesTable, companiesTable } from "@workspace/db";
 import { eq, and, lte, isNull, isNotNull, or, inArray, lt } from "drizzle-orm";
 import { sendEmail, ResendSandboxError } from "./mailer.js";
-import { logger } from "./logger.js";
+import { logger, alertOnHighErrorRate } from "./logger.js";
 import { format, subDays } from "date-fns";
 
 const fmtCAD = (v: string | number) =>
@@ -178,6 +178,8 @@ export async function sendOverdueReminders(): Promise<{
       errors++;
     }
   }
+
+  alertOnHighErrorRate("Overdue invoice reminders", { sent, skipped, errors }, errors, sent + skipped + errors);
 
   return { sent, skipped, errors };
 }
