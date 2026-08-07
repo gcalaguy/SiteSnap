@@ -7,14 +7,19 @@ import {
   getMemberPermissions as getMemberPermissionsRepo,
   updateMemberPermissions as updateMemberPermissionsRepo,
 } from "../../repositories/companies";
+import { invalidateAuthCache } from "../../lib/auth";
 
 export async function removeMember(companyId: number, targetUserId: number): Promise<void> {
+  const user = await getUserById(targetUserId);
   await removeMemberCascade(companyId, targetUserId);
+  if (user) invalidateAuthCache(user.clerkUserId);
 }
 
 export async function updateMemberRole(companyId: number, targetUserId: number, role: string) {
   await updateMemberRoleRepo(companyId, targetUserId, role);
-  return getUserById(targetUserId);
+  const user = await getUserById(targetUserId);
+  if (user) invalidateAuthCache(user.clerkUserId);
+  return user;
 }
 
 export async function renameMember(
@@ -41,5 +46,7 @@ export async function updateMemberPermissions(
   const membership = await getMemberPermissions(companyId, targetUserId);
   if (!membership) return null;
   const updated = await updateMemberPermissionsRepo(companyId, targetUserId, permissions);
+  const user = await getUserById(targetUserId);
+  if (user) invalidateAuthCache(user.clerkUserId);
   return updated?.permissions ?? {};
 }

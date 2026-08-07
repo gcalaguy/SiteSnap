@@ -46,7 +46,7 @@ class AuthTTLCache<V> {
 type UserRow = typeof usersTable.$inferSelect;
 type MembershipRow = typeof userMembershipsTable.$inferSelect;
 
-const authCache = new AuthTTLCache<{ user: UserRow; memberships: MembershipRow[] }>(500, 60_000);
+const authCache = new AuthTTLCache<{ user: UserRow; memberships: MembershipRow[] }>(500, 10_000);
 // Per-company flag: subscription has been verified/provisioned — skip the check on hot paths.
 const subCache = new AuthTTLCache<true>(500, 300_000);
 

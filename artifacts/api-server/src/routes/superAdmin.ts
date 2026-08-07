@@ -15,7 +15,7 @@ import {
 } from "@workspace/db";
 import { z } from "zod/v4";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireSuperAdmin } from "../lib/auth";
+import { requireAuth, requireSuperAdmin, invalidateAuthCache } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getStripeClient } from "../lib/stripeClient";
 import { sendEmail, ResendSandboxError, buildAppBase } from "../lib/mailer";
@@ -768,6 +768,7 @@ router.patch("/admin/users/:id/system-role", ...guard, asyncHandler(async (req, 
     .where(eq(usersTable.id, id))
     .returning();
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  invalidateAuthCache(user.clerkUserId);
   res.json(user);
 }));
 
@@ -799,6 +800,7 @@ router.patch("/admin/users/:id/company-role", ...guard, asyncHandler(async (req,
       .set({ role })
       .where(eq(userMembershipsTable.userId, id));
   }
+  invalidateAuthCache(user.clerkUserId);
   res.json(user);
 }));
 
@@ -834,6 +836,7 @@ router.delete("/admin/tenants/:companyId/users/:userId", ...guard, asyncHandler(
       .set({ activeCompanyId: null })
       .where(eq(usersTable.id, userId));
   }
+  if (user) invalidateAuthCache(user.clerkUserId);
 
   res.status(204).send();
 }));
