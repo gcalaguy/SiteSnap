@@ -179,6 +179,43 @@ app.use("/api/v1/invoices/:id/send-email", express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
+// ── Request Timeout ────────────────────────────────────────────────────────
+// Long-running operations (AI calls, Playwright PDF rendering) get more time
+// than ordinary CRUD endpoints. This only bounds how long the CLIENT waits —
+// it does not cancel the underlying work — so the timeout callback checks
+// res.headersSent before writing, and errorHandler (below) does the same, to
+// avoid a double-write crashing the process via the unhandledRejection
+// handler in index.ts once the original operation finally completes.
+const LONG_RUNNING_PATH_PREFIXES = [
+  "/api/ai/",
+  "/api/v1/ai/",
+  "/api/invoices/",
+  "/api/v1/invoices/",
+  "/api/quotes/",
+  "/api/v1/quotes/",
+  "/api/proposals/",
+  "/api/v1/proposals/",
+  "/api/rfis/",
+  "/api/v1/rfis/",
+  "/api/document-templates/",
+  "/api/v1/document-templates/",
+];
+app.use((req, res, next) => {
+  const timeout = LONG_RUNNING_PATH_PREFIXES.some((prefix) => req.path.startsWith(prefix))
+    ? 120 * 1000 // AI + PDF rendering endpoints: 2 minutes
+    : 30 * 1000; // Most endpoints: 30 seconds
+
+  res.setTimeout(timeout, () => {
+    if (res.headersSent) return;
+    logger.warn({ path: req.path, timeout }, "Request timeout");
+    res.status(408).json({
+      error: "Request timeout — operation took too long",
+      code: "REQUEST_TIMEOUT",
+    });
+  });
+  next();
+});
+
 // Resolve publishable key from host (supports custom domains)
 app.use(
   clerkMiddleware((req) => ({

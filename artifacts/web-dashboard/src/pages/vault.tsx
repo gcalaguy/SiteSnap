@@ -7,6 +7,7 @@ import {
   getListAllWorkerDocumentsQueryKey,
   type WorkerDocumentEnriched,
   customFetch,
+  ApiError,
 } from "@workspace/api-client-react";
 import {
   ShieldCheck,
@@ -31,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 const renderSafeDate = (dateString: string | number | Date | null | undefined) => {
   if (!dateString) return 'N/A';
   try {
@@ -141,6 +143,7 @@ function groupByWorker(docs: WorkerDocumentEnriched[]): WorkerGroup[] {
 
 export default function WorkerDocumentsPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: user } = useGetMe();
   const [search, setSearch] = useState("");
   const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
@@ -162,6 +165,10 @@ export default function WorkerDocumentsPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAllWorkerDocumentsQueryKey() });
         setSelectedDoc(null);
+        toast({ title: "Document deleted" });
+      },
+      onError: (e: ApiError) => {
+        toast({ title: "Failed to delete document", description: e?.message, variant: "destructive" });
       },
     },
   });

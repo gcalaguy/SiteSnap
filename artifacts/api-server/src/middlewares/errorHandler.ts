@@ -58,8 +58,21 @@ export function errorHandler(
   err: unknown,
   req: Request,
   res: Response,
-  _next: NextFunction,
+  next: NextFunction,
 ): void {
+  // A response can already be closed by the time this runs — e.g. the request
+  // timeout middleware in app.ts sent a 408 while the original handler was
+  // still awaiting a slow AI call / Playwright render, and that handler just
+  // threw trying to write to the now-ended response. Writing again here would
+  // throw ERR_HTTP_HEADERS_SENT, which (per index.ts's unhandledRejection
+  // handler) would crash the whole process. Delegate to Express's built-in
+  // final handler instead, which safely closes the connection.
+  if (res.headersSent) {
+    logger.error({ err, reqId: req.id ?? "no-request-id" }, "Error after response already sent");
+    next(err);
+    return;
+  }
+
   // express.json() / body-parser SyntaxError — malformed JSON in request body
   if (
     err instanceof SyntaxError &&

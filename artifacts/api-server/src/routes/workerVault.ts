@@ -119,7 +119,9 @@ router.delete("/worker/vault/documents/:id", requireAuth, requireCompany, requir
       res.status(404).json({ error: "Document not found" });
       return;
     }
-    if (existing.workerId !== req.userId || existing.companyId !== req.companyId) {
+    const isOwnDocument = existing.workerId === req.userId;
+    const isTenantManager = req.userRole === "owner" || req.userRole === "foreman";
+    if (existing.companyId !== req.companyId || (!isOwnDocument && !isTenantManager)) {
       res.status(403).json({ error: "Not authorized" });
       return;
     }
