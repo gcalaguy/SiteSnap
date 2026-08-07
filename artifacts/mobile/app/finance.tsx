@@ -38,6 +38,7 @@ import EstimatorScreen from "@/app/estimator";
 import { SwipeableRow } from "@/components/ui";
 import { ChangeOrderCard } from "@/components/cards/ChangeOrderCard";
 import { CostRecordCard } from "@/components/cards/CostRecordCard";
+import { FinancialDocCard } from "@/components/cards/FinancialDocCard";
 import { ChangeOrderFormSheet, type ChangeOrderFormValues } from "@/components/sheets/ChangeOrderFormSheet";
 import type { StatusTone } from "@/components/ui/StatusPill";
 import { getExpenseStatusTone, getExpenseStatusLabel } from "@/src/utils/expenseStatus";
@@ -89,19 +90,19 @@ function isExpenseThisMonth(e: CompanyExpense): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-const INVOICE_STATUS_COLORS: Record<string, string> = {
-  draft: "#6B7280",
-  sent: "#3B82F6",
-  paid: "#22C55E",
-  overdue: "#EF4444",
-  cancelled: "#9CA3AF",
+const INVOICE_STATUS_TONE: Record<string, StatusTone> = {
+  draft: "draft",
+  sent: "pending",
+  paid: "approved",
+  overdue: "void",
+  cancelled: "draft",
 };
-const QUOTE_STATUS_COLORS: Record<string, string> = {
-  draft: "#6B7280",
-  pending_approval: "#F59E0B",
-  approved: "#22C55E",
-  rejected: "#EF4444",
-  converted: "#3B82F6",
+const QUOTE_STATUS_TONE: Record<string, StatusTone> = {
+  draft: "draft",
+  pending_approval: "pending",
+  approved: "approved",
+  rejected: "void",
+  converted: "approved",
 };
 const INVOICE_STATUS_LABELS: Record<string, string> = {
   draft: "Draft", sent: "Sent", paid: "Paid", overdue: "Overdue", cancelled: "Cancelled",
@@ -115,52 +116,34 @@ function fmtCAD(v: string | number) {
 }
 
 function InvoiceRow({ item }: { item: any }) {
-  const colors = useColors();
   const router = useRouter();
-  const statusColor = INVOICE_STATUS_COLORS[item.status] ?? "#6B7280";
   return (
-    <Pressable
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+    <FinancialDocCard
+      docNumber={item.invoiceNumber}
+      title={item.title}
+      clientName={item.clientName}
+      amount={Number(item.total)}
+      tone={INVOICE_STATUS_TONE[item.status] ?? "draft"}
+      statusLabel={INVOICE_STATUS_LABELS[item.status] ?? item.status}
+      signed={!!item.signedAt}
       onPress={() => router.push(`/invoice/${item.id}`)}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
-        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {item.invoiceNumber} · {item.clientName}
-        </Text>
-      </View>
-      <View style={{ alignItems: "flex-end", gap: 4 }}>
-        <Text style={[styles.rowAmount, { color: colors.foreground }]}>{fmtCAD(item.total)}</Text>
-        <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
-          <Text style={[styles.badgeText, { color: statusColor }]}>{INVOICE_STATUS_LABELS[item.status] ?? item.status}</Text>
-        </View>
-      </View>
-    </Pressable>
+    />
   );
 }
 
 function QuoteRow({ item }: { item: any }) {
-  const colors = useColors();
   const router = useRouter();
-  const statusColor = QUOTE_STATUS_COLORS[item.status] ?? "#6B7280";
   return (
-    <Pressable
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+    <FinancialDocCard
+      docNumber={item.quoteNumber}
+      title={item.title}
+      clientName={item.clientName}
+      amount={Number(item.total)}
+      tone={QUOTE_STATUS_TONE[item.status] ?? "draft"}
+      statusLabel={QUOTE_STATUS_LABELS[item.status] ?? item.status}
+      signed={!!item.signedAt}
       onPress={() => router.push({ pathname: "/quote/[id]", params: { id: String(item.id), projectId: String(item.projectId ?? 0) } })}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
-        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {item.quoteNumber} · {item.clientName}
-        </Text>
-      </View>
-      <View style={{ alignItems: "flex-end", gap: 4 }}>
-        <Text style={[styles.rowAmount, { color: colors.foreground }]}>{fmtCAD(item.total)}</Text>
-        <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
-          <Text style={[styles.badgeText, { color: statusColor }]}>{QUOTE_STATUS_LABELS[item.status] ?? item.status}</Text>
-        </View>
-      </View>
-    </Pressable>
+    />
   );
 }
 
@@ -833,12 +816,6 @@ const styles = StyleSheet.create({
   expenseTotalRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 4, paddingBottom: 12 },
   expenseTotalLabel: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
   expenseTotalValue: { fontSize: 20, fontFamily: "NunitoSans_700Bold" },
-  row: { flexDirection: "row", alignItems: "center", borderRadius: 16, padding: 14, borderWidth: 1, gap: 12 },
-  rowTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold", marginBottom: 2 },
-  rowSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
-  rowAmount: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  badgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: { textAlign: "center", fontSize: 14, fontFamily: "NunitoSans_400Regular", paddingTop: 40 },
   fabRow: { position: "absolute", right: 16, flexDirection: "row", gap: 10, alignItems: "center" },

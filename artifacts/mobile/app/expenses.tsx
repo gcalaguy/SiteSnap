@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Platform,
   RefreshControl,
   ScrollView,
@@ -23,7 +22,8 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { useColors } from "@/hooks/useColors";
 import { customFetch, useListProjects } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { SwipeableRow } from "@/components/ui";
+import { BottomSheet, Button, Chip, SwipeableRow } from "@/components/ui";
+import { spacing } from "@/constants/theme";
 import { CostRecordCard } from "@/components/cards/CostRecordCard";
 import { getExpenseStatusTone, getExpenseStatusLabel } from "@/src/utils/expenseStatus";
 
@@ -417,165 +417,131 @@ export default function ExpensesScreen() {
         <Text style={styles.fabText}>Submit Expense</Text>
       </TouchableOpacity>
 
-      {showForm && (
-        <View style={[styles.sheetOverlay, { backgroundColor: "rgba(0,0,0,0.4)" }]}>
-          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Submit Expense</Text>
-              <TouchableOpacity onPress={() => setShowForm(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.foreground} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.sheetBody}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>Amount</Text>
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              />
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Description</Text>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="What was this expense for?"
-                placeholderTextColor={colors.mutedForeground}
-                multiline
-                style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, minHeight: 70 }]}
-              />
-              <TouchableOpacity
-                onPress={pickReceipt}
-                style={[styles.uploadBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, marginTop: 14 }]}
-              >
-                <Feather name="paperclip" size={16} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14 }}>
-                  {receiptAsset ? "Receipt attached" : "Attach receipt (optional)"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={submitting}
-                style={[styles.uploadBtn, { backgroundColor: colors.primary, opacity: submitting ? 0.6 : 1, marginTop: 14 }]}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+      <BottomSheet visible={showForm} onClose={() => setShowForm(false)} title="Submit Expense">
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>Amount</Text>
+        <TextInput
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          placeholderTextColor={colors.mutedForeground}
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+        />
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Description</Text>
+        <TextInput
+          value={description}
+          onChangeText={setDescription}
+          placeholder="What was this expense for?"
+          placeholderTextColor={colors.mutedForeground}
+          multiline
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, minHeight: 70 }]}
+        />
+        <View style={{ marginTop: 14 }}>
+          <Button
+            variant="secondary"
+            icon="paperclip"
+            label={receiptAsset ? "Receipt attached" : "Attach receipt (optional)"}
+            onPress={pickReceipt}
+            fullWidth
+          />
         </View>
-      )}
-
-      {showReview && (
-        <View style={[styles.sheetOverlay, { backgroundColor: "rgba(0,0,0,0.4)" }]}>
-          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Review Receipt</Text>
-              <TouchableOpacity onPress={() => setShowReview(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.foreground} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-              <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 12 }}>
-                Confirm the details we picked up from your receipt before submitting.
-              </Text>
-
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>Vendor Name</Text>
-              <TextInput
-                value={reviewVendor}
-                onChangeText={setReviewVendor}
-                placeholder="e.g. Home Depot"
-                placeholderTextColor={colors.mutedForeground}
-                style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              />
-
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Total Amount</Text>
-              <TextInput
-                value={reviewAmount}
-                onChangeText={setReviewAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              />
-
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Tax Amount (optional)</Text>
-              <TextInput
-                value={reviewTax}
-                onChangeText={setReviewTax}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              />
-
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Transaction Date</Text>
-              <TouchableOpacity
-                style={[styles.dateField, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => { setTempDate(reviewDate); setShowDatePicker(true); }}
-              >
-                <Feather name="calendar" size={15} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14, flex: 1 }}>
-                  {formatDateDisplay(isoDate(reviewDate))}
-                </Text>
-                <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
-              </TouchableOpacity>
-
-              {showDatePicker && Platform.OS === "android" && (
-                <DateTimePicker value={reviewDate} mode="date" display="default" onChange={onReviewDateChange} maximumDate={new Date()} />
-              )}
-
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Project Assignment</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-                {projects.map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    onPress={() => setReviewProjectId(p.id)}
-                    style={[styles.typePill, { backgroundColor: reviewProjectId === p.id ? colors.primary : colors.card, borderColor: reviewProjectId === p.id ? colors.primary : colors.border }]}
-                  >
-                    <Text style={{ fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: reviewProjectId === p.id ? "#fff" : colors.foreground }}>{p.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <TouchableOpacity
-                onPress={handleSubmitReview}
-                disabled={submittingReview}
-                style={[styles.uploadBtn, { backgroundColor: colors.primary, opacity: submittingReview ? 0.6 : 1, marginTop: 18, marginBottom: 8 }]}
-              >
-                {submittingReview ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Submit Expense</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
+        <View style={{ marginTop: 14 }}>
+          <Button
+            label={submitting ? "Submitting…" : "Submit"}
+            onPress={handleSubmit}
+            loading={submitting}
+            fullWidth
+            size="lg"
+          />
         </View>
-      )}
+      </BottomSheet>
 
-      {/* iOS date picker in modal — rendered above the review sheet so it isn't clipped by it */}
+      <BottomSheet visible={showReview} onClose={() => setShowReview(false)} title="Review Receipt">
+        <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 12 }}>
+          Confirm the details we picked up from your receipt before submitting.
+        </Text>
+
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>Vendor Name</Text>
+        <TextInput
+          value={reviewVendor}
+          onChangeText={setReviewVendor}
+          placeholder="e.g. Home Depot"
+          placeholderTextColor={colors.mutedForeground}
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+        />
+
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Total Amount</Text>
+        <TextInput
+          value={reviewAmount}
+          onChangeText={setReviewAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          placeholderTextColor={colors.mutedForeground}
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+        />
+
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Tax Amount (optional)</Text>
+        <TextInput
+          value={reviewTax}
+          onChangeText={setReviewTax}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          placeholderTextColor={colors.mutedForeground}
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+        />
+
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Transaction Date</Text>
+        <TouchableOpacity
+          style={[styles.dateField, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => { setTempDate(reviewDate); setShowDatePicker(true); }}
+        >
+          <Feather name="calendar" size={15} color={colors.primary} />
+          <Text style={{ color: colors.foreground, fontFamily: "NunitoSans_500Medium", fontSize: 14, flex: 1 }}>
+            {formatDateDisplay(isoDate(reviewDate))}
+          </Text>
+          <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+        </TouchableOpacity>
+
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker value={reviewDate} mode="date" display="default" onChange={onReviewDateChange} maximumDate={new Date()} />
+        )}
+
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>Project Assignment</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+          {projects.map((p) => (
+            <Chip key={p.id} label={p.name} selected={reviewProjectId === p.id} onPress={() => setReviewProjectId(p.id)} />
+          ))}
+        </ScrollView>
+
+        <View style={{ marginTop: 18, marginBottom: 8 }}>
+          <Button
+            label={submittingReview ? "Submitting…" : "Submit Expense"}
+            onPress={handleSubmitReview}
+            loading={submittingReview}
+            fullWidth
+            size="lg"
+          />
+        </View>
+      </BottomSheet>
+
+      {/* iOS date picker sheet — a separate BottomSheet stacked above the review
+          sheet's own Modal; kept as its own sheet (not inline in Review Receipt)
+          since the spinner needs an explicit Done to commit, unlike Android's
+          native dialog which commits on selection. */}
       {Platform.OS === "ios" && (
-        <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
-          <View style={styles.sheetOverlay}>
-            <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-              <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)} hitSlop={8}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "NunitoSans_500Medium", fontSize: 15 }}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Transaction Date</Text>
-                <TouchableOpacity onPress={confirmIOSReviewDate} hitSlop={8}>
-                  <Text style={{ color: colors.primary, fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker value={tempDate} mode="date" display="spinner" onChange={onReviewDateChange} maximumDate={new Date()} />
+        <BottomSheet
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          title="Transaction Date"
+          scrollable={false}
+        >
+          <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+            <DateTimePicker value={tempDate} mode="date" display="spinner" onChange={onReviewDateChange} maximumDate={new Date()} />
+            <View style={{ marginTop: 14 }}>
+              <Button label="Done" onPress={confirmIOSReviewDate} fullWidth size="lg" />
             </View>
           </View>
-        </Modal>
+        </BottomSheet>
       )}
     </View>
   );
@@ -604,12 +570,6 @@ const styles = StyleSheet.create({
   },
   scanBtnText: { color: "#FFFFFF", fontFamily: "NunitoSans_700Bold", fontSize: 14.5 },
   dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11 },
-  sheetOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40 },
-  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1 },
-  sheetTitle: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
-  sheetBody: { paddingHorizontal: 20, paddingTop: 16, maxHeight: 480 },
   label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginBottom: 6 },
   input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  uploadBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 16 },
 });

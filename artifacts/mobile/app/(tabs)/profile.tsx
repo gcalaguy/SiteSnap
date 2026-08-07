@@ -25,7 +25,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { Card, ListRow, MediaCard } from "@/components/ui";
+import { BottomSheet, Card, ListRow, MediaCard } from "@/components/ui";
 import { layout, spacing, typography } from "@/constants/theme";
 import { safeNavigate } from "@/utils/safeNavigate";
 
@@ -84,6 +84,7 @@ export default function ProfileScreen() {
   const { data: me, isLoading } = useGetMe();
   const setActiveCompany = useSetActiveCompany();
   const [showCompanyPicker, setShowCompanyPicker] = useState(false);
+  const [showTools, setShowTools] = useState(false);
 
   const perms = usePermissions();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -358,22 +359,22 @@ export default function ProfileScreen() {
         )}
 
         {/* More Tools — everything the simplified home screen / 5-tab nav no
-            longer surfaces directly, gated by the same permissions as before */}
+            longer surfaces directly, gated by the same permissions as before.
+            Opens in a BottomSheet rather than occupying permanent scroll
+            space, per docs/MOBILE_DESIGN_SYSTEM.md §7. */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>More Tools</Text>
-          <View style={styles.toolGrid}>
-            {toolItems.map((item) => (
-              <MediaCard
-                key={item.key}
-                size="compact"
-                seed={item.key}
-                fallbackIcon={item.icon}
-                title={item.label}
-                onPress={item.onPress}
-                style={styles.toolTile}
+          <Card padding="none">
+            <View style={{ paddingHorizontal: 14 }}>
+              <ListRow
+                icon="grid"
+                title="Browse Tools"
+                subtitle={`${toolItems.length} tool${toolItems.length === 1 ? "" : "s"} available`}
+                onPress={() => setShowTools(true)}
+                showChevron
               />
-            ))}
-          </View>
+            </View>
+          </Card>
         </View>
 
         {/* Administration — owners only */}
@@ -448,6 +449,26 @@ export default function ProfileScreen() {
           Site Snap v1.0.0
         </Text>
       </ScrollView>
+
+      {/* More Tools sheet */}
+      <BottomSheet visible={showTools} onClose={() => setShowTools(false)} title="More Tools">
+        <View style={styles.toolGrid}>
+          {toolItems.map((item) => (
+            <MediaCard
+              key={item.key}
+              size="compact"
+              seed={item.key}
+              fallbackIcon={item.icon}
+              title={item.label}
+              onPress={() => {
+                setShowTools(false);
+                item.onPress();
+              }}
+              style={styles.toolTile}
+            />
+          ))}
+        </View>
+      </BottomSheet>
 
       {/* Company Picker Modal */}
       <Modal
