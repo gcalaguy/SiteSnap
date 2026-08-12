@@ -1,35 +1,82 @@
-import React, { useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useListProjects } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListProjects } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
 import { spacing, radius, typography } from "@/constants/theme";
 import { Card, BottomSheet, ListRow } from "@/components/ui";
 import { ElapsedTimer } from "@/components/ElapsedTimer";
 import { useActiveSession, useClockIn, useClockOut } from "@/hooks/useTimeClock";
+import { safeNavigate } from "@/utils/safeNavigate";
+import { setClockInGateHandler, setClockOutGateHandler } from "@/utils/clockGateBus";
+import type { PsiChecklistDetail, PsiListRow } from "@/constants/psi";
+
+// Matches the date format psi-checklist.tsx stamps onto a new PSI
+// (`new Date().toISOString().slice(0, 10)`) — deliberately NOT the
+// time-clock's own `localDate` helper, since we're comparing against
+// PSI rows, not time-clock rows.
+function todayPsiDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// A worker needs at most one submitted-and-self-signed PSI per project per
+// day before Clock In proceeds; a same-day return from a break reuses it.
+async function hasCompletedPsiToday(projectId: number, myUserId: number): Promise<boolean> {
+  const today = todayPsiDate();
+  const rows = await customFetch<PsiListRow[]>(`/api/psi?projectId=${projectId}`);
+  const candidate = rows.find(
+    (r) => r.psi.date === today && r.psi.status === "submitted" && r.creator?.id === myUserId,
+  );
+  if (!candidate) return false;
+  const detail = await customFetch<PsiChecklistDetail>(`/api/psi/${candidate.psi.id}`);
+  return detail.signatures.some((s) => s.userId === myUserId);
+}
 
 export function ClockWidget() {
   const colors = useColors();
   const router = useRouter();
   const { data, isLoading } = useActiveSession();
+  const { data: me } = useGetMe();
   const { data: projects = [] } = useListProjects();
   const clockIn = useClockIn();
   const clockOut = useClockOut();
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [checkingGate, setCheckingGate] = useState(false);
+  const [isLastClockOut, setIsLastClockOut] = useState(false);
 
   const session = data?.session ?? null;
+
+  // Registers the "resume the real clock action" handlers ClockWidget itself
+  // uses once a gated sub-flow (PSI sign-off / Daily Report submit) completes
+  // and navigates back here — see utils/clockGateBus.ts.
+  useEffect(() => {
+    setClockInGateHandler((projectId) => clockIn.mutate({ projectId }));
+    setClockOutGateHandler((sessionId) => clockOut.mutate({ sessionId }));
+    return () => {
+      setClockInGateHandler(null);
+      setClockOutGateHandler(null);
+    };
+  }, [clockIn, clockOut]);
 
   function haptic() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }
 
-  function startClockIn(projectId: number) {
+  async function startClockIn(projectId: number) {
     haptic();
     setPickerVisible(false);
-    clockIn.mutate({ projectId });
+    if (!me) return;
+    setCheckingGate(true);
+    const done = await hasCompletedPsiToday(projectId, me.id).catch(() => false);
+    setCheckingGate(false);
+    if (done) {
+      clockIn.mutate({ projectId });
+    } else {
+      safeNavigate(router, `/(tabs)/(home)/psi-checklist?projectId=${projectId}&returnTo=clock-in`, "clock-widget:psi-gate");
+    }
   }
 
   function handleClockInPress() {
@@ -45,7 +92,15 @@ export function ClockWidget() {
   function handleClockOutPress() {
     if (!session) return;
     haptic();
-    clockOut.mutate({ sessionId: session.id });
+    if (isLastClockOut) {
+      safeNavigate(
+        router,
+        `/(tabs)/(home)/log?projectId=${session.projectId}&returnTo=clock-out&sessionId=${session.id}`,
+        "clock-widget:report-gate",
+      );
+    } else {
+      clockOut.mutate({ sessionId: session.id });
+    }
   }
 
   if (isLoading) {
@@ -77,6 +132,13 @@ export function ClockWidget() {
           style={[typography.display, { color: colors.foreground, marginTop: spacing.sm }]}
         />
 
+        <View style={[styles.lastClockOutRow, { marginTop: spacing.lg }]}>
+          <Text style={[typography.caption, { color: colors.mutedForeground, flex: 1 }]}>
+            This is my last Clock Out today (requires a Daily Report)
+          </Text>
+          <Switch value={isLastClockOut} onValueChange={setIsLastClockOut} />
+        </View>
+
         <Pressable
           onPress={handleClockOutPress}
           disabled={clockOut.isPending}
@@ -90,7 +152,9 @@ export function ClockWidget() {
           ) : (
             <>
               <Feather name="square" size={16} color={colors.destructiveForeground} />
-              <Text style={[typography.bodyMedium, { color: colors.destructiveForeground }]}>Clock Out</Text>
+              <Text style={[typography.bodyMedium, { color: colors.destructiveForeground }]}>
+                {isLastClockOut ? "Submit Report & Clock Out" : "Clock Out"}
+              </Text>
             </>
           )}
         </Pressable>
@@ -108,17 +172,17 @@ export function ClockWidget() {
 
         <Pressable
           onPress={handleClockInPress}
-          disabled={clockIn.isPending || projects.length === 0}
+          disabled={clockIn.isPending || checkingGate || projects.length === 0}
           style={({ pressed }) => [
             styles.actionBtn,
             {
               backgroundColor: colors.success,
-              opacity: clockIn.isPending || projects.length === 0 ? 0.6 : pressed ? 0.85 : 1,
+              opacity: clockIn.isPending || checkingGate || projects.length === 0 ? 0.6 : pressed ? 0.85 : 1,
               marginTop: spacing.md,
             },
           ]}
         >
-          {clockIn.isPending ? (
+          {clockIn.isPending || checkingGate ? (
             <ActivityIndicator size="small" color={colors.successForeground} />
           ) : (
             <>
@@ -149,6 +213,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   dot: { width: 8, height: 8, borderRadius: 4 },
   projectBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, maxWidth: 160 },
+  lastClockOutRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",

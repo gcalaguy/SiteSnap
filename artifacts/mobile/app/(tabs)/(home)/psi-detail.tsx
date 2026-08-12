@@ -16,6 +16,8 @@ import { Feather } from "@expo/vector-icons";
 import { withAiRetry } from "@/src/utils/aiRetry";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import SignaturePad, { type SignaturePadHandle } from "@/components/SignaturePad";
+import { safeNavigate } from "@/utils/safeNavigate";
+import { resolveClockInGate } from "@/utils/clockGateBus";
 import {
   PSI_HAZARD_CATEGORIES,
   PSI_HAZARD_CATEGORY_KEYS,
@@ -43,7 +45,7 @@ export default function PsiDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, returnTo } = useLocalSearchParams<{ id: string; returnTo?: string }>();
   const psiId = parseInt(id ?? "");
   const { data: me } = useGetMe();
 
@@ -77,7 +79,15 @@ export default function PsiDetailScreen() {
   const signMutation = useMutation({
     mutationFn: ({ signatureUrl, targetUserId }: { signatureUrl: string; targetUserId?: number }) =>
       customFetch(`/api/psi/${psiId}/signature`, { method: "POST", body: JSON.stringify({ signatureUrl, targetUserId }) }),
-    onSuccess: () => { invalidate(); setSignTarget(null); },
+    onSuccess: (_data, variables) => {
+      invalidate();
+      setSignTarget(null);
+      const signedForSelf = !variables.targetUserId || variables.targetUserId === me?.id;
+      if (returnTo === "clock-in" && signedForSelf && detailQuery.data) {
+        resolveClockInGate(detailQuery.data.psi.projectId);
+        safeNavigate(router, "/(tabs)/(home)", "psi-detail:clock-in-gate");
+      }
+    },
   });
 
   const approveMutation = useMutation({

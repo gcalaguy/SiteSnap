@@ -35,7 +35,7 @@ export default function PsiChecklistScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { id, projectId: initialProjectId } = useLocalSearchParams<{ id?: string; projectId?: string }>();
+  const { id, projectId: initialProjectId, returnTo } = useLocalSearchParams<{ id?: string; projectId?: string; returnTo?: string }>();
   const editId = id ? parseInt(id) : undefined;
 
   const { data: projects = [] } = useListProjects();
@@ -92,7 +92,7 @@ export default function PsiChecklistScreen() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["psi-checklists"] });
-      router.replace(`/(tabs)/(home)/psi-detail?id=${result.id}`);
+      router.replace(`/(tabs)/(home)/psi-detail?id=${result.id}${returnTo ? `&returnTo=${returnTo}` : ""}`);
     },
   });
 

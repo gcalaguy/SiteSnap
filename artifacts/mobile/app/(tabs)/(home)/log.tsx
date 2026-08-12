@@ -11,12 +11,14 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system/legacy";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useOfflineQueue, type QueuePhoto } from "@/context/OfflineQueueContext";
 import { useFormDraft, clearFormDraft } from "@/hooks/useFormDraft";
 import { DraftBanner } from "@/components/DraftBanner";
+import { safeNavigate } from "@/utils/safeNavigate";
+import { resolveClockOutGate } from "@/utils/clockGateBus";
 import {
   ActivityIndicator,
   Alert,
@@ -212,8 +214,9 @@ export default function LogScreen() {
   const addPhoto = useAddReportPhoto();
   const router = useRouter();
   const { isOnline, isSyncing, pendingCount, failedCount, enqueueReport: enqueue, syncQueue, retryFailed, clearFailed } = useOfflineQueue();
+  const { projectId: gateProjectId, returnTo, sessionId } = useLocalSearchParams<{ projectId?: string; returnTo?: string; sessionId?: string }>();
 
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(gateProjectId ? parseInt(gateProjectId) : null);
   const [crewCount, setCrewCount] = useState("1");
   const [weather, setWeather] = useState("");
   const [notes, setNotes] = useState("");
@@ -267,6 +270,18 @@ export default function LogScreen() {
     setCrewCount("1");
     setPhotos([]);
   }, []);
+
+  // If this screen was opened as the "last Clock Out today" gate (see
+  // ClockWidget.tsx / utils/clockGateBus.ts), resolve the gate and return to
+  // Home once the report is submitted — online or queued offline both count,
+  // matching how the rest of the app treats an offline-queued action as done.
+  function completeClockOutGateIfNeeded() {
+    if (returnTo !== "clock-out" || !sessionId) return;
+    resolveClockOutGate(Number(sessionId));
+    setTimeout(() => {
+      safeNavigate(router, "/(tabs)/(home)", "log:clock-out-gate");
+    }, 900);
+  }
 
   const { hasDraft, restore, discard } = useFormDraft(
     me?.id,
@@ -455,6 +470,7 @@ export default function LogScreen() {
       resetForm();
       clearFormDraft(me?.id, "daily-report").catch(() => {});
       setTimeout(() => setSubmitted("none"), 5000);
+      completeClockOutGateIfNeeded();
       return;
     }
 
@@ -490,6 +506,7 @@ export default function LogScreen() {
           resetForm();
           clearFormDraft(me?.id, "daily-report").catch(() => {});
           setTimeout(() => setSubmitted("none"), 3000);
+          completeClockOutGateIfNeeded();
         },
         onError: async () => {
           await enqueue(selectedProjectId!, reportData, photos);
@@ -497,6 +514,7 @@ export default function LogScreen() {
           setSubmitted("offline");
           resetForm();
           setTimeout(() => setSubmitted("none"), 5000);
+          completeClockOutGateIfNeeded();
         },
       }
     );

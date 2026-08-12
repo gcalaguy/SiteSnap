@@ -27,7 +27,7 @@ import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Card, ListRow } from "@/components/ui";
-import { layout, spacing, typography } from "@/constants/theme";
+import { layout, radius, spacing, typography } from "@/constants/theme";
 import { safeNavigate } from "@/utils/safeNavigate";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -50,30 +50,24 @@ function fmtCAD(v: string | number) {
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 }
 
-function MenuItem({ icon, label, value, onPress, danger }: {
-  icon: string;
-  label: string;
-  value?: string;
-  onPress?: () => void;
-  danger?: boolean;
-}) {
+// One elevated Card wrapping any number of ListRows with hairline dividers
+// between them — the repeated shape behind Quick Create/Administration/
+// Account/Actions below, matching the tool-grid Card language used on the
+// Projects and Browse Tools tabs instead of Profile's old one-off bordered
+// boxes.
+function RowGroup({ children }: { children: React.ReactNode }) {
   const colors = useColors();
+  const rows = React.Children.toArray(children);
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.menuItem,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed && onPress ? 0.7 : 1 },
-      ]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={[styles.menuIcon, { backgroundColor: danger ? "#FEE2E2" : colors.muted }]}>
-        <Feather name={icon as any} size={18} color={danger ? colors.destructive : colors.primary} />
+    <Card padding="none">
+      <View style={{ paddingHorizontal: spacing.lg }}>
+        {rows.map((row, i) => (
+          <View key={i} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+            {row}
+          </View>
+        ))}
       </View>
-      <Text style={[styles.menuLabel, { color: danger ? colors.destructive : colors.foreground }]} numberOfLines={1}>{label}</Text>
-      {!!value && <Text style={[styles.menuValue, { color: colors.mutedForeground }]} numberOfLines={1}>{value}</Text>}
-      {onPress && !danger && <Feather name="chevron-right" size={16} color={colors.border} />}
-    </Pressable>
+    </Card>
   );
 }
 
@@ -88,8 +82,6 @@ export default function ProfileScreen() {
   const { preference: themePreference, setPreference: setThemePreference } = useThemePreference();
 
   const perms = usePermissions();
-  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
-  const isWorker = me?.role === "worker";
   const isOwner = me?.role === "owner";
 
   const activeCompanyId = me?.activeCompanyId;
@@ -262,85 +254,86 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90 }}
       >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: topInsets + 20, backgroundColor: colors.sidebar }]}>
-          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          {me ? (
-            <>
-              <Text style={[styles.userName, { color: "#FFFFFF" }]}>
-                {me.firstName} {me.lastName}
-              </Text>
-              <Text style={[styles.userEmail, { color: "rgba(255,255,255,0.6)" }]}>{me.email}</Text>
-              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.badgeText}>{ROLE_LABELS[me.role ?? "worker"] ?? me.role}</Text>
-              </View>
-            </>
-          ) : (
-            <Text style={[styles.userEmail, { color: "rgba(255,255,255,0.6)" }]}>Loading...</Text>
-          )}
-        </View>
+        {/* Header — plain title over the screen background, matching Projects/Browse Tools */}
+        <View style={[styles.headerArea, { paddingTop: topInsets + spacing.xxl }]}>
+          <Text style={[styles.screenTitle, { color: colors.foreground }]}>Profile</Text>
+          <Text style={[typography.body, { color: colors.mutedForeground, marginTop: -spacing.md, marginBottom: spacing.xl }]}>
+            Your account, company & preferences
+          </Text>
 
-        {/* Company */}
-        {(me?.company || memberships.length > 0) && (
-          <View style={[styles.section, { marginTop: 24 }]}>
-            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Company</Text>
-            <TouchableOpacity
-              activeOpacity={hasMultipleCompanies ? 0.7 : 1}
-              onPress={() => hasMultipleCompanies && setShowCompanyPicker(true)}
-              style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10 }}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: colors.muted }]}>
-                <Feather name="briefcase" size={18} color={colors.primary} />
+          <Card>
+            <View style={styles.identityRow}>
+              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                <Text style={[typography.title, { color: colors.primaryForeground }]}>{initials}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.menuLabel, { color: colors.foreground }]}>
-                  {me?.company?.name ?? memberships[0]?.companyName ?? "No Company"}
-                </Text>
-                <Text style={[styles.menuValue, { color: colors.mutedForeground }]}>
-                  {ROLE_LABELS[me?.role ?? "worker"] ?? me?.role ?? "Member"}
-                </Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                {me ? (
+                  <>
+                    <Text style={[typography.heading, { color: colors.foreground }]} numberOfLines={1}>
+                      {me.firstName} {me.lastName}
+                    </Text>
+                    <View style={[styles.rolePill, { backgroundColor: colors.primary }]}>
+                      <Text style={[typography.label, { color: colors.primaryForeground }]}>
+                        {ROLE_LABELS[me.role ?? "worker"] ?? me.role}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={[typography.caption, { color: colors.mutedForeground }]}>Loading...</Text>
+                )}
               </View>
-              {hasMultipleCompanies && (
-                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+            </View>
+
+            {(me?.company || memberships.length > 0) && (
+              <View style={[styles.cardRow, { borderTopColor: colors.border }]}>
+                <ListRow
+                  icon="briefcase"
+                  title={me?.company?.name ?? memberships[0]?.companyName ?? "No Company"}
+                  subtitle="Company"
+                  onPress={hasMultipleCompanies ? () => setShowCompanyPicker(true) : undefined}
+                  showChevron={hasMultipleCompanies}
+                />
+              </View>
+            )}
+
+            <View style={[styles.cardRow, { borderTopColor: colors.border }]}>
+              <ListRow
+                icon="mail"
+                title="Email"
+                trailing={<Text style={[typography.caption, { color: colors.mutedForeground }]} numberOfLines={1}>{me?.email ?? "—"}</Text>}
+              />
+            </View>
+          </Card>
+        </View>
 
         {/* Seat usage warning — owners only */}
         {showSeatWarning && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => safeNavigate(router, "/settings", "profile:seat-warning")}
-            style={[styles.seatWarningBanner]}
-          >
-            <View style={styles.seatWarningIcon}>
-              <Feather name="alert-triangle" size={18} color="#D97706" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.seatWarningTitle}>Seats nearly full</Text>
-              <Text style={styles.seatWarningBody}>
-                {seats!.currentSeats} of {seats!.maxSeats} seats used. Upgrade your plan before you hit the limit.
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={16} color="#D97706" />
-          </TouchableOpacity>
+          <View style={styles.section}>
+            <Card onPress={() => safeNavigate(router, "/settings", "profile:seat-warning")} style={{ borderColor: `${colors.warning}55` }}>
+              <View style={styles.seatWarningRow}>
+                <View style={[styles.seatWarningIcon, { backgroundColor: `${colors.warning}22` }]}>
+                  <Feather name="alert-triangle" size={18} color={colors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.bodyMedium, { color: colors.foreground }]}>Seats nearly full</Text>
+                  <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 2 }]}>
+                    {seats!.currentSeats} of {seats!.maxSeats} seats used. Upgrade your plan before you hit the limit.
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+              </View>
+            </Card>
+          </View>
         )}
 
         {/* Quick Create — voice-driven invoice/quote, shown if viewFinancials is enabled */}
         {perms.viewFinancials && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Quick Create</Text>
-            <Card padding="none">
-              <View style={{ paddingHorizontal: 14 }}>
-                <ListRow icon="mic" title="Voice Invoice" subtitle="Describe the job, get an instant invoice" onPress={() => openVoiceModal("invoice")} showChevron />
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="mic" title="Voice Quote" subtitle="Describe the job, get an instant quote" onPress={() => openVoiceModal("quote")} showChevron />
-                </View>
-              </View>
-            </Card>
+            <RowGroup>
+              <ListRow icon="mic" title="Voice Invoice" subtitle="Describe the job, get an instant invoice" onPress={() => openVoiceModal("invoice")} showChevron />
+              <ListRow icon="mic" title="Voice Quote" subtitle="Describe the job, get an instant quote" onPress={() => openVoiceModal("quote")} showChevron />
+            </RowGroup>
           </View>
         )}
 
@@ -348,29 +341,14 @@ export default function ProfileScreen() {
         {me?.role === "owner" && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Administration</Text>
-            <Card padding="none">
-              <View style={{ paddingHorizontal: 14 }}>
-                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/admin-hub", "profile:admin-hub")} showChevron />
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => safeNavigate(router, "/settings", "profile:company-settings")} showChevron />
-                </View>
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="mail" title="Email Integrations" subtitle="Connect Outlook & Gmail" onPress={() => safeNavigate(router, "/email-integrations", "profile:email-integrations")} showChevron />
-                </View>
-                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="filter" title="Automatic Filing Rules" subtitle="IF/AND/OR rules that file incoming emails" onPress={() => safeNavigate(router, "/email-filing-rules", "profile:email-filing-rules")} showChevron />
-                </View>
-              </View>
-            </Card>
+            <RowGroup>
+              <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/admin-hub", "profile:admin-hub")} showChevron />
+              <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => safeNavigate(router, "/settings", "profile:company-settings")} showChevron />
+              <ListRow icon="mail" title="Email Integrations" subtitle="Connect Outlook & Gmail" onPress={() => safeNavigate(router, "/email-integrations", "profile:email-integrations")} showChevron />
+              <ListRow icon="filter" title="Automatic Filing Rules" subtitle="IF/AND/OR rules that file incoming emails" onPress={() => safeNavigate(router, "/email-filing-rules", "profile:email-filing-rules")} showChevron />
+            </RowGroup>
           </View>
         )}
-
-        {/* Account */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Account</Text>
-          <MenuItem icon="mail" label="Email" value={me?.email ?? "—"} />
-          <MenuItem icon="shield" label="Role" value={ROLE_LABELS[me?.role ?? "worker"] ?? me?.role ?? "—"} />
-        </View>
 
         {/* Appearance */}
         <View style={styles.section}>
@@ -404,43 +382,45 @@ export default function ProfileScreen() {
         {referralData?.referralLink && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Referrals</Text>
-            <View style={[styles.referralCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Card>
               <View style={styles.referralHeader}>
                 <View style={[styles.menuIcon, { backgroundColor: colors.muted }]}>
                   <Feather name="gift" size={18} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.menuLabel, { color: colors.foreground }]}>Refer a Contractor</Text>
-                  <Text style={[styles.menuValue, { color: colors.mutedForeground, marginTop: 2 }]}>
+                  <Text style={[typography.bodyMedium, { color: colors.foreground }]}>Refer a Contractor</Text>
+                  <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 2 }]}>
                     {referralData.referralCount === 0
                       ? "No referrals yet"
                       : `${referralData.referralCount} contractor${referralData.referralCount === 1 ? "" : "s"} referred`}
                   </Text>
                 </View>
               </View>
-              <View style={[styles.referralLinkBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Text style={[styles.referralLinkText, { color: colors.mutedForeground }]} numberOfLines={1} ellipsizeMode="middle">
+              <View style={[styles.referralLinkBox, { backgroundColor: colors.muted, borderColor: colors.border, marginTop: spacing.md }]}>
+                <Text style={[typography.caption, { color: colors.mutedForeground }]} numberOfLines={1} ellipsizeMode="middle">
                   {referralData.referralLink}
                 </Text>
               </View>
               <Pressable
-                style={[styles.referralBtn, { backgroundColor: colors.primary }]}
+                style={[styles.referralBtn, { backgroundColor: colors.primary, marginTop: spacing.md }]}
                 onPress={handleShareReferral}
               >
-                <Feather name="share-2" size={14} color="#fff" />
-                <Text style={styles.referralBtnText}>Share with a Contractor</Text>
+                <Feather name="share-2" size={14} color={colors.primaryForeground} />
+                <Text style={[typography.captionMedium, { color: colors.primaryForeground }]}>Share with a Contractor</Text>
               </Pressable>
-            </View>
+            </Card>
           </View>
         )}
 
         {/* Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Actions</Text>
-          <MenuItem icon="log-out" label="Sign Out" onPress={handleSignOut} danger />
+          <RowGroup>
+            <ListRow icon="log-out" iconColor={colors.destructive} titleColor={colors.destructive} title="Sign Out" onPress={handleSignOut} />
+          </RowGroup>
         </View>
 
-        <Text style={[styles.versionText, { color: colors.mutedForeground }]}>
+        <Text style={[typography.caption, styles.versionText, { color: colors.mutedForeground }]}>
           Site Snap v1.0.0
         </Text>
       </ScrollView>
@@ -644,158 +624,30 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 24 },
+  headerArea: { paddingHorizontal: layout.gutter, paddingBottom: spacing.xl },
+  screenTitle: { ...typography.hero, marginBottom: spacing.sm },
+  identityRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    flexShrink: 0,
   },
-  avatarText: { fontSize: 28, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  userName: { fontSize: 24, fontFamily: "NunitoSans_700Bold", marginBottom: 4 },
-  userEmail: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, alignSelf: "flex-start", marginTop: 8 },
-  badgeText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
+  rolePill: { paddingHorizontal: spacing.md, paddingVertical: 4, borderRadius: radius.full, alignSelf: "flex-start", marginTop: spacing.sm },
+  cardRow: { borderTopWidth: 1, marginTop: spacing.md },
   section: { paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
   sectionTitle: { ...typography.label, textTransform: "uppercase", marginBottom: spacing.md },
-  sectionDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginBottom: 12, lineHeight: 18 },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 8,
-    gap: 12,
-  },
   menuIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  menuLabel: { flex: 1, fontSize: 15, fontFamily: "NunitoSans_500Medium", minWidth: 0 },
-  menuValue: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flexShrink: 1, textAlign: "right", maxWidth: "55%" },
-  versionText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingTop: 8 },
-  referralCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 12 },
-  referralHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  referralLinkBox: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
-  referralLinkText: { fontSize: 12, fontFamily: "NunitoSans_400Regular" },
-  referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 16 },
-  referralBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#fff" },
+  versionText: { textAlign: "center", paddingTop: spacing.sm },
+  referralHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  referralLinkBox: { borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.sm },
 
   // Seat warning banner
-  seatWarningBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    backgroundColor: "#FFFBEB",
-  },
-  seatWarningIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FEF3C7",
-  },
-  seatWarningTitle: {
-    fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
-    color: "#92400E",
-    marginBottom: 2,
-  },
-  seatWarningBody: {
-    fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
-    color: "#B45309",
-    lineHeight: 17,
-  },
-
-  // Quick Create
-  quickRow: { flexDirection: "row", gap: 12, marginBottom: 10 },
-  quickCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickIcon: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  quickLabel: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
-  quickDesc: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 16, marginBottom: 8 },
-  quickBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  quickBtnText: { color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 13 },
-  financeLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  financeLinkText: { flex: 1, fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-
-  // Worker: Incident reporting
-  incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16 },
-  incidentIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  incidentBtnTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  incidentBtnSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  incidentArrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  incidentEmpty: { borderRadius: 16, borderWidth: 1, padding: 20, alignItems: "center" },
-  submissionRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, padding: 12, gap: 10 },
-  submissionDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  submissionName: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-  submissionCatTag: { alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 3 },
-  submissionCatText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
-  submissionBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 16 },
-  submissionBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
-
-  // Worker: Trade Calculators feature card
-  calcFeatureCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
-  calcFeatureBanner: { paddingHorizontal: 14, paddingVertical: 14 },
-  calcFeatureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  calcFeatureIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  calcFeatureTitle: { fontSize: 15, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF" },
-  calcFeatureSubtitle: { fontSize: 11, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  calcFeatureOpenBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  calcChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 },
-  calcChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
-  calcChipText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-
-  // Worker tasks
-  emptyTasks: { borderRadius: 16, borderWidth: 1, padding: 24, alignItems: "center" },
-  taskCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 8,
-    gap: 10,
-  },
-  taskDot: { width: 8, height: 8, borderRadius: 4 },
-  taskTitle: { fontSize: 14, fontFamily: "NunitoSans_500Medium" },
-  taskProject: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  taskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  taskBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
+  seatWarningRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  seatWarningIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 
   // Modal
   modal: { flex: 1 },

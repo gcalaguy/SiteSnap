@@ -10,6 +10,7 @@ interface ListRowProps {
   icon?: keyof typeof Feather.glyphMap;
   iconColor?: string;
   title: string;
+  titleColor?: string;
   subtitle?: string;
   trailing?: React.ReactNode;
   onPress?: () => void;
@@ -23,6 +24,7 @@ export function ListRow({
   icon,
   iconColor,
   title,
+  titleColor,
   subtitle,
   trailing,
   onPress,
@@ -48,7 +50,7 @@ export function ListRow({
         </View>
       ) : null}
       <View style={styles.textCol}>
-        <Text style={[typography.bodyMedium, { color: colors.foreground }]} numberOfLines={1}>
+        <Text style={[typography.bodyMedium, { color: titleColor ?? colors.foreground }]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
