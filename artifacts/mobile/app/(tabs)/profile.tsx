@@ -22,10 +22,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useThemePreference } from "@/context/ThemeContext";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { BottomSheet, Card, ListRow, MediaCard } from "@/components/ui";
+import { Card, ListRow } from "@/components/ui";
 import { layout, spacing, typography } from "@/constants/theme";
 import { safeNavigate } from "@/utils/safeNavigate";
 
@@ -84,7 +85,7 @@ export default function ProfileScreen() {
   const { data: me, isLoading } = useGetMe();
   const setActiveCompany = useSetActiveCompany();
   const [showCompanyPicker, setShowCompanyPicker] = useState(false);
-  const [showTools, setShowTools] = useState(false);
+  const { preference: themePreference, setPreference: setThemePreference } = useThemePreference();
 
   const perms = usePermissions();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -252,21 +253,6 @@ export default function ProfileScreen() {
     ]);
   };
 
-  type ToolItem = { key: string; icon: keyof typeof Feather.glyphMap; label: string; subtitle: string; onPress: () => void };
-  const toolItems: ToolItem[] = [
-    { key: "calculators", icon: "percent", label: "Trade Calculators", subtitle: "Concrete · Electrical · Plumbing · Roofing", onPress: () => safeNavigate(router, "/calculators", "profile:calculators") },
-    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Speak or type to build a detailed estimate", onPress: () => safeNavigate(router, "/estimator", "profile:estimator") },
-    perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => safeNavigate(router, "/vault", "profile:vault") },
-    perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => safeNavigate(router, "/(tabs)/(home)/reports", "profile:reports") },
-    perms.viewSafetyTab && { key: "scan-photo-history", icon: "clock", label: "Scan Photo History", subtitle: "Review or remove your AI Safety Scan photos", onPress: () => safeNavigate(router, "/(tabs)/(home)/scan-photo-history", "profile:scan-photo-history") },
-    perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "profile:expenses") },
-    perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => safeNavigate(router, "/(tabs)/(home)/ask", "profile:ask-ai") },
-    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/risk", "profile:risk") },
-    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/tradehub", "profile:tradehub") },
-    perms.viewProjectCommunications && { key: "uncategorized-emails", icon: "inbox", label: "Uncategorized Emails", subtitle: "Emails waiting to be filed to a project", onPress: () => safeNavigate(router, "/uncategorized-emails", "profile:uncategorized-emails") },
-    perms.viewProjectCommunications && { key: "communications-search", icon: "search", label: "Search Builder", subtitle: "Build and save reusable email searches", onPress: () => safeNavigate(router, "/communications-search", "profile:communications-search") },
-  ].filter((i): i is ToolItem => !!i);
-
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -358,25 +344,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* More Tools — everything the simplified home screen / 5-tab nav no
-            longer surfaces directly, gated by the same permissions as before.
-            Opens in a BottomSheet rather than occupying permanent scroll
-            space, per docs/MOBILE_DESIGN_SYSTEM.md §7. */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>More Tools</Text>
-          <Card padding="none">
-            <View style={{ paddingHorizontal: 14 }}>
-              <ListRow
-                icon="grid"
-                title="Browse Tools"
-                subtitle={`${toolItems.length} tool${toolItems.length === 1 ? "" : "s"} available`}
-                onPress={() => setShowTools(true)}
-                showChevron
-              />
-            </View>
-          </Card>
-        </View>
-
         {/* Administration — owners only */}
         {me?.role === "owner" && (
           <View style={styles.section}>
@@ -403,6 +370,34 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Account</Text>
           <MenuItem icon="mail" label="Email" value={me?.email ?? "—"} />
           <MenuItem icon="shield" label="Role" value={ROLE_LABELS[me?.role ?? "worker"] ?? me?.role ?? "—"} />
+        </View>
+
+        {/* Appearance */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Appearance</Text>
+          <Card padding="sm">
+            <View style={[styles.typeToggle, { backgroundColor: colors.muted, borderColor: colors.border, marginBottom: 0 }]}>
+              {(["system", "light", "dark"] as const).map((opt) => {
+                const active = themePreference === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => setThemePreference(opt)}
+                    style={[styles.typeToggleBtn, active && { backgroundColor: colors.primary }]}
+                  >
+                    <Feather
+                      name={opt === "system" ? "smartphone" : opt === "light" ? "sun" : "moon"}
+                      size={14}
+                      color={active ? colors.primaryForeground : colors.mutedForeground}
+                    />
+                    <Text style={[styles.typeToggleBtnText, { color: active ? colors.primaryForeground : colors.mutedForeground }]}>
+                      {opt === "system" ? "System" : opt === "light" ? "Light" : "Dark"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Card>
         </View>
 
         {/* Refer a Contractor */}
@@ -449,26 +444,6 @@ export default function ProfileScreen() {
           Site Snap v1.0.0
         </Text>
       </ScrollView>
-
-      {/* More Tools sheet */}
-      <BottomSheet visible={showTools} onClose={() => setShowTools(false)} title="More Tools">
-        <View style={styles.toolGrid}>
-          {toolItems.map((item) => (
-            <MediaCard
-              key={item.key}
-              size="compact"
-              seed={item.key}
-              fallbackIcon={item.icon}
-              title={item.label}
-              onPress={() => {
-                setShowTools(false);
-                item.onPress();
-              }}
-              style={styles.toolTile}
-            />
-          ))}
-        </View>
-      </BottomSheet>
 
       {/* Company Picker Modal */}
       <Modal
@@ -685,9 +660,6 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
   section: { paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
   sectionTitle: { ...typography.label, textTransform: "uppercase", marginBottom: spacing.md },
-  toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  // Two per row: half the width minus half the gap.
-  toolTile: { width: "48%", flexGrow: 1 },
   sectionDesc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", marginBottom: 12, lineHeight: 18 },
   menuItem: {
     flexDirection: "row",

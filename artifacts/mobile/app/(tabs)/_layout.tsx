@@ -5,10 +5,10 @@ import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { useOfflineQueue } from "@/context/OfflineQueueContext";
+import { useThemePreference } from "@/context/ThemeContext";
 import { fontFamily } from "@/constants/theme";
 
 function NativeTabLayout() {
@@ -23,13 +23,9 @@ function NativeTabLayout() {
           <Icon sf={{ default: "folder", selected: "folder.fill" }} />
           <Label>Projects</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="capture">
-          <Icon sf={{ default: "camera", selected: "camera.fill" }} />
-          <Label>Capture</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="tasks">
-          <Icon sf={{ default: "checkmark.circle", selected: "checkmark.circle.fill" }} />
-          <Label>Tasks</Label>
+        <NativeTabs.Trigger name="tools">
+          <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
+          <Label>Browse Tools</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -49,22 +45,12 @@ function NativeTabLayout() {
   );
 }
 
-function PendingBadge({ count }: { count: number }) {
-  if (count === 0) return null;
-  return (
-    <View style={styles.badge}>
-      <Text style={styles.badgeText}>{count > 9 ? "9+" : count}</Text>
-    </View>
-  );
-}
-
 function ClassicTabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { scheme } = useThemePreference();
+  const isDark = scheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
-  const { pendingCount } = useOfflineQueue();
 
   return (
     <View style={{ flex: 1 }}>
@@ -112,23 +98,11 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="capture"
+        name="tools"
         options={{
-          title: "Capture",
-          tabBarIcon: ({ color }) => (
-            <View style={{ position: "relative" }}>
-              {isIOS ? <SymbolView name="camera" tintColor={color} size={24} /> : <Feather name="camera" size={22} color={color} />}
-              <PendingBadge count={pendingCount} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: "Tasks",
+          title: "Browse Tools",
           tabBarIcon: ({ color }) =>
-            isIOS ? <SymbolView name="checkmark.circle" tintColor={color} size={24} /> : <Feather name="check-square" size={22} color={color} />,
+            isIOS ? <SymbolView name="wrench.and.screwdriver" tintColor={color} size={24} /> : <Feather name="tool" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -143,27 +117,6 @@ function ClassicTabLayout() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 16,
-    backgroundColor: "#EF4444",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: "NunitoSans_700Bold",
-    color: "#FFFFFF",
-    lineHeight: 13,
-  },
-});
 
 export default function TabLayout() {
   if (isLiquidGlassAvailable()) {

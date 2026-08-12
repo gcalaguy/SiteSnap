@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { StatusBar } from "expo-status-bar";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
 import {
@@ -26,6 +27,7 @@ import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister
 import { setTokenGetter, setSignOut } from "@/utils/auth";
 import { reportClientError } from "@/utils/errorReporting";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ThemeProvider, useThemePreference } from "@/context/ThemeContext";
 
 // ---------------------------------------------------------------------------
 // Build-time config validation
@@ -213,6 +215,7 @@ function RootLayoutNav() {
 
   const router = useRouter();
   const segments = useSegments();
+  const { scheme } = useThemePreference();
 
   const [fontsLoaded, fontError] = useFonts({
     NunitoSans_400Regular,
@@ -306,6 +309,7 @@ function RootLayoutNav() {
 
   return (
     <KeyboardProvider>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <TermsModal visible={needsTerms} />
       <View style={{ flex: 1 }}>
         <ErrorBoundary>
@@ -329,6 +333,8 @@ function RootLayoutNav() {
             any Trigger marked `hidden` from its rendered screen set entirely, not just
             from the tab bar strip, so router.push to a hidden NativeTabs child silently
             no-ops. A plain Stack screen has no such limitation. */}
+        <Stack.Screen name="tasks" options={{ headerShown: false }} />
+        <Stack.Screen name="capture" options={{ headerShown: false }} />
         <Stack.Screen name="risk" options={{ headerShown: false }} />
         <Stack.Screen name="inspect" options={{ headerShown: false }} />
         <Stack.Screen name="safety" options={{ headerShown: false }} />
@@ -406,18 +412,20 @@ function AppRoot() {
   }, [queryClient]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ClerkProvider
-        publishableKey={CLERK_KEY}
-        tokenCache={tokenCache as any}
-      >
-        <QueryClientProvider client={queryClient}>
-          <I18nextProvider i18n={i18n}>
-            <RootLayoutNav />
-          </I18nextProvider>
-        </QueryClientProvider>
-      </ClerkProvider>
-    </GestureHandlerRootView>
+    <ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ClerkProvider
+          publishableKey={CLERK_KEY}
+          tokenCache={tokenCache as any}
+        >
+          <QueryClientProvider client={queryClient}>
+            <I18nextProvider i18n={i18n}>
+              <RootLayoutNav />
+            </I18nextProvider>
+          </QueryClientProvider>
+        </ClerkProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
   );
 }
 

@@ -305,9 +305,9 @@ function WorkerTasksScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     params.filter === "overdue" ? "overdue" : "all",
   );
-  // tasks.tsx is a persistent Tabs.Screen, not pushed fresh each time — the
-  // useState initializer above only runs on first mount, so re-sync whenever
-  // the Home tile deep-links here again with a new ?filter value.
+  // Re-sync whenever the Home tile deep-links here again with a new
+  // ?filter value while this screen is already mounted (e.g. navigating
+  // here twice in a row without unmounting in between).
   useEffect(() => {
     if (params.filter === "overdue") setStatusFilter("overdue");
   }, [params.filter]);
@@ -503,9 +503,9 @@ function OwnerTasksScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     params.filter === "overdue" ? "overdue" : "all",
   );
-  // tasks.tsx is a persistent Tabs.Screen, not pushed fresh each time — the
-  // useState initializer above only runs on first mount, so re-sync whenever
-  // the Home tile deep-links here again with a new ?filter value.
+  // Re-sync whenever the Home tile deep-links here again with a new
+  // ?filter value while this screen is already mounted (e.g. navigating
+  // here twice in a row without unmounting in between).
   useEffect(() => {
     if (params.filter === "overdue") setStatusFilter("overdue");
   }, [params.filter]);
