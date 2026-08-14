@@ -97,7 +97,7 @@
   --elevate-2: rgba(0, 0, 0, 0.06);
 
   /* Light Command — White / Black & Gold theme */
-  --background: 0 0% 97%;
+  --background: 45 20% 97%;
   --foreground: 0 0% 7%;
 
   --border: 0 0% 89%;
@@ -124,6 +124,12 @@
   --primary: 43 62% 52%;
   --primary-foreground: 0 0% 7%;
   --primary-border: rgba(212, 175, 55, 0.4);
+
+  /* Shared "elevated card" recipe — one border/shadow pair reused by every
+     card that wants to read as gold-accented (stat cards, activity, smart
+     insight), instead of each screen inventing its own alpha/width combo. */
+  --elevated-border: rgba(212, 175, 55, 0.18);
+  --elevated-shadow: 0 1px 4px rgba(20, 19, 16, 0.06);
 
   /* Neutral secondary */
   --secondary: 0 0% 93%;
@@ -179,7 +185,7 @@
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: .3rem;
+  --radius: .5rem;
 }
 
 .dark {
@@ -208,6 +214,9 @@
   --primary: 43 62% 52%;
   --primary-foreground: 0 0% 7%;
   --primary-border: rgba(212, 175, 55, 0.4);
+
+  --elevated-border: rgba(212, 175, 55, 0.22);
+  --elevated-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 
   --secondary: 0 0% 18%;
   --secondary-foreground: 0 0% 98%;

@@ -53,8 +53,8 @@ export default defineConfig({
         short_name: "Site Snap",
         description:
           "Multi-tenant AI-powered project management and collaboration tool for Canadian construction companies.",
-        theme_color: "#FF6600",
-        background_color: "#FF6600",
+        theme_color: "#D4AF37",
+        background_color: "#ffffff",
         display: "standalone",
         start_url: basePath,
         scope: basePath,

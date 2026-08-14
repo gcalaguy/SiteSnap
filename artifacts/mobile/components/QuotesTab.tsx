@@ -30,6 +30,9 @@ import { Feather } from "@expo/vector-icons";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { withAiRetry } from "@/src/utils/aiRetry";
 import { RetrySnackbar } from "@/components/RetrySnackbar";
+import { Card, Button, EmptyState, Badge } from "@/components/ui";
+import { spacing } from "@/constants/theme";
+import { DEFAULT_TAX_RATE, computeTax } from "@/constants/tax";
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 type AIResult = { title?: string; lineItems?: LineItem[]; notes?: string; clientName?: string };
@@ -41,19 +44,12 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Needs Revision",
   converted: "Invoiced",
 };
-const STATUS_COLORS: Record<string, string> = {
-  draft: "#6B7280",
-  pending_approval: "#2563EB",
-  approved: "#16A34A",
-  rejected: "#EA580C",
-  converted: "#7C3AED",
-};
-const STATUS_BG: Record<string, string> = {
-  draft: "#F3F4F6",
-  pending_approval: "#DBEAFE",
-  approved: "#DCFCE7",
-  rejected: "#FFF7ED",
-  converted: "#EDE9FE",
+const STATUS_BADGE: Record<string, "success" | "warning" | "critical" | "neutral"> = {
+  draft: "neutral",
+  pending_approval: "warning",
+  approved: "success",
+  rejected: "critical",
+  converted: "neutral",
 };
 
 function fmtCAD(v: number | string) {
@@ -144,7 +140,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
     try {
       const items = (aiResult.lineItems ?? []) as LineItem[];
       const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-      const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
+      const taxAmount = computeTax(subtotal);
       const total = subtotal + taxAmount;
       const created = await createQuote.mutateAsync({
         projectId,
@@ -153,7 +149,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
           clientName: clientName || aiResult.clientName || "Client",
           lineItems: items,
           subtotal,
-          taxRate: 0.13,
+          taxRate: DEFAULT_TAX_RATE,
           taxAmount,
           total,
         },
@@ -246,25 +242,20 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 
   const aiItems = (aiResult?.lineItems ?? []) as LineItem[];
   const aiSubtotal = aiItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const aiTax = Math.round(aiSubtotal * 0.13 * 100) / 100;
+  const aiTax = computeTax(aiSubtotal);
 
   return (
     <View style={styles.container}>
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
       ) : !quotes?.length ? (
-        <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIcon, { backgroundColor: `${colors.primary}18` }]}>
-            <Feather name="mic" size={32} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No quotes yet</Text>
-          <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>
-            Tap the mic button to describe the job by voice — AI fills in materials, quantities, and Canadian pricing.
-          </Text>
-          <TouchableOpacity onPress={openModal} style={[styles.emptyBtn, { backgroundColor: colors.primary }]}>
-            <Feather name="mic" size={16} color="#FFFFFF" />
-            <Text style={styles.emptyBtnText}>Create First Quote by Voice</Text>
-          </TouchableOpacity>
+        <View style={{ paddingHorizontal: spacing.xxl, paddingTop: 60 }}>
+          <EmptyState
+            icon="mic"
+            title="No quotes yet"
+            subtitle="Tap the mic button to describe the job by voice — AI fills in materials, quantities, and Canadian pricing."
+          />
+          <Button label="Create First Quote by Voice" icon="mic" onPress={openModal} fullWidth />
         </View>
       ) : (
         <FlatList
@@ -275,12 +266,11 @@ export function QuotesTab({ projectId }: { projectId: number }) {
           renderItem={({ item: q }) => {
             const busy = actionLoading[q.id];
             return (
-              <Pressable
+              <Card
                 onPress={() => router.push(`/quote/${q.id}?projectId=${projectId}`)}
-                style={({ pressed }) => [
-                  styles.card,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                ]}
+                elevated={false}
+                padding="none"
+                style={{ marginHorizontal: 20, marginBottom: 12, overflow: "hidden" }}
               >
                 {/* Top row */}
                 <View style={styles.cardTop}>
@@ -291,11 +281,9 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>{q.title}</Text>
                     <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>{q.quoteNumber} · {q.clientName}</Text>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
+                  <View style={{ alignItems: "flex-end", gap: spacing.xs }}>
                     <Text style={[styles.cardAmount, { color: colors.foreground }]}>{fmtCAD(q.total)}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[q.status] }]}>
-                      <Text style={[styles.statusText, { color: STATUS_COLORS[q.status] }]}>{STATUS_LABELS[q.status]}</Text>
-                    </View>
+                    <Badge label={STATUS_LABELS[q.status]} status={STATUS_BADGE[q.status]} />
                   </View>
                 </View>
 
@@ -382,7 +370,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     </View>
                   )}
                 </View>
-              </Pressable>
+              </Card>
             );
           }}
         />
@@ -468,20 +456,17 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                   {isRecording && <View style={[styles.recordingDot, { backgroundColor: "#DC2626" }]} />}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleGenerate}
-                  disabled={aiLoading || !description.trim()}
-                  style={[styles.generateBtn, { backgroundColor: description.trim() && !aiLoading ? colors.primary : colors.muted }]}
-                >
-                  {aiLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Feather name="zap" size={18} color={description.trim() ? "#FFFFFF" : colors.mutedForeground} />
-                  )}
-                  <Text style={[styles.generateBtnText, { color: description.trim() && !aiLoading ? "#FFFFFF" : colors.mutedForeground }]}>
-                    {aiWaiting ? "Waiting for connection…" : aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ marginTop: spacing.sm }}>
+                  <Button
+                    label={aiWaiting ? "Waiting for connection…" : aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
+                    icon="zap"
+                    onPress={handleGenerate}
+                    disabled={!description.trim()}
+                    loading={aiLoading}
+                    fullWidth
+                    size="lg"
+                  />
+                </View>
 
                 {aiError && !aiLoading && (
                   <View style={[styles.errorBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
@@ -553,27 +538,10 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                 )}
 
                 <View style={styles.previewBtns}>
-                  <TouchableOpacity
-                    onPress={() => setStep("input")}
-                    style={[styles.backBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                  >
-                    <Feather name="arrow-left" size={16} color={colors.foreground} />
-                    <Text style={[styles.backBtnText, { color: colors.foreground }]}>Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleCreate}
-                    disabled={saving}
-                    style={[styles.createBtn, { backgroundColor: saving ? colors.muted : colors.primary }]}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Feather name="plus" size={18} color="#FFFFFF" />
-                    )}
-                    <Text style={[styles.createBtnText, { color: saving ? colors.mutedForeground : "#FFFFFF" }]}>
-                      {saving ? "Creating…" : "Create Quote"}
-                    </Text>
-                  </TouchableOpacity>
+                  <Button label="Back" icon="arrow-left" variant="secondary" onPress={() => setStep("input")} />
+                  <View style={{ flex: 1 }}>
+                    <Button label={saving ? "Creating…" : "Create Quote"} icon="plus" onPress={handleCreate} loading={saving} fullWidth />
+                  </View>
                 </View>
               </>
             )}
@@ -586,20 +554,11 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, position: "relative" },
-  emptyContainer: { alignItems: "center", paddingHorizontal: 32, paddingTop: 60, gap: 12 },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
-  emptyDesc: { fontSize: 14, fontFamily: "NunitoSans_400Regular", textAlign: "center", lineHeight: 21 },
-  emptyBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, marginTop: 8 },
-  emptyBtnText: { color: "#FFFFFF", fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
-  card: { borderRadius: 16, borderWidth: 1, marginHorizontal: 20, marginBottom: 12, overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   iconBox: { width: 40, height: 40, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   cardTitle: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
   cardSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
   cardAmount: { fontSize: 14, fontFamily: "NunitoSans_700Bold", textAlign: "right" },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16, marginTop: 3, alignSelf: "flex-end" },
-  statusText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   actions: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
   viewBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
   viewBtnText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
@@ -622,8 +581,6 @@ const styles = StyleSheet.create({
   voiceCircle: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
   voiceBtnText: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
   recordingDot: { width: 8, height: 8, borderRadius: 4 },
-  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, borderRadius: 16, paddingVertical: 15, marginTop: 8 },
-  generateBtnText: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
   errorBanner: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10, marginTop: 4 },
   errorBannerTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   errorBannerMsg: { flex: 1, fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "#B91C1C", lineHeight: 19 },
@@ -640,9 +597,5 @@ const styles = StyleSheet.create({
   notesBox: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 16 },
   notesLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
   notesText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 20 },
-  previewBtns: { flexDirection: "row", gap: 12, marginTop: 8 },
-  backBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, borderWidth: 1 },
-  backBtnText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  createBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 16, paddingVertical: 14 },
-  createBtnText: { fontSize: 15, fontFamily: "NunitoSans_700Bold" },
+  previewBtns: { flexDirection: "row", gap: 12, marginTop: 8, alignItems: "center" },
 });

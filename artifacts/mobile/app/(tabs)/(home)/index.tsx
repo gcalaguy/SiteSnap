@@ -413,7 +413,7 @@ export default function DashboardScreen() {
           label="Overdue Tasks"
           value={overdueTaskCount}
           status={overdueTaskCount > 0 ? "critical" : "success"}
-          onPress={() => go("/(tabs)/tasks?filter=overdue")}
+          onPress={() => go("/tasks?filter=overdue")}
         />
         {perms.viewInspectTab && (
           <StatTile

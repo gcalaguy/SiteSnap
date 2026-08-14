@@ -14,6 +14,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { Card, Chip, EmptyState, Button } from "@/components/ui";
 import {
   useListProjectCommunicationThreads,
   useGetProjectCommunicationThread,
@@ -102,9 +103,8 @@ function ThreadDetail({ projectId, threadId, onBack }: { projectId: number; thre
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
       ) : isError || !data ? (
-        <View style={[s.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="alert-circle" size={26} color={colors.mutedForeground} />
-          <Text style={[s.emptyTitle, { color: colors.foreground }]}>Failed to load thread</Text>
+        <View style={{ alignItems: "center" }}>
+          <EmptyState icon="alert-circle" title="Failed to load thread" />
           <Pressable style={[s.retryBtn, { borderColor: colors.border }]} onPress={() => refetch()}>
             <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
             <Text style={[s.retryText, { color: colors.mutedForeground }]}>Retry</Text>
@@ -117,7 +117,7 @@ function ThreadDetail({ projectId, threadId, onBack }: { projectId: number; thre
           </Text>
           <View style={s.detailMessages}>
             {data.messages.map((msg) => (
-              <View key={msg.id} style={[s.messageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Card key={msg.id} elevated={false} style={s.messageCard}>
                 <View style={s.messageHeaderRow}>
                   <Text style={[s.messageFrom, { color: colors.foreground }]} numberOfLines={1}>
                     {msg.fromName || msg.fromEmail || "Unknown sender"}
@@ -141,7 +141,7 @@ function ThreadDetail({ projectId, threadId, onBack }: { projectId: number; thre
                     ))}
                   </View>
                 )}
-              </View>
+              </Card>
             ))}
           </View>
         </>
@@ -153,13 +153,7 @@ function ThreadDetail({ projectId, threadId, onBack }: { projectId: number; thre
 function ThreadCard({ thread, onPress }: { thread: EmailThread; onPress: () => void }) {
   const colors = useColors();
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.threadCard,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
-      ]}
-    >
+    <Card onPress={onPress} elevated={false} style={s.threadCard}>
       <View style={[s.threadIcon, { backgroundColor: colors.muted }]}>
         <Feather name="mail" size={15} color={colors.primary} />
       </View>
@@ -188,7 +182,7 @@ function ThreadCard({ thread, onPress }: { thread: EmailThread; onPress: () => v
       <Text style={[s.threadDate, { color: colors.mutedForeground }]}>
         {relativeDateLabel(thread.lastMessageAt)}
       </Text>
-    </Pressable>
+    </Card>
   );
 }
 
@@ -253,18 +247,7 @@ export function CommunicationsTab({ projectId }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: "row", gap: 6 }}>
           {MODE_TABS.map((t) => (
-            <Pressable
-              key={t.value}
-              onPress={() => setMode(t.value)}
-              style={[
-                s.modeTab,
-                { backgroundColor: mode === t.value ? colors.primary : colors.muted, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[s.modeTabText, { color: mode === t.value ? "#FFFFFF" : colors.foreground }]}>
-                {t.label}
-              </Text>
-            </Pressable>
+            <Chip key={t.value} label={t.label} selected={mode === t.value} onPress={() => setMode(t.value)} />
           ))}
         </View>
       </ScrollView>
@@ -276,20 +259,13 @@ export function CommunicationsTab({ projectId }: Props) {
       {mode === "suggested" && <SuggestedMatchesPanel projectId={projectId} onOpenThread={openThread} />}
 
       {mode === "uncategorized" && (
-        <View style={[s.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="inbox" size={26} color={colors.mutedForeground} />
-          <Text style={[s.emptyTitle, { color: colors.foreground }]}>Company-wide Uncategorized Inbox</Text>
-          <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-            Threads land here when they're unassigned to any project — file them from the global inbox
-            (opening it here since an unfiled thread can't be scoped to just this project yet).
-          </Text>
-          <Pressable
-            onPress={() => router.push("/uncategorized-emails")}
-            style={[s.retryBtn, { borderColor: colors.border }]}
-          >
-            <Feather name="inbox" size={14} color={colors.mutedForeground} />
-            <Text style={[s.retryText, { color: colors.mutedForeground }]}>Open Uncategorized Inbox</Text>
-          </Pressable>
+        <View style={{ alignItems: "center" }}>
+          <EmptyState
+            icon="inbox"
+            title="Company-wide Uncategorized Inbox"
+            subtitle="Threads land here when they're unassigned to any project — file them from the global inbox (opening it here since an unfiled thread can't be scoped to just this project yet)."
+          />
+          <Button label="Open Uncategorized Inbox" icon="inbox" variant="secondary" onPress={() => router.push("/uncategorized-emails")} />
         </View>
       )}
 
@@ -316,20 +292,14 @@ export function CommunicationsTab({ projectId }: Props) {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
           ) : isSearching ? (
             searchResults.length === 0 ? (
-              <View style={[s.emptyBox, { borderColor: colors.border }]}>
-                <Feather name="search" size={26} color={colors.mutedForeground} />
-                <Text style={[s.emptyTitle, { color: colors.foreground }]}>No matches</Text>
-              </View>
+              <EmptyState icon="search" title="No matches" />
             ) : (
               <FlatList
                 data={searchResults}
                 keyExtractor={(r) => String(r.id)}
                 scrollEnabled={false}
                 renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => setSelectedThreadId(item.thread_id)}
-                    style={[s.threadCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  >
+                  <Card onPress={() => setSelectedThreadId(item.thread_id)} elevated={false} style={s.threadCard}>
                     <View style={[s.threadIcon, { backgroundColor: colors.muted }]}>
                       <Feather name="mail" size={15} color={colors.primary} />
                     </View>
@@ -344,29 +314,25 @@ export function CommunicationsTab({ projectId }: Props) {
                     <Text style={[s.threadDate, { color: colors.mutedForeground }]}>
                       {relativeDateLabel(item.sent_at)}
                     </Text>
-                  </Pressable>
+                  </Card>
                 )}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
               />
             )
           ) : listIsError ? (
-            <View style={[s.emptyBox, { borderColor: colors.border }]}>
-              <Feather name="alert-circle" size={26} color={colors.mutedForeground} />
-              <Text style={[s.emptyTitle, { color: colors.foreground }]}>Failed to load communications</Text>
+            <View style={{ alignItems: "center" }}>
+              <EmptyState icon="alert-circle" title="Failed to load communications" />
               <Pressable style={[s.retryBtn, { borderColor: colors.border }]} onPress={() => refetchList()}>
                 <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
                 <Text style={[s.retryText, { color: colors.mutedForeground }]}>Retry</Text>
               </Pressable>
             </View>
           ) : threads.length === 0 ? (
-            <View style={[s.emptyBox, { borderColor: colors.border }]}>
-              <Feather name="inbox" size={26} color={colors.mutedForeground} />
-              <Text style={[s.emptyTitle, { color: colors.foreground }]}>No emails linked yet</Text>
-              <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                Connect a mailbox in Email Integrations, then assign relevant threads to this project from
-                the Uncategorized tab.
-              </Text>
-            </View>
+            <EmptyState
+              icon="inbox"
+              title="No emails linked yet"
+              subtitle="Connect a mailbox in Email Integrations, then assign relevant threads to this project from the Uncategorized tab."
+            />
           ) : (
             <FlatList
               data={threads}
@@ -386,8 +352,6 @@ export function CommunicationsTab({ projectId }: Props) {
 
 const s = StyleSheet.create({
   section: { paddingHorizontal: 20, marginBottom: 16 },
-  modeTab: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
-  modeTabText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -402,22 +366,6 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: "NunitoSans_400Regular",
-  },
-  emptyBox: {
-    alignItems: "center",
-    paddingVertical: 32,
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 16,
-    borderStyle: "dashed",
-  },
-  emptyTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
-  emptySubText: {
-    fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
-    textAlign: "center",
-    paddingHorizontal: 24,
-    lineHeight: 17,
   },
   retryBtn: {
     flexDirection: "row",

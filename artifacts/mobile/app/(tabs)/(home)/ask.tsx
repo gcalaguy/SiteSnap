@@ -65,7 +65,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { key: "schedule", label: "Schedule", icon: "calendar", path: "/workforce?tab=schedule", perm: "viewSchedules" },
   { key: "reports", label: "Reports", icon: "file-text", path: "/(tabs)/(home)/reports", perm: "viewReports" },
   { key: "inspections", label: "Inspections", icon: "clipboard", path: "/inspect", perm: "viewInspectTab" },
-  { key: "tasks", label: "Tasks", icon: "check-square", path: "/(tabs)/tasks" },
+  { key: "tasks", label: "Tasks", icon: "check-square", path: "/tasks" },
 ];
 
 const RECENT_QUESTIONS_KEY = "askAI:recentQuestions";

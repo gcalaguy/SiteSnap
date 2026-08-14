@@ -681,7 +681,7 @@ export function GlobalVoiceCommandFAB() {
         Projects: "/(tabs)/projects",
         Ask: "/(tabs)/(home)/ask",
         // Tasks is a top-level tab (mobile nav redesign)
-        Tasks: "/(tabs)/tasks",
+        Tasks: "/tasks",
         Quotes: "/finance",
         Invoices: "/finance",
         Proposals: "/finance",

@@ -317,7 +317,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="project/[id]" options={{ headerShown: true, title: "", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
+        <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="rfi/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
@@ -383,10 +383,20 @@ function AppRoot() {
     // practical catch-all for reporting failed API calls to the native error
     // tracker — true unhandled-rejection coverage beyond React Query is a
     // smaller residual gap, not closed here.
-    const handleQueryError = (error: unknown) => {
+    // Second param differs by cache: QueryCache passes the Query (has queryKey),
+    // MutationCache passes the mutation's variables (does not) — untyped here
+    // and narrowed at the read site so one handler satisfies both signatures.
+    const handleQueryError = (error: unknown, queryOrVariables?: unknown) => {
       if (error instanceof ApiError && error.status === 401) {
         // signOut clears the query cache + Clerk session — imported from utils/auth
         import("@/utils/auth").then(({ signOut }) => signOut()).catch(() => {});
+        return;
+      }
+      // Missing/inaccessible storage objects are expected (deleted photo, stale
+      // reference) and MediaCard/SignedImage/PhotoThumbnail already fall back to
+      // a placeholder — reporting these as client exceptions is just noise.
+      const queryKey = (queryOrVariables as { queryKey?: readonly unknown[] } | undefined)?.queryKey;
+      if (error instanceof ApiError && error.status === 404 && queryKey?.[0] === "signed-photo-url") {
         return;
       }
       reportClientError({

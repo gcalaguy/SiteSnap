@@ -10,7 +10,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   Modal,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -19,6 +18,8 @@ import { customFetch, useGetMe, useListQuotes, getListTimesheetsQueryKey } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useRouter } from "expo-router";
+import { Card, Button, EmptyState, Badge } from "@/components/ui";
+import { spacing } from "@/constants/theme";
 
 type TimeEntry = {
   id: number;
@@ -68,18 +69,6 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
   approved: "Approved",
   rejected: "Needs Revision",
   converted: "Invoiced",
-};
-const QUOTE_STATUS_COLORS: Record<string, string> = {
-  pending_approval: "#2563EB",
-  approved: "#16A34A",
-  rejected: "#EA580C",
-  converted: "#7C3AED",
-};
-const QUOTE_STATUS_BG: Record<string, string> = {
-  pending_approval: "#DBEAFE",
-  approved: "#DCFCE7",
-  rejected: "#FFF7ED",
-  converted: "#EDE9FE",
 };
 
 export function HoursTab({ projectId }: { projectId: number }) {
@@ -269,14 +258,13 @@ export function HoursTab({ projectId }: { projectId: number }) {
               <Text style={[s.quotesSectionTitle, { color: colors.mutedForeground }]}>Submitted Quotes</Text>
             </View>
             {submittedQuotes.map((q) => {
-              const statusColor = QUOTE_STATUS_COLORS[q.status] ?? "#6B7280";
-              const statusBg = QUOTE_STATUS_BG[q.status] ?? "#F3F4F6";
               return (
-                <TouchableOpacity
+                <Card
                   key={q.id}
                   onPress={() => router.push(`/quote/${q.id}?projectId=${projectId}`)}
-                  activeOpacity={0.75}
-                  style={[s.quoteCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  elevated={false}
+                  padding="sm"
+                  style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}
                 >
                   <View style={[s.quoteIconBox, { backgroundColor: `${colors.primary}15` }]}>
                     <Feather name="file-text" size={16} color={colors.primary} />
@@ -287,12 +275,10 @@ export function HoursTab({ projectId }: { projectId: number }) {
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 4 }}>
                     <Text style={[s.quoteAmount, { color: colors.primary }]}>{fmtCAD(q.total)}</Text>
-                    <View style={[s.quoteBadge, { backgroundColor: statusBg }]}>
-                      <Text style={[s.quoteBadgeText, { color: statusColor }]}>{QUOTE_STATUS_LABELS[q.status]}</Text>
-                    </View>
+                    <Badge label={QUOTE_STATUS_LABELS[q.status]} />
                   </View>
                   <Feather name="chevron-right" size={14} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
+                </Card>
               );
             })}
           </View>
@@ -316,15 +302,9 @@ export function HoursTab({ projectId }: { projectId: number }) {
             )}
           </View>
           {showForm ? (
-            <Pressable style={[s.logBtn, { backgroundColor: colors.muted }]} onPress={resetForm}>
-              <Feather name="x" size={16} color={colors.foreground} />
-              <Text style={[s.logBtnText, { color: colors.foreground }]}>Cancel</Text>
-            </Pressable>
+            <Button label="Cancel" variant="secondary" icon="x" onPress={resetForm} />
           ) : (
-            <Pressable style={[s.logBtn, { backgroundColor: colors.primary }]} onPress={openNew}>
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={s.logBtnText}>Log Hours</Text>
-            </Pressable>
+            <Button label="Log Hours" icon="plus" onPress={openNew} />
           )}
         </View>
 
@@ -444,16 +424,14 @@ export function HoursTab({ projectId }: { projectId: number }) {
               </Pressable>
             )}
 
-            <Pressable
-              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
-              onPress={handleSubmit}
-              disabled={isPending}
-            >
-              {isPending
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={s.submitBtnText}>{editingEntry ? "Save Changes" : "Save Entry"}</Text>
-              }
-            </Pressable>
+            <View style={{ marginTop: spacing.lg }}>
+              <Button
+                label={editingEntry ? "Save Changes" : "Save Entry"}
+                onPress={handleSubmit}
+                loading={isPending}
+                fullWidth
+              />
+            </View>
           </View>
         )}
 
@@ -463,11 +441,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
         ) : (
           <>
             {myEntries.length === 0 && !isPrivileged && (
-              <View style={s.empty}>
-                <Feather name="clock" size={32} color={colors.border} />
-                <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No hours logged yet.</Text>
-                <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>Tap "Log Hours" to add your first entry.</Text>
-              </View>
+              <EmptyState icon="clock" title="No hours logged yet" subtitle={'Tap "Log Hours" to add your first entry.'} />
             )}
 
             {myEntries.length > 0 && (
@@ -509,10 +483,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
             )}
 
             {isPrivileged && entries.length === 0 && (
-              <View style={s.empty}>
-                <Feather name="clock" size={32} color={colors.border} />
-                <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No hours logged yet.</Text>
-              </View>
+              <EmptyState icon="clock" title="No hours logged yet" />
             )}
           </>
         )}
@@ -533,7 +504,7 @@ function EntryRow({
   colors: any;
 }) {
   return (
-    <View style={[s.entryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <Card elevated={false} style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md, marginBottom: spacing.md }}>
       <View style={[s.hoursCircle, { backgroundColor: colors.primary + "20" }]}>
         <Text style={[s.hoursNum, { color: colors.primary }]}>{parseFloat(entry.hours).toFixed(1)}</Text>
         <Text style={[s.hoursUnit, { color: colors.primary }]}>h</Text>
@@ -565,7 +536,7 @@ function EntryRow({
           </Pressable>
         )}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -576,13 +547,10 @@ const s = StyleSheet.create({
   quotesSection: { marginBottom: 24 },
   quotesSectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
   quotesSectionTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
-  quoteCard: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 16, borderWidth: 1, padding: 12, marginBottom: 8 },
   quoteIconBox: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   quoteTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
   quoteSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 1 },
   quoteAmount: { fontSize: 13, fontFamily: "NunitoSans_700Bold" },
-  quoteBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 16 },
-  quoteBadgeText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
 
   // Header
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
@@ -617,7 +585,6 @@ const s = StyleSheet.create({
 
   // Entry cards
   groupLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 },
-  entryCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10 },
   hoursCircle: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 1 },
   hoursNum: { fontSize: 17, fontFamily: "NunitoSans_700Bold" },
   hoursUnit: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", alignSelf: "flex-end", marginBottom: 3 },
@@ -627,9 +594,4 @@ const s = StyleSheet.create({
   userChipText: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
   entryActions: { flexDirection: "row", gap: 6, alignItems: "center" },
   actionBtn: { padding: 5 },
-
-  // Empty
-  empty: { alignItems: "center", paddingVertical: 48, gap: 8 },
-  emptyText: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  emptySubText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center" },
 });

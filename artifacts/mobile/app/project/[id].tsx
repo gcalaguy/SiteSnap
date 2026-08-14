@@ -34,17 +34,12 @@ import { CommunicationsTab } from "@/components/CommunicationsTab";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  Linking,
-  Modal,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -52,10 +47,10 @@ import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { PhotoThumbnail, PhotoLightbox, CategoryPill, type PhotoCategory } from "@/components/PhotoThumbnail";
-import { ListRow, BottomSheet } from "@/components/ui";
+import { ListRow, BottomSheet, Card, Button, Badge, Chip, EmptyState, StatTile, StatusPill } from "@/components/ui";
 import { safeNavigate } from "@/utils/safeNavigate";
 import { BulletList } from "@/components/BulletList";
-import { spacing } from "@/constants/theme";
+import { elevation, layout, radius, spacing, typography } from "@/constants/theme";
 import type { PsiListRow } from "@/constants/psi";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,21 +87,25 @@ const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: stri
   closed: { label: "Closed", color: "#6B7280", bg: "#F3F4F6" },
 };
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 function StatPill({ label, value, icon }: { label: string; value: string; icon: string }) {
   const colors = useColors();
   return (
-    <View style={[stat.pill, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={[stat.pill, elevation.card, { backgroundColor: colors.cardElevated, borderColor: colors.borderSoft }]}>
       <Feather name={icon as any} size={14} color={colors.primary} />
-      <Text style={[stat.value, { color: colors.foreground }]}>{value}</Text>
-      <Text style={[stat.label, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[typography.heading, { color: colors.foreground }]}>{value}</Text>
+      <Text style={[typography.caption, { color: colors.mutedForeground }]} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
 
 const stat = StyleSheet.create({
-  pill: { flex: 1, alignItems: "center", padding: 12, borderRadius: 16, gap: 4, borderWidth: 1 },
-  value: { fontSize: 18, fontFamily: "NunitoSans_700Bold" },
-  label: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
+  pill: { flex: 1, alignItems: "center", padding: spacing.md, borderRadius: radius.md, gap: spacing.xs, borderWidth: 1 },
 });
 
 function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { report: any; projectId: number; isOwnerOrForeman: boolean; onPhotoDeleted: () => void }) {
@@ -129,19 +128,17 @@ function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { re
     : null;
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.reportRow,
-        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.92 : 1 },
-      ]}
+    <Card
       onPress={() => setExpanded((v) => !v)}
+      elevated={false}
+      style={[styles.rowCard, { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, borderColor: expanded ? colors.primary : colors.border }]}
     >
       {/* Date badge */}
       <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
         <Text style={[styles.reportDateText, { color: colors.primary }]}>
           {new Date(report.reportDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
         </Text>
-        <Text style={[{ fontSize: 10, fontFamily: "NunitoSans_400Regular", color: colors.primary, textAlign: "center" }]}>
+        <Text style={[typography.label, { fontSize: 10, letterSpacing: 0, color: colors.primary, textAlign: "center" }]}>
           {new Date(report.reportDate).toLocaleDateString("en-CA", { weekday: "short" })}
         </Text>
       </View>
@@ -182,17 +179,7 @@ function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { re
               </Text>
             </View>
           )}
-          {report.issues ? (
-            <View style={[styles.reportMetaChip, { backgroundColor: "#F59E0B18" }]}>
-              <Feather name="alert-triangle" size={11} color="#D97706" />
-              <Text style={[styles.reportSub, { color: "#D97706" }]}>Issues</Text>
-            </View>
-          ) : (
-            <View style={[styles.reportMetaChip, { backgroundColor: "#22C55E18" }]}>
-              <Feather name="check-circle" size={11} color="#16A34A" />
-              <Text style={[styles.reportSub, { color: "#16A34A" }]}>On Track</Text>
-            </View>
-          )}
+          <Badge label={report.issues ? "Issues" : "On Track"} status={report.issues ? "warning" : "success"} />
         </View>
 
         {!expanded && !!report.aiSummary && (
@@ -317,10 +304,10 @@ function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { re
       <Feather
         name={expanded ? "chevron-up" : "chevron-down"}
         size={16}
-        color={expanded ? colors.primary : colors.border}
+        color={expanded ? colors.primary : colors.mutedForeground}
         style={{ marginTop: 2 }}
       />
-    </Pressable>
+    </Card>
   );
 }
 
@@ -330,12 +317,10 @@ function SafetySubmissionRow({ submission, colors }: { submission: any; colors: 
   const statusLabel = submission.status === "approved" ? "Approved" : submission.status === "reviewed" ? "Reviewed" : submission.status === "submitted" ? "Submitted" : "Draft";
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.reportRow,
-        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.92 : 1 },
-      ]}
+    <Card
       onPress={() => setExpanded((v) => !v)}
+      elevated={false}
+      style={[styles.rowCard, { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, borderColor: expanded ? colors.primary : colors.border }]}
     >
       <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
         <Feather name="shield" size={16} color={statusColor} />
@@ -405,8 +390,8 @@ function SafetySubmissionRow({ submission, colors }: { submission: any; colors: 
           </View>
         )}
       </View>
-      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={expanded ? colors.primary : colors.border} />
-    </Pressable>
+      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={expanded ? colors.primary : colors.mutedForeground} />
+    </Card>
   );
 }
 
@@ -431,12 +416,10 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
   };
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.taskItem,
-        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.88 : 1 },
-      ]}
+    <Card
       onPress={() => setExpanded((v) => !v)}
+      elevated={false}
+      style={[styles.rowCard, { flexDirection: "row", alignItems: "center", gap: spacing.md, borderColor: expanded ? colors.primary : colors.border }]}
     >
       {/* Checkbox — tapping it cycles status without expanding */}
       <Pressable
@@ -523,15 +506,12 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
             </View>
 
             {/* Tap-to-cycle status hint */}
-            <Pressable
+            <Button
+              label={`Mark as ${task.status === "done" ? "To Do" : task.status === "todo" ? "In Progress" : "Done"}`}
+              icon="refresh-cw"
               onPress={cycleStatus}
-              style={[styles.taskCycleBtn, { backgroundColor: colors.primary }]}
-            >
-              <Feather name="refresh-cw" size={12} color="#FFF" />
-              <Text style={styles.taskCycleBtnText}>
-                Mark as {task.status === "done" ? "To Do" : task.status === "todo" ? "In Progress" : "Done"}
-              </Text>
-            </Pressable>
+              fullWidth
+            />
           </View>
         )}
       </View>
@@ -540,213 +520,92 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
       <Feather
         name={expanded ? "chevron-up" : "chevron-down"}
         size={16}
-        color={expanded ? colors.primary : colors.border}
+        color={expanded ? colors.primary : colors.mutedForeground}
         style={{ marginTop: 2 }}
       />
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerBg: { paddingHorizontal: 20, paddingBottom: 20 },
-  headerOptionsButton: { position: "absolute", right: 20, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  headerBg: { paddingHorizontal: layout.gutter, paddingBottom: spacing.xl },
+  headerTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
   archivedPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     alignSelf: "flex-start",
     backgroundColor: "rgba(107,114,128,0.35)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 8,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  archivedPillText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: "#FFFFFF" },
-  projectName: { fontSize: 22, fontFamily: "NunitoSans_700Bold", color: "#FFFFFF", marginBottom: 6 },
-  projectLoc: { fontSize: 13, fontFamily: "NunitoSans_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 10 },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  archivedPillText: { ...typography.label, color: "#FFFFFF" },
+  projectName: { ...typography.title, color: "#FFFFFF", marginBottom: spacing.sm },
+  projectLocRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.md },
+  projectLoc: { ...typography.caption, color: "rgba(255,255,255,0.6)" },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 13, fontFamily: "NunitoSans_500Medium", color: "rgba(255,255,255,0.8)" },
-  statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 16 },
-  tabRow: { marginBottom: 16 },
-  tabRowContent: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 20, gap: 6 },
-  tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-  tabDropdown: { flexDirection: "row", alignItems: "center", gap: 4 },
-  tabText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-  section: { paddingHorizontal: 20, marginBottom: 16 },
-  sectionTitle: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
+  statusText: { ...typography.captionMedium, color: "rgba(255,255,255,0.8)" },
+  statsRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: layout.gutter, marginTop: spacing.xl, marginBottom: spacing.xl },
+  tabRow: { marginBottom: spacing.xl },
+  tabRowContent: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: layout.gutter, gap: spacing.sm },
+  tab: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1 },
+  tabDropdown: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  tabText: { ...typography.captionMedium },
+  section: { paddingHorizontal: layout.gutter, marginBottom: layout.sectionGap },
+  sectionTitle: { ...typography.label, textTransform: "uppercase", marginBottom: spacing.md },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
     borderWidth: 1,
   },
-  addBtnText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
-  reportRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  reportDateBadge: { borderRadius: 16, padding: 8, minWidth: 44, alignItems: "center" },
-  reportDateText: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textAlign: "center" },
-  reportMeta: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 18 },
-  reportSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 3 },
-  reportMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
-  reportMetaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-  reportExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
-  reportDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  reportDetailLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
-  reportDetailText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19 },
-  reportAiBox: { borderRadius: 16, borderWidth: 1, padding: 10, gap: 2 },
-  taskItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
+  addBtnText: { ...typography.captionMedium },
+  rowCard: { marginBottom: spacing.md },
+  rowIcon: { width: 44, height: 44, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  reportDateBadge: { borderRadius: radius.sm, padding: spacing.sm, minWidth: 44, alignItems: "center" },
+  reportDateText: { ...typography.captionMedium, textAlign: "center" },
+  reportMeta: { ...typography.caption, fontSize: 13, lineHeight: 18 },
+  reportSub: { ...typography.caption, fontSize: 11, lineHeight: 14, marginTop: 3 },
+  reportMetaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
+  reportMetaChip: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  reportExpanded: { borderTopWidth: 1, marginTop: spacing.md, paddingTop: spacing.md, gap: spacing.md },
+  reportDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  reportDetailLabel: { ...typography.label, fontSize: 11, marginBottom: 2 },
+  reportDetailText: { ...typography.caption, fontSize: 13, lineHeight: 19 },
+  reportAiBox: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: 2 },
+  reportInput: { ...typography.body, fontSize: 14, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
   taskCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm - 6,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  taskTitle: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  priorityDot: { width: 7, height: 7, borderRadius: 3.5 },
-  taskMetaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" },
+  taskTitle: { ...typography.body, fontSize: 14 },
+  taskMetaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs, flexWrap: "wrap" },
   taskPriorityDot: { width: 6, height: 6, borderRadius: 3 },
-  taskMetaText: { fontSize: 11, fontFamily: "NunitoSans_500Medium" },
+  taskMetaText: { ...typography.captionMedium, fontSize: 11 },
   taskMetaSep: { fontSize: 12 },
-  taskExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
-  taskDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  taskDetailText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", lineHeight: 19, flex: 1 },
-  taskChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  taskChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16 },
-  taskChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
-  taskCycleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 16 },
-  taskCycleBtnText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", color: "#FFF" },
-  emptyText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingVertical: 20 },
-  emptySection: { borderWidth: 1, borderRadius: 16, borderStyle: "dashed", padding: 28, alignItems: "center", gap: 10 },
-  descText: { fontSize: 14, fontFamily: "NunitoSans_400Regular", lineHeight: 22 },
-  infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
-  infoText: { fontSize: 14, fontFamily: "NunitoSans_400Regular" },
-  rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16, marginTop: 5 },
-  rfiBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
-  rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
-  clientUploadHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  clientUploadBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 16 },
-  clientUploadBadgeText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: "#3B82F6" },
-  overviewGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  overviewCell: {
-    width: "50%",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    borderRightWidth: 0.5,
-    borderBottomWidth: 0.5,
-  },
-  overviewValue: { fontSize: 22, fontFamily: "NunitoSans_700Bold", marginBottom: 2 },
-  overviewLabel: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
-  detailCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  detailLabel: { fontSize: 13, fontFamily: "NunitoSans_400Regular", flex: 1 },
-  detailValue: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
-  detailDivider: { height: StyleSheet.hairlineWidth, marginLeft: 14 },
-  docRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    gap: 12,
-  },
-  docIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  docFilename: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },
-  docMeta: { fontSize: 11, fontFamily: "NunitoSans_400Regular" },
-  docSummary: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 4, lineHeight: 17 },
-  docStatusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 16 },
-  docStatusText: { fontSize: 10, fontFamily: "NunitoSans_600SemiBold" },
+  taskExpanded: { borderTopWidth: 1, marginTop: spacing.md, paddingTop: spacing.md, gap: spacing.md },
+  taskDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  taskDetailText: { ...typography.caption, fontSize: 13, lineHeight: 19, flex: 1 },
+  taskChipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  taskChip: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.full },
+  taskChipText: { ...typography.label, fontSize: 11 },
+  detailDivider: { height: StyleSheet.hairlineWidth, marginLeft: spacing.md },
 });
 
 const schedSt = StyleSheet.create({
-  statCard: {
-    borderRadius: 16,
-    padding: 14,
-    alignItems: "flex-start",
-    gap: 6,
-    borderWidth: 1,
-  },
-  statValue: {
-    fontSize: 26,
-    fontFamily: "NunitoSans_700Bold",
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: "NunitoSans_400Regular",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  emptyBox: {
-    borderWidth: 1,
-    borderRadius: 16,
-    borderStyle: "dashed",
-    padding: 28,
-    alignItems: "center",
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontFamily: "NunitoSans_400Regular",
-    textAlign: "center",
-    lineHeight: 19,
-  },
-  assignRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 8,
-  },
   avatar: {
     width: 40,
     height: 40,
@@ -755,68 +614,10 @@ const schedSt = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  avatarText: {
-    fontSize: 14,
-    fontFamily: "NunitoSans_700Bold",
-  },
-  workerName: {
-    fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
-  },
-  dateRange: {
-    fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
-  },
-  assignNotes: {
-    fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
-    marginTop: 3,
-    lineHeight: 17,
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 16,
-    alignSelf: "flex-start",
-  },
-  roleText: {
-    fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
-    textTransform: "capitalize",
-  },
-  eventRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderRadius: 16,
-    marginBottom: 8,
-    overflow: "hidden",
-    padding: 12,
-  },
   eventTypeBar: {
     width: 3,
-    borderRadius: 2,
     alignSelf: "stretch",
     flexShrink: 0,
-  },
-  eventTitle: {
-    fontSize: 14,
-    fontFamily: "NunitoSans_600SemiBold",
-    flex: 1,
-    marginRight: 8,
-  },
-  eventMeta: {
-    fontSize: 12,
-    fontFamily: "NunitoSans_400Regular",
-  },
-  typeBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 16,
-    alignSelf: "flex-start",
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontFamily: "NunitoSans_600SemiBold",
   },
   statusDot: {
     width: 6,
@@ -829,12 +630,10 @@ function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
   const colors = useColors();
   const conf = RFI_STATUS_CONFIG[rfi.status] ?? RFI_STATUS_CONFIG.open;
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.reportRow,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-      ]}
+    <Card
       onPress={onPress}
+      elevated={false}
+      style={[styles.rowCard, { flexDirection: "row", alignItems: "center", gap: spacing.md }]}
     >
       <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
         <Feather name="alert-circle" size={16} color={colors.primary} />
@@ -844,12 +643,12 @@ function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
         <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={2}>
           {rfi.subject}
         </Text>
-        <View style={[styles.rfiBadge, { backgroundColor: conf.bg }]}>
-          <Text style={[styles.rfiBadgeText, { color: conf.color }]}>{conf.label}</Text>
+        <View style={{ marginTop: spacing.xs }}>
+          <Badge label={conf.label} status={rfi.status === "resolved" ? "success" : rfi.status === "closed" ? "neutral" : rfi.status === "in_review" ? "warning" : "critical"} />
         </View>
       </View>
-      <Feather name="chevron-right" size={16} color={colors.border} />
-    </Pressable>
+      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+    </Card>
   );
 }
 
@@ -926,55 +725,42 @@ function ReportsTabSection({
   return (
     <View style={styles.section}>
       {/* Header row */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Daily Reports</Text>
-        <TouchableOpacity
+        <Pressable
           onPress={() => {
             setExpanded((v) => !v);
             setSubmitted(false);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
-          style={{
-            flexDirection: "row", alignItems: "center", gap: 4,
-            backgroundColor: expanded ? `${colors.primary}18` : colors.muted,
-            paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-            borderWidth: 1, borderColor: expanded ? colors.primary : colors.border,
-          }}
+          style={[styles.addBtn, { backgroundColor: expanded ? `${colors.primary}18` : colors.muted, borderColor: expanded ? colors.primary : colors.border }]}
         >
           <Feather name={expanded ? "x" : "plus"} size={13} color={expanded ? colors.primary : colors.mutedForeground} />
-          <Text style={{ fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: expanded ? colors.primary : colors.mutedForeground }}>
+          <Text style={[styles.addBtnText, { color: expanded ? colors.primary : colors.mutedForeground }]}>
             {expanded ? "Cancel" : "Log Note"}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Inline log panel */}
       {expanded && (
-        <View style={{
-          borderWidth: 1, borderRadius: 16, borderColor: colors.primary,
-          backgroundColor: colors.card, padding: 14, marginBottom: 14,
-        }}>
+        <Card style={{ borderColor: colors.primary, marginBottom: spacing.lg }}>
           {/* Timestamp label */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md }}>
             <Feather name="clock" size={13} color={colors.mutedForeground} />
-            <Text style={{ fontSize: 12, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
+            <Text style={[typography.captionMedium, { color: colors.mutedForeground }]}>
               {nowLabel}
             </Text>
           </View>
 
           {/* Weather + Crew Count */}
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+          <View style={{ flexDirection: "row", gap: spacing.md, marginBottom: spacing.md }}>
             <View style={{ flex: 2 }}>
-              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
-                WEATHER IMPACT
+              <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>
+                Weather Impact
               </Text>
               <TextInput
-                style={{
-                  borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-                  backgroundColor: colors.background, color: colors.foreground,
-                  paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
-                  fontFamily: "NunitoSans_400Regular",
-                }}
+                style={[styles.reportInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]}
                 value={weather}
                 onChangeText={setWeather}
                 placeholder="Sunny, light rain..."
@@ -982,16 +768,11 @@ function ReportsTabSection({
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
-                CREW COUNT
+              <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>
+                Crew Count
               </Text>
               <TextInput
-                style={{
-                  borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-                  backgroundColor: colors.background, color: colors.foreground,
-                  paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
-                  fontFamily: "NunitoSans_400Regular",
-                }}
+                style={[styles.reportInput, { borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]}
                 value={crewCount}
                 onChangeText={setCrewCount}
                 keyboardType="number-pad"
@@ -1002,13 +783,13 @@ function ReportsTabSection({
           </View>
 
           {/* Mic + label row */}
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, fontSize: 11 }]}>
-              WORK SUMMARY
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm }}>
+            <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+              Work Summary
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
               <Feather name="mic" size={12} color={colors.mutedForeground} />
-              <Text style={{ fontSize: 11, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
+              <Text style={[typography.caption, { fontSize: 11, color: colors.mutedForeground }]}>
                 Use the global mic button below
               </Text>
             </View>
@@ -1016,12 +797,7 @@ function ReportsTabSection({
 
           {/* Notes textarea */}
           <TextInput
-            style={{
-              borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-              backgroundColor: colors.background, color: colors.foreground,
-              paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
-              fontFamily: "NunitoSans_400Regular", minHeight: 90, textAlignVertical: "top",
-            }}
+            style={[styles.reportInput, { minHeight: 90, textAlignVertical: "top", borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]}
             value={notes}
             onChangeText={setNotes}
             placeholder="Speak or type what happened today…"
@@ -1031,16 +807,11 @@ function ReportsTabSection({
           />
 
           {/* Issues / Delays */}
-          <Text style={{ fontSize: 11, fontFamily: "NunitoSans_600SemiBold", color: colors.mutedForeground, marginTop: 10, marginBottom: 4 }}>
-            ISSUES / DELAYS (OPTIONAL)
+          <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground, marginTop: spacing.md }]}>
+            Issues / Delays (Optional)
           </Text>
           <TextInput
-            style={{
-              borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-              backgroundColor: colors.background, color: colors.foreground,
-              paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
-              fontFamily: "NunitoSans_400Regular", minHeight: 60, textAlignVertical: "top",
-            }}
+            style={[styles.reportInput, { minHeight: 60, textAlignVertical: "top", borderColor: colors.border, backgroundColor: colors.background, color: colors.foreground }]}
             value={issues}
             onChangeText={setIssues}
             placeholder="Anything blocking progress?"
@@ -1050,32 +821,21 @@ function ReportsTabSection({
 
           {/* Submit / success */}
           {submitted ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, backgroundColor: "#D1FAE5", borderRadius: 16, padding: 10 }}>
-              <Feather name="check-circle" size={16} color="#16A34A" />
-              <Text style={{ color: "#15803D", fontFamily: "NunitoSans_600SemiBold", fontSize: 13 }}>Report saved!</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, backgroundColor: `${colors.success}1F`, borderRadius: radius.md, padding: spacing.md }}>
+              <Feather name="check-circle" size={16} color={colors.success} />
+              <Text style={[typography.captionMedium, { color: colors.success }]}>Report saved!</Text>
             </View>
           ) : (
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={createReport.isPending}
-              style={{
-                marginTop: 10, borderRadius: 16, paddingVertical: 12, alignItems: "center",
-                backgroundColor: createReport.isPending ? colors.muted : colors.primary,
-              }}
-            >
-              {createReport.isPending ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={{ color: "#FFF", fontFamily: "NunitoSans_700Bold", fontSize: 14 }}>Save Report</Text>
-              )}
-            </TouchableOpacity>
+            <View style={{ marginTop: spacing.md }}>
+              <Button label="Save Report" onPress={handleSubmit} loading={createReport.isPending} fullWidth />
+            </View>
           )}
-        </View>
+        </Card>
       )}
 
       {/* Existing reports list */}
       {reports.length === 0 && !expanded ? (
-        <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No reports yet — tap Log Note to add one</Text>
+        <EmptyState icon="file-text" title="No reports yet" subtitle="Tap Log Note above to add your first daily report." />
       ) : (
         [...reports]
           .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())
@@ -1154,6 +914,7 @@ export default function ProjectDetailScreen() {
   const { data: rfis, refetch: refetchRfis } = useListRFIs(
     projectId,
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
+    { query: { enabled: perms.viewRFIs } as any },
   );
   const { data: changeOrders } = useListChangeOrders(
     isOwnerOrForeman ? { projectId } : undefined,
@@ -1268,9 +1029,9 @@ export default function ProjectDetailScreen() {
       refetchSummary();
       refetchReports();
       refetchTasks();
-      refetchRfis();
+      if (perms.viewRFIs) refetchRfis();
       if (perms.viewSafetyTab) { refetchSafety(); refetchPsi(); }
-    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, refetchPsi, perms.viewSafetyTab]),
+    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, refetchPsi, perms.viewRFIs, perms.viewSafetyTab]),
   );
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
@@ -1340,19 +1101,23 @@ export default function ProjectDetailScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 24 }}
     >
       {/* Project header */}
-      <View style={[styles.headerBg, { backgroundColor: colors.sidebar, paddingTop: topInsets + 20 }]}>
-        {isOwnerOrForeman && (
-          <Pressable
-            style={[styles.headerOptionsButton, { top: topInsets + 20 }]}
-            hitSlop={10}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowOptionsSheet(true);
-            }}
-          >
-            <Feather name="more-vertical" size={20} color="#FFFFFF" />
+      <View style={[styles.headerBg, { backgroundColor: colors.sidebar, paddingTop: topInsets + spacing.lg }]}>
+        <View style={styles.headerTopRow}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
           </Pressable>
-        )}
+          {isOwnerOrForeman && (
+            <Pressable
+              hitSlop={12}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowOptionsSheet(true);
+              }}
+            >
+              <Feather name="more-vertical" size={20} color="#FFFFFF" />
+            </Pressable>
+          )}
+        </View>
         {!!(project as any)?.archivedAt && (
           <View style={styles.archivedPill}>
             <Feather name="archive" size={11} color="#FFFFFF" />
@@ -1361,8 +1126,8 @@ export default function ProjectDetailScreen() {
         )}
         <Text style={styles.projectName}>{project?.name ?? "Project"}</Text>
         {!!(project as any)?.location && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
-            <Feather name="map-pin" size={13} color="rgba(255,255,255,0.5)" />
+          <View style={styles.projectLocRow}>
+            <Feather name="map-pin" size={13} color="rgba(255,255,255,0.55)" />
             <Text style={styles.projectLoc}>{(project as any).location}</Text>
           </View>
         )}
@@ -1420,39 +1185,33 @@ export default function ProjectDetailScreen() {
 
           {/* Description */}
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Description</Text>
-          <Text style={[styles.descText, { color: project?.description ? colors.foreground : colors.mutedForeground }]}>
+          <Text style={[typography.body, { color: project?.description ? colors.foreground : colors.mutedForeground, lineHeight: 22 }]}>
             {project?.description ?? "No description added yet."}
           </Text>
 
-          <View style={{ height: 20 }} />
+          <View style={{ height: spacing.xl }} />
 
-          {/* Activity summary */}
+          {/* Activity summary — StatTile rows, two per line */}
           {summary && (
             <>
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Activity</Text>
-              <View style={[styles.overviewGrid, { borderColor: colors.border }]}>
-                <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: isWorker ? undefined : colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.reportCount ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Reports</Text>
+              {chunk(
+                [
+                  { label: "Reports", value: summary.reportCount ?? 0 },
+                  { label: "Open RFIs", value: summary.openRFICount ?? 0 },
+                  ...(perms.viewRFIs ? [{ label: "Closed RFIs", value: summary.closedRFICount ?? 0 }] : []),
+                  ...(perms.viewFinancials ? [{ label: "Total Spent", value: formatCurrency(summary.totalSpent) }] : []),
+                ],
+                2,
+              ).map((row, i) => (
+                <View key={i} style={{ flexDirection: "row", gap: spacing.md, marginBottom: spacing.md }}>
+                  {row.map((item) => (
+                    <StatTile key={item.label} label={item.label} value={item.value} />
+                  ))}
+                  {row.length === 1 && <View style={{ flex: 1 }} />}
                 </View>
-                <View style={[styles.overviewCell, { borderBottomColor: isWorker ? undefined : colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.openRFICount ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Open RFIs</Text>
-                </View>
-                {perms.viewRFIs && (
-                  <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.closedRFICount ?? 0}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Closed RFIs</Text>
-                  </View>
-                )}
-                {perms.viewFinancials && (
-                  <View style={styles.overviewCell}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(summary.totalSpent)}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Total Spent</Text>
-                  </View>
-                )}
-              </View>
-              <View style={{ height: 20 }} />
+              ))}
+              <View style={{ height: spacing.sm }} />
             </>
           )}
 
@@ -1460,119 +1219,122 @@ export default function ProjectDetailScreen() {
               the Capture flow + this per-project entry point */}
           {perms.viewInspectTab && (
             <>
-              <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border, paddingHorizontal: 14 }]}>
-                <ListRow
-                  icon="check-square"
-                  title="Inspections"
-                  subtitle="View or start an inspection for this project"
-                  showChevron
-                  onPress={() => safeNavigate(router, `/inspect?projectId=${project?.id}`, "project-detail:inspections")}
-                />
-              </View>
-              <View style={{ height: 20 }} />
+              <Card padding="none">
+                <View style={{ paddingHorizontal: spacing.lg }}>
+                  <ListRow
+                    icon="check-square"
+                    title="Inspections"
+                    subtitle="View or start an inspection for this project"
+                    showChevron
+                    onPress={() => safeNavigate(router, `/inspect?projectId=${project?.id}`, "project-detail:inspections")}
+                  />
+                </View>
+              </Card>
+              <View style={{ height: spacing.xl }} />
             </>
           )}
 
           {/* Project details */}
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
-          <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.detailRow}>
-              <Feather name="tag" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Status</Text>
-              <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[project?.status ?? "active"], marginRight: 4 }]} />
-              <Text style={[styles.detailValue, { color: colors.foreground }]}>
-                {STATUS_LABELS[project?.status ?? "active"]}
-              </Text>
+          <Card padding="none">
+            <View style={{ paddingHorizontal: spacing.lg }}>
+              <ListRow
+                icon="tag"
+                title="Status"
+                trailing={
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+                    <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[project?.status ?? "active"] }]} />
+                    <Text style={[typography.captionMedium, { color: colors.foreground }]}>
+                      {STATUS_LABELS[project?.status ?? "active"]}
+                    </Text>
+                  </View>
+                }
+              />
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+              <ListRow
+                icon="calendar"
+                title="Start Date"
+                trailing={
+                  <Text style={[typography.captionMedium, { color: project?.startDate ? colors.foreground : colors.mutedForeground }]}>
+                    {project?.startDate ? new Date(project.startDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
+                  </Text>
+                }
+              />
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+              <ListRow
+                icon="calendar"
+                title="End Date"
+                trailing={
+                  <Text style={[typography.captionMedium, { color: project?.endDate ? colors.foreground : colors.mutedForeground }]}>
+                    {project?.endDate ? new Date(project.endDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
+                  </Text>
+                }
+              />
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+              <ListRow
+                icon="dollar-sign"
+                title="Budget"
+                trailing={
+                  <Text style={[typography.captionMedium, { color: project?.budget != null ? colors.foreground : colors.mutedForeground }]}>
+                    {project?.budget != null ? formatCurrency(project.budget) : "Not set"}
+                  </Text>
+                }
+              />
             </View>
-            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.detailRow}>
-              <Feather name="calendar" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Start Date</Text>
-              <Text style={[styles.detailValue, { color: project?.startDate ? colors.foreground : colors.mutedForeground }]}>
-                {project?.startDate ? new Date(project.startDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
-              </Text>
-            </View>
-            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.detailRow}>
-              <Feather name="calendar" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>End Date</Text>
-              <Text style={[styles.detailValue, { color: project?.endDate ? colors.foreground : colors.mutedForeground }]}>
-                {project?.endDate ? new Date(project.endDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
-              </Text>
-            </View>
-            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.detailRow}>
-              <Feather name="dollar-sign" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Budget</Text>
-              <Text style={[styles.detailValue, { color: project?.budget != null ? colors.foreground : colors.mutedForeground }]}>
-                {project?.budget != null ? formatCurrency(project.budget) : "Not set"}
-              </Text>
-            </View>
-          </View>
+          </Card>
 
           {/* Change Orders — Owner/Foreman only */}
           {isOwnerOrForeman && (
             <>
-              <View style={{ height: 20 }} />
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <View style={{ height: spacing.xl }} />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>
                   Change Orders
                 </Text>
-                <Text style={{ fontSize: 12, fontFamily: "NunitoSans_500Medium", color: colors.mutedForeground }}>
+                <Text style={[typography.caption, { color: colors.mutedForeground }]}>
                   {(changeOrders ?? []).length}
                 </Text>
               </View>
               {(changeOrders ?? []).length === 0 ? (
-                <View style={[styles.emptySection, { borderColor: colors.border }]}>
-                  <Feather name="file-text" size={22} color={colors.border} />
-                  <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
-                    No change orders for this project
-                  </Text>
-                </View>
+                <EmptyState icon="file-text" title="No change orders" subtitle="Change orders for this project will show up here." />
               ) : (
                 (changeOrders ?? []).map((co: any) => {
-                  const statusColor = co.status === "approved" ? "#22C55E" : co.status === "rejected" ? "#EF4444" : "#F59E0B";
-                  const statusLabel = co.status === "approved" ? "Approved" : co.status === "rejected" ? "Rejected" : "Pending";
+                  const tone = co.status === "approved" ? "approved" : co.status === "rejected" ? "void" : "pending";
                   const amount = co.amount != null
                     ? (typeof co.amount === "string" ? parseFloat(co.amount) : Number(co.amount))
                     : null;
                   return (
-                    <Pressable
+                    <Card
                       key={co.id}
-                      style={({ pressed }) => [
-                        styles.reportRow,
-                        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                      ]}
+                      elevated={false}
+                      style={styles.rowCard}
                       onPress={() => safeNavigate(router, `/change-order/${co.id}`, "project-detail:change-order")}
                     >
-                      <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
-                        <Feather name="file-text" size={16} color={colors.primary} />
-                        <Text style={[styles.reportDateText, { color: colors.primary }]}>
-                          {co.status?.slice(0, 3).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
-                          {co.title}
-                        </Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                          {amount != null && (
-                            <Text style={{ fontSize: 12, fontFamily: "NunitoSans_600SemiBold", color: colors.foreground }}>
-                              ${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+                        <View style={[styles.rowIcon, { backgroundColor: `${colors.primary}1A` }]}>
+                          <Feather name="file-text" size={18} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[typography.bodyMedium, { color: colors.foreground }]} numberOfLines={1}>
+                            {co.title}
+                          </Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs }}>
+                            {amount != null && (
+                              <Text style={[typography.captionMedium, { color: colors.foreground }]}>
+                                ${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Text>
+                            )}
+                            <StatusPill tone={tone} size="sm" />
+                          </View>
+                          {co.createdAt && (
+                            <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 2 }]}>
+                              {new Date(co.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
                             </Text>
                           )}
-                          <View style={[styles.rfiBadge, { backgroundColor: `${statusColor}18` }]}>
-                            <Text style={[styles.rfiBadgeText, { color: statusColor }]}>{statusLabel}</Text>
-                          </View>
                         </View>
-                        {co.createdAt && (
-                          <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
-                            {new Date(co.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
-                          </Text>
-                        )}
+                        <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
                       </View>
-                      <Feather name="chevron-right" size={16} color={colors.border} />
-                    </Pressable>
+                    </Card>
                   );
                 })
               )}
@@ -1605,7 +1367,7 @@ export default function ProjectDetailScreen() {
             )}
           </View>
           {(tasks ?? []).length === 0 ? (
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No tasks yet</Text>
+            <EmptyState icon="check-square" title="No tasks yet" subtitle={isOwnerOrForeman ? "Tap Add Task to create the first one." : "Tasks assigned to this project will show up here."} />
           ) : (
             (tasks ?? []).map(t => (
               <TaskItem key={t.id} task={t} projectId={projectId} onUpdate={refetchTasks} />
@@ -1621,22 +1383,14 @@ export default function ProjectDetailScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
           ) : (
             <>
-              {/* Summary stat cards */}
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-                <View style={[schedSt.statCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
-                  <Feather name="users" size={18} color={colors.primary} />
-                  <Text style={[schedSt.statValue, { color: colors.foreground }]}>{scheduleAssignments.length}</Text>
-                  <Text style={[schedSt.statLabel, { color: colors.mutedForeground }]}>Workers Scheduled</Text>
-                </View>
-                <View style={[schedSt.statCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
-                  <Feather name="calendar" size={18} color={colors.primary} />
-                  <Text style={[schedSt.statValue, { color: colors.foreground }]}>{scheduleEvents.length}</Text>
-                  <Text style={[schedSt.statLabel, { color: colors.mutedForeground }]}>Events</Text>
-                </View>
+              {/* Summary stat tiles */}
+              <View style={{ flexDirection: "row", gap: spacing.md, marginBottom: spacing.xl }}>
+                <StatTile label="Workers Scheduled" value={scheduleAssignments.length} />
+                <StatTile label="Events" value={scheduleEvents.length} />
               </View>
 
               {/* Workers Scheduled */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Workers Scheduled</Text>
                 {isOwnerOrForeman && (
                   <Pressable
@@ -1652,10 +1406,7 @@ export default function ProjectDetailScreen() {
                 )}
               </View>
               {scheduleAssignments.length === 0 ? (
-                <View style={[schedSt.emptyBox, { borderColor: colors.border }]}>
-                  <Feather name="user-x" size={28} color={colors.border} />
-                  <Text style={[schedSt.emptyText, { color: colors.mutedForeground }]}>No workers assigned to this project yet</Text>
-                </View>
+                <EmptyState icon="user-x" title="No workers assigned" subtitle="Workers assigned to this project will show up here." />
               ) : (
                 scheduleAssignments.map((a: any) => {
                   const name = [a.userFirstName, a.userLastName].filter(Boolean).join(" ") || a.userEmail || "Unknown";
@@ -1663,37 +1414,32 @@ export default function ProjectDetailScreen() {
                   const end = new Date(a.endDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
                   const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
                   return (
-                    <View key={a.id} style={[schedSt.assignRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Card key={a.id} elevated={false} style={[styles.rowCard, { flexDirection: "row", alignItems: "center", gap: spacing.md }]}>
                       <View style={[schedSt.avatar, { backgroundColor: `${colors.primary}20` }]}>
-                        <Text style={[schedSt.avatarText, { color: colors.primary }]}>{initials}</Text>
+                        <Text style={[typography.bodyMedium, { color: colors.primary }]}>{initials}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[schedSt.workerName, { color: colors.foreground }]}>{name}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                        <Text style={[typography.bodyMedium, { color: colors.foreground }]}>{name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: 2 }}>
                           <Feather name="calendar" size={11} color={colors.mutedForeground} />
-                          <Text style={[schedSt.dateRange, { color: colors.mutedForeground }]}>{start} – {end}</Text>
+                          <Text style={[typography.caption, { color: colors.mutedForeground }]}>{start} – {end}</Text>
                         </View>
                         {!!a.notes && (
-                          <Text style={[schedSt.assignNotes, { color: colors.mutedForeground }]} numberOfLines={2}>{a.notes}</Text>
+                          <Text style={[typography.caption, { color: colors.mutedForeground }]} numberOfLines={2}>{a.notes}</Text>
                         )}
                       </View>
-                      <View style={[schedSt.roleBadge, { backgroundColor: `${colors.primary}15` }]}>
-                        <Text style={[schedSt.roleText, { color: colors.primary }]}>{a.userRole ?? "worker"}</Text>
-                      </View>
-                    </View>
+                      <Badge label={a.userRole ?? "worker"} />
+                    </Card>
                   );
                 })
               )}
 
-              <View style={{ height: 20 }} />
+              <View style={{ height: spacing.xl }} />
 
               {/* Events */}
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 10 }]}>Events</Text>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Events</Text>
               {scheduleEvents.length === 0 ? (
-                <View style={[schedSt.emptyBox, { borderColor: colors.border }]}>
-                  <Feather name="calendar" size={28} color={colors.border} />
-                  <Text style={[schedSt.emptyText, { color: colors.mutedForeground }]}>No events scheduled for this project</Text>
-                </View>
+                <EmptyState icon="calendar" title="No events scheduled" subtitle="Events scheduled for this project will show up here." />
               ) : (
                 scheduleEvents.map((ev: any) => {
                   const start = new Date(ev.startTime);
@@ -1731,31 +1477,29 @@ export default function ProjectDetailScreen() {
                   const evStatusColor = statusColors[ev.status] ?? "#6B7280";
 
                   return (
-                    <View key={ev.id} style={[schedSt.eventRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Card key={ev.id} elevated={false} padding="none" style={[styles.rowCard, { flexDirection: "row", overflow: "hidden" }]}>
                       <View style={[schedSt.eventTypeBar, { backgroundColor: evColor }]} />
-                      <View style={{ flex: 1, paddingLeft: 10 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                          <Text style={[schedSt.eventTitle, { color: colors.foreground }]} numberOfLines={2}>{ev.title}</Text>
-                          <View style={[schedSt.typeBadge, { backgroundColor: `${evColor}18` }]}>
-                            <Text style={[schedSt.typeBadgeText, { color: evColor }]}>{evLabel}</Text>
-                          </View>
+                      <View style={{ flex: 1, padding: spacing.md }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs }}>
+                          <Text style={[typography.bodyMedium, { color: colors.foreground, flex: 1, marginRight: spacing.sm }]} numberOfLines={2}>{ev.title}</Text>
+                          <Badge label={evLabel} />
                         </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: 2 }}>
                           <Feather name="clock" size={11} color={colors.mutedForeground} />
-                          <Text style={[schedSt.eventMeta, { color: colors.mutedForeground }]}>{dateRange}</Text>
+                          <Text style={[typography.caption, { color: colors.mutedForeground }]}>{dateRange}</Text>
                         </View>
                         {!!ev.location && (
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
                             <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                            <Text style={[schedSt.eventMeta, { color: colors.mutedForeground }]}>{ev.location}</Text>
+                            <Text style={[typography.caption, { color: colors.mutedForeground }]}>{ev.location}</Text>
                           </View>
                         )}
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs }}>
                           <View style={[schedSt.statusDot, { backgroundColor: evStatusColor }]} />
-                          <Text style={[schedSt.eventMeta, { color: evStatusColor, textTransform: "capitalize" }]}>{(ev.status ?? "scheduled").replace("_", " ")}</Text>
+                          <Text style={[typography.caption, { color: evStatusColor, textTransform: "capitalize" }]}>{(ev.status ?? "scheduled").replace("_", " ")}</Text>
                         </View>
                       </View>
-                    </View>
+                    </Card>
                   );
                 })
               )}
@@ -1770,49 +1514,29 @@ export default function ProjectDetailScreen() {
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
             Requests for Information
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-            <View style={{ flexDirection: "row", gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
               {(["all", "open", "in_review", "answered", "closed"] as const).map((s) => {
                 const label =
                   s === "all" ? "All" :
                   s === "open" ? "Open" :
                   s === "in_review" ? "In Review" :
                   s === "answered" ? "Answered" : "Closed";
-                const active = rfiStatusFilter === s;
                 return (
-                  <Pressable
-                    key={s}
-                    onPress={() => setRfiStatusFilter(s)}
-                    style={[
-                      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-                      {
-                        backgroundColor: active ? colors.primary : colors.muted,
-                        borderColor: active ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
-                        { color: active ? "#FFFFFF" : colors.mutedForeground },
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
+                  <Chip key={s} label={label} selected={rfiStatusFilter === s} onPress={() => setRfiStatusFilter(s)} />
                 );
               })}
             </View>
           </ScrollView>
           {(rfis ?? []).length === 0 ? (
-            <View style={styles.rfiEmpty}>
-              <Feather name="alert-circle" size={32} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                {rfiStatusFilter !== "all"
+            <EmptyState
+              icon="alert-circle"
+              title={
+                rfiStatusFilter !== "all"
                   ? `No ${rfiStatusFilter === "open" ? "open" : rfiStatusFilter === "in_review" ? "in-review" : rfiStatusFilter === "answered" ? "answered" : "closed"} RFIs`
-                  : "No RFIs for this project"}
-              </Text>
-            </View>
+                  : "No RFIs for this project"
+              }
+            />
           ) : (
             [...(rfis ?? [])]
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -1872,28 +1596,25 @@ export default function ProjectDetailScreen() {
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>
               Pre-Inspection Checklists
             </Text>
-            <TouchableOpacity
+            <Pressable
               onPress={() => router.push(`/(tabs)/(home)/psi-checklist?projectId=${projectId}`)}
               style={[styles.addBtn, { borderColor: colors.primary }]}
             >
               <Feather name="plus" size={14} color={colors.primary} />
               <Text style={[styles.addBtnText, { color: colors.primary }]}>New</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           {(psiChecklists ?? []).length === 0 ? (
-            <View style={[styles.emptySection, { borderColor: colors.border, marginBottom: 16 }]}>
-              <Feather name="clipboard" size={28} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
-                No pre-inspection checklists for this project
-              </Text>
+            <View style={{ marginBottom: spacing.xl }}>
+              <EmptyState icon="clipboard" title="No pre-inspection checklists" subtitle="Checklists for this project will show up here." />
             </View>
           ) : (
-            <View style={{ marginBottom: 16 }}>
+            <View style={{ marginBottom: spacing.xl }}>
               {(psiChecklists ?? []).map((row) => {
                 const isDraft = row.psi.status === "draft";
-                const statusColor = isDraft ? "#6B7280" : "#22C55E";
+                const statusColor = isDraft ? colors.mutedForeground : colors.success;
                 return (
-                  <Pressable
+                  <Card
                     key={row.psi.id}
                     onPress={() =>
                       router.push(
@@ -1902,10 +1623,8 @@ export default function ProjectDetailScreen() {
                           : `/(tabs)/(home)/psi-detail?id=${row.psi.id}`,
                       )
                     }
-                    style={({ pressed }) => [
-                      styles.reportRow,
-                      { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.92 : 1 },
-                    ]}
+                    elevated={false}
+                    style={[styles.rowCard, { flexDirection: "row", alignItems: "center", gap: spacing.md }]}
                   >
                     <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
                       <Feather name="clipboard" size={16} color={statusColor} />
@@ -1922,7 +1641,7 @@ export default function ProjectDetailScreen() {
                         {row.signatureCount} signature{row.signatureCount === 1 ? "" : "s"} · {row.approvalCount} approval{row.approvalCount === 1 ? "" : "s"}
                       </Text>
                     </View>
-                  </Pressable>
+                  </Card>
                 );
               })}
             </View>
@@ -1932,12 +1651,7 @@ export default function ProjectDetailScreen() {
             Safety & Compliance
           </Text>
           {(safetySubmissions ?? []).length === 0 ? (
-            <View style={[styles.emptySection, { borderColor: colors.border }]}>
-              <Feather name="shield" size={28} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
-                No safety submissions for this project
-              </Text>
-            </View>
+            <EmptyState icon="shield" title="No safety submissions" subtitle="Safety submissions for this project will show up here." />
           ) : (
             (safetySubmissions ?? []).map((s: any) => (
               <SafetySubmissionRow key={s.id} submission={s} colors={colors} />

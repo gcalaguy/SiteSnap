@@ -496,12 +496,17 @@ function StatCard({ href, label, value, sub, icon: Icon, alert }: StatCardConfig
   return (
     <Link href={href} className="block group">
       <Card
-        className="cursor-pointer transition-all duration-150 hover:shadow-md bg-card"
+        className="relative overflow-hidden cursor-pointer transition-shadow duration-150 hover:shadow-md bg-card"
         style={{
-          border: alert ? "1.5px solid hsl(var(--destructive) / 0.35)" : "1px solid rgba(0,0,0,0.08)",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+          border: alert ? "1.5px solid hsl(var(--destructive) / 0.35)" : "1px solid var(--elevated-border)",
+          boxShadow: "var(--elevated-shadow)",
         }}
       >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-0 transition-[width] duration-150 group-hover:w-[3px]"
+          style={{ background: accent }}
+        />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
           <CardTitle
             className={`text-[11px] uppercase tracking-wide ${alert ? "font-bold" : "font-semibold"}`}
@@ -595,7 +600,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
           <Activity className="h-6 w-6" style={{ color: GOLD }} />
@@ -611,20 +616,23 @@ export default function Dashboard() {
           otherwise a single compact all-clear strip. Never both. */}
       {isOwnerOrForeman && <RiskStatusSection />}
 
-      {/* Smart Summary Banner — content is already scoped server-side to the caller's role/assignments */}
+      {/* Smart Summary Banner — content is already scoped server-side to the caller's role/assignments.
+          Uses the same elevated-card recipe as the stat grid below (border/shadow tokens), so it reads
+          as part of the same system instead of a separate amber/orange treatment. The black "hero"
+          surface is reserved for the Foreman Briefing above so only one module competes for first glance. */}
       {smartSummary && (
-        <Card className="border-amber-200/40 bg-gradient-to-r from-amber-50/80 to-orange-50/60">
+        <Card className="bg-card" style={{ border: "1px solid var(--elevated-border)", boxShadow: "var(--elevated-shadow)" }}>
           <CardContent className="flex items-start gap-3 pt-4 pb-4">
             <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
               style={{ background: withAlpha(GOLD, 13), border: `1.5px solid ${withAlpha(GOLD, 27)}` }}>
               <Sparkles className="h-4 w-4" style={{ color: GOLD }} />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Smart Insights</p>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: GOLD }}>Smart Insight</p>
               {smartSummary.summary ? (
-                <p className="text-sm text-gray-700 leading-relaxed">{smartSummary.summary}</p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{smartSummary.summary}</p>
               ) : (
-                <p className="text-sm text-gray-500 leading-relaxed">No current insights for your assigned tasks.</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">No current insights for your assigned tasks.</p>
               )}
             </div>
           </CardContent>
@@ -654,7 +662,7 @@ export default function Dashboard() {
       <div>
         <SectionLabel>Activity</SectionLabel>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4 bg-card" style={{ border: `2px solid ${withAlpha(GOLD, 20)}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <Card className="col-span-4 bg-card" style={{ border: "1px solid var(--elevated-border)", boxShadow: "var(--elevated-shadow)" }}>
             <CardHeader>
               <CardTitle className="text-sm font-extrabold uppercase tracking-wider" style={{ color: GOLD }}>Recent Activity</CardTitle>
             </CardHeader>
@@ -687,7 +695,7 @@ export default function Dashboard() {
             <WeatherCard />
 
             {/* Notifications Panel */}
-            <Card className="bg-card" style={{ border: `2px solid ${withAlpha(GOLD, 20)}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <Card className="bg-card" style={{ border: "1px solid var(--elevated-border)", boxShadow: "var(--elevated-shadow)" }}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

@@ -61,13 +61,15 @@ import {
   Trash2,
 } from "lucide-react";
 
-const GOLD = "#D4AF37";
-const SURFACE = "#FFFFFF";
-const SURFACE2 = "#F8F8F8";
-const SURFACE3 = "#F0F0F0";
-const BORDER = "#E5E5E5";
-const TEXT = "#111111";
-const MUTED = "#888888";
+import {
+  GOLD,
+  CONTENT_SURFACE as SURFACE,
+  CONTENT_SURFACE_MUTED as SURFACE2,
+  CONTENT_SURFACE_SUNKEN as SURFACE3,
+  BORDER,
+  TEXT,
+  MUTED,
+} from "@/lib/theme";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   active:    { label: "In Progress", color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0" },
@@ -836,21 +838,21 @@ export default function Projects() {
             <thead>
               <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
                 {[
-                  { label: "Project",        sortable: true,  col: "name" },
-                  { label: "Location",       sortable: false, col: "" },
-                  { label: "Budget",         sortable: true,  col: "budget" },
-                  { label: "Burn Velocity",  sortable: false, col: "" },
-                  { label: "Status",         sortable: false, col: "" },
-                  { label: "Created",        sortable: true,  col: "date" },
-                  { label: "",               sortable: false, col: "" },
-                ].map(({ label, sortable, col }) => (
+                  { label: "Project",        sortable: true,  col: "name",   align: "left" as const },
+                  { label: "Location",       sortable: false, col: "",       align: "left" as const },
+                  { label: "Budget",         sortable: true,  col: "budget", align: "right" as const },
+                  { label: "Burn Velocity",  sortable: false, col: "",       align: "right" as const },
+                  { label: "Status",         sortable: false, col: "",       align: "left" as const },
+                  { label: "Created",        sortable: true,  col: "date",   align: "left" as const },
+                  { label: "",               sortable: false, col: "",       align: "left" as const },
+                ].map(({ label, sortable, col, align }) => (
                   <th
                     key={label || "actions"}
-                    className="text-left px-4 py-3 font-extrabold tracking-wider"
-                    style={{ color: "#D4AF37", fontSize: 10, textTransform: "uppercase", background: "#F8F8F8", cursor: sortable ? "pointer" : "default" }}
+                    className={`px-4 py-3 font-extrabold tracking-wider ${align === "right" ? "text-right" : "text-left"}`}
+                    style={{ color: GOLD, fontSize: 10, textTransform: "uppercase", background: SURFACE2, cursor: sortable ? "pointer" : "default" }}
                     onClick={() => sortable && toggleSort(col)}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className={`flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
                       {label}
                       {sortable && <SortIcon col={col} />}
                     </div>
@@ -859,7 +861,7 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((project, i) => {
+              {filtered.map((project) => {
                 const st = statusConfig[project.status] ?? statusConfig.active;
                 const budget = project.budget ? parseFloat(String(project.budget)) : null;
                 const pct = project.financials?.burnVelocity != null ? Math.round(project.financials.burnVelocity * 100) : null;
@@ -867,35 +869,41 @@ export default function Projects() {
                   <tr
                     key={project.id}
                     className="group"
-                    style={{ borderBottom: `1px solid ${BORDER}`, background: i % 2 === 0 ? SURFACE : SURFACE2, cursor: "pointer" }}
+                    style={{
+                      borderBottom: `1px solid ${BORDER}`,
+                      borderLeft: "3px solid transparent",
+                      background: SURFACE,
+                      cursor: "pointer",
+                      transition: "background-color 120ms ease, border-color 120ms ease",
+                    }}
                     onClick={() => setSelectedProject(project)}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = SURFACE3; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? SURFACE : SURFACE2; }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = `${GOLD}0A`; el.style.borderLeftColor = GOLD; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = SURFACE; el.style.borderLeftColor = "transparent"; }}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-extrabold group-hover:underline" style={{ color: "#121212", fontSize: 12 }}>{project.name}</p>
-                      <p style={{ color: "#888888", fontSize: 10 }}>#{project.id}</p>
+                      <p className="font-extrabold group-hover:underline" style={{ color: TEXT, fontSize: 13 }}>{project.name}</p>
+                      <p style={{ color: MUTED, fontSize: 10 }}>#{project.id}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 font-medium" style={{ color: "#888888", fontSize: 12 }}>
-                        <MapPin size={11} style={{ color: "#D4AF37", flexShrink: 0 }} />
+                      <div className="flex items-center gap-1.5 font-medium" style={{ color: MUTED, fontSize: 12 }}>
+                        <MapPin size={11} style={{ color: GOLD, flexShrink: 0 }} />
                         <span>{project.city}, {project.province}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {budget ? (
-                        <span className="font-extrabold" style={{ color: "#D4AF37", fontSize: 12 }}>
+                        <span className="font-semibold" style={{ color: TEXT, fontSize: 12 }}>
                           ${budget.toLocaleString("en-CA")}
                         </span>
                       ) : (
-                        <span style={{ color: "#888888", fontSize: 12 }}>—</span>
+                        <span style={{ color: MUTED, fontSize: 12 }}>—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {pct == null ? (
-                        <span style={{ color: "#888888", fontSize: 12 }}>—</span>
+                        <span style={{ color: MUTED, fontSize: 12 }}>—</span>
                       ) : (
-                        <span className="font-semibold" style={{ color: "#121212", fontSize: 12 }}>
+                        <span className="font-semibold" style={{ color: TEXT, fontSize: 12 }}>
                           {pct}%
                         </span>
                       )}

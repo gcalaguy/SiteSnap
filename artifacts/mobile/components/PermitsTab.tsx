@@ -18,6 +18,8 @@ import * as WebBrowser from "expo-web-browser";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { Card, Button, EmptyState, Badge, Chip } from "@/components/ui";
+import { spacing } from "@/constants/theme";
 
 interface Permit {
   id: string;
@@ -234,14 +236,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Permits</Text>
         {isOwner && (
-          <TouchableOpacity
-            onPress={openCreate}
-            style={[styles.addBtn, { backgroundColor: colors.primary }]}
-            hitSlop={8}
-          >
-            <Feather name="plus" size={14} color="#FFFFFF" />
-            <Text style={styles.addBtnText}>New Permit</Text>
-          </TouchableOpacity>
+          <Button label="New Permit" icon="plus" onPress={openCreate} />
         )}
       </View>
 
@@ -250,26 +245,15 @@ export function PermitsTab({ projectId }: { projectId: number }) {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : accessDenied ? (
-        <View style={[styles.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="lock" size={28} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            You're not assigned to this project, so its permits are hidden.
-          </Text>
-        </View>
+        <EmptyState icon="lock" title="Permits hidden" subtitle="You're not assigned to this project, so its permits are hidden." />
       ) : isError ? (
-        <View style={[styles.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="alert-triangle" size={28} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Could not load permits
-          </Text>
-        </View>
+        <EmptyState icon="alert-triangle" title="Could not load permits" />
       ) : permits.length === 0 ? (
-        <View style={[styles.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="award" size={28} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {isOwner ? "No permits yet — tap New Permit to add one." : "No permits for this project yet."}
-          </Text>
-        </View>
+        <EmptyState
+          icon="award"
+          title="No permits yet"
+          subtitle={isOwner ? "Tap New Permit to add one." : "No permits for this project yet."}
+        />
       ) : (
         permits.map((item) => {
           const days = daysUntil(item.expirationDate);
@@ -283,7 +267,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
             `Expires ${formatDate(item.expirationDate)}`;
 
           return (
-            <View key={item.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Card key={item.id} elevated={false} style={styles.card}>
               <View style={styles.cardRow}>
                 <View style={[styles.cardIcon, { backgroundColor: `${statusColor}18` }]}>
                   <Feather name="award" size={16} color={statusColor} />
@@ -293,9 +277,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                     {item.title}
                   </Text>
                   <View style={styles.cardBadges}>
-                    <View style={[styles.statusChip, { backgroundColor: `${statusColor}18` }]}>
-                      <Text style={[styles.statusChipText, { color: statusColor }]}>{item.status}</Text>
-                    </View>
+                    <Badge label={item.status} />
                     <Text style={[styles.expiryText, { color: expiryColor }]}>{expiryLabel}</Text>
                   </View>
                 </View>
@@ -328,7 +310,7 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                   </>
                 )}
               </View>
-            </View>
+            </Card>
           );
         })
       )}
@@ -358,33 +340,9 @@ export function PermitsTab({ projectId }: { projectId: number }) {
 
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Status</Text>
               <View style={styles.chipWrap}>
-                {STATUS_OPTIONS.map((s) => {
-                  const active = form.status === s;
-                  return (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => setForm((f) => ({ ...f, status: s }))}
-                      style={[
-                        styles.chip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}18` : colors.card,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontFamily: "NunitoSans_500Medium",
-                          textTransform: "capitalize",
-                          color: active ? colors.primary : colors.mutedForeground,
-                        }}
-                      >
-                        {s}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {STATUS_OPTIONS.map((s) => (
+                  <Chip key={s} label={s[0].toUpperCase() + s.slice(1)} selected={form.status === s} onPress={() => setForm((f) => ({ ...f, status: s }))} />
+                ))}
               </View>
 
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Expiration date (YYYY-MM-DD)</Text>
@@ -411,19 +369,14 @@ export function PermitsTab({ projectId }: { projectId: number }) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleSave}
-                disabled={saving}
-                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={{ color: "#FFFFFF", fontFamily: "NunitoSans_600SemiBold", fontSize: 15 }}>
-                    {editing ? "Save Changes" : "Create Permit"}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              <View style={{ marginTop: spacing.xl }}>
+                <Button
+                  label={editing ? "Save Changes" : "Create Permit"}
+                  onPress={handleSave}
+                  loading={saving}
+                  fullWidth
+                />
+              </View>
               <View style={{ height: 30 }} />
             </ScrollView>
           </View>
@@ -447,32 +400,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  addBtnText: { color: "#FFFFFF", fontSize: 12, fontFamily: "NunitoSans_600SemiBold" },
   centerBox: { paddingVertical: 30, alignItems: "center" },
-  emptyBox: {
-    borderWidth: 1,
-    borderRadius: 16,
-    borderStyle: "dashed",
-    padding: 28,
-    alignItems: "center",
-    gap: 10,
-  },
-  emptyText: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center" },
   card: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10 },
   cardRow: { flexDirection: "row", gap: 12 },
   cardIcon: { width: 36, height: 36, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   cardTitle: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold" },
   cardBadges: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 16 },
-  statusChipText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "capitalize" },
   expiryText: { fontSize: 12, fontFamily: "NunitoSans_500Medium" },
   cardActions: {
     flexDirection: "row",
@@ -497,7 +430,6 @@ const styles = StyleSheet.create({
   sheetBody: { paddingHorizontal: 20, paddingTop: 12 },
   label: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold", marginTop: 14, marginBottom: 6 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   input: {
     borderRadius: 16,
     borderWidth: 1,
@@ -514,12 +446,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
-  },
-  saveBtn: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 16,
-    marginTop: 20,
   },
 });

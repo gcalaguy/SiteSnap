@@ -17,6 +17,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useFormDraft, clearFormDraft } from "@/hooks/useFormDraft";
 import { DraftBanner } from "@/components/DraftBanner";
+import { Card, Button, EmptyState, StatusPill, type StatusTone } from "@/components/ui";
+import { spacing } from "@/constants/theme";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -89,6 +91,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   submitted: { label: "Pending Review", color: "#D97706", bg: "#FEF3C7", icon: "clock" },
   approved:  { label: "Approved",       color: "#16A34A", bg: "#DCFCE7", icon: "check-circle" },
   denied:    { label: "Denied",         color: "#DC2626", bg: "#FEE2E2", icon: "x-circle" },
+};
+const STATUS_TONE: Record<string, StatusTone> = {
+  submitted: "pending",
+  approved: "approved",
+  denied: "void",
 };
 
 // ── main component ────────────────────────────────────────────────────────────
@@ -353,15 +360,9 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
             </Text>
           </View>
           {showForm ? (
-            <Pressable style={[s.newBtn, { backgroundColor: colors.muted }]} onPress={resetForm}>
-              <Feather name="x" size={16} color={colors.foreground} />
-              <Text style={[s.newBtnText, { color: colors.foreground }]}>Cancel</Text>
-            </Pressable>
+            <Button label="Cancel" variant="secondary" icon="x" onPress={resetForm} />
           ) : (
-            <Pressable style={[s.newBtn, { backgroundColor: colors.primary }]} onPress={openNew}>
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={s.newBtnText}>New Submission</Text>
-            </Pressable>
+            <Button label="New Submission" icon="plus" onPress={openNew} />
           )}
         </View>
 
@@ -498,20 +499,15 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               </View>
             )}
 
-            <Pressable
-              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
-              onPress={handleSubmit}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Feather name={editingTimesheet ? "save" : "send"} size={15} color="#fff" />
-                  <Text style={s.submitBtnText}>{editingTimesheet ? "Save Changes" : "Submit Timesheet"}</Text>
-                </>
-              )}
-            </Pressable>
+            <View style={{ marginTop: spacing.lg }}>
+              <Button
+                label={editingTimesheet ? "Save Changes" : "Submit Timesheet"}
+                icon={editingTimesheet ? "save" : "send"}
+                onPress={handleSubmit}
+                loading={isPending}
+                fullWidth
+              />
+            </View>
           </View>
         )}
 
@@ -521,13 +517,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
         ) : timesheets.length === 0 ? (
-          <View style={s.empty}>
-            <Feather name="clipboard" size={36} color={colors.border} />
-            <Text style={[s.emptyTitle, { color: colors.foreground }]}>No timesheets yet</Text>
-            <Text style={[s.emptySub, { color: colors.mutedForeground }]}>
-              Tap "New Submission" to submit your first weekly timesheet.
-            </Text>
-          </View>
+          <EmptyState icon="clipboard" title="No timesheets yet" subtitle={'Tap "New Submission" to submit your first weekly timesheet.'} />
         ) : (
           (timesheets as unknown as Timesheet[]).map((ts) => {
             const cfg = STATUS_CONFIG[ts.status] ?? STATUS_CONFIG.submitted;
@@ -537,10 +527,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                 : null;
             const entriesForCard = getWeekEntries(timeEntries, ts.weekStart);
             return (
-              <View
-                key={ts.id}
-                style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
+              <Card key={ts.id} elevated={false} style={s.card}>
                 {/* Top row: week + status + edit */}
                 <View style={s.cardTop}>
                   <View style={[s.calIcon, { backgroundColor: `${colors.primary}15` }]}>
@@ -555,10 +542,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 6 }}>
-                    <View style={[s.statusBadge, { backgroundColor: cfg.bg }]}>
-                      <Feather name={cfg.icon as any} size={11} color={cfg.color} />
-                      <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-                    </View>
+                    <StatusPill tone={STATUS_TONE[ts.status] ?? "pending"} label={cfg.label} size="sm" />
                     {/* Edit / Delete actions — on submitted or denied (not approved) */}
                     {(ts.status === "submitted" || ts.status === "denied") && (
                       <View style={{ flexDirection: "row", gap: 6 }}>
@@ -671,7 +655,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                     </Pressable>
                   </View>
                 )}
-              </View>
+              </Card>
             );
           })
         )}
@@ -687,8 +671,6 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 },
   sectionTitle: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
   sectionSub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", marginTop: 3 },
-  newBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  newBtnText: { color: "#fff", fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
 
   // Form
   form: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 28 },
@@ -718,21 +700,14 @@ const s = StyleSheet.create({
   error: { color: "#EF4444", fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 4 },
   earningsRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 16, padding: 10, marginTop: 12 },
   earningsText: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
-  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, borderRadius: 16, paddingVertical: 13 },
-  submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "NunitoSans_700Bold" },
 
   histLabel: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
-  empty: { alignItems: "center", paddingVertical: 48, gap: 10 },
-  emptyTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  emptySub: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", maxWidth: 260 },
 
   card: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
   calIcon: { width: 36, height: 36, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   cardWeek: { fontSize: 13, fontFamily: "NunitoSans_700Bold" },
   cardSub: { fontSize: 11, fontFamily: "NunitoSans_400Regular", marginTop: 2 },
-  statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   editCardBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16, borderWidth: 1 },
   editCardBtnText: { fontSize: 11, fontFamily: "NunitoSans_600SemiBold" },
   statsRow: { flexDirection: "row", gap: 0, marginBottom: 10, borderRadius: 16, overflow: "hidden" },

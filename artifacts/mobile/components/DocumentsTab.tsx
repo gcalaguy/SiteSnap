@@ -22,6 +22,7 @@ import { openStorageFile } from "@/utils/openStorageFile";
 import { withAiRetry } from "@/src/utils/aiRetry";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { RetrySnackbar } from "@/components/RetrySnackbar";
+import { Card, EmptyState } from "@/components/ui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocStatus = "pending" | "processing" | "ready" | "failed";
@@ -954,13 +955,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
             </View>
 
             {docs.length === 0 ? (
-              <View style={docStyles.emptyBox}>
-                <Feather name="folder" size={36} color={colors.border} />
-                <Text style={[docStyles.emptyTitle, { color: colors.foreground }]}>No documents yet</Text>
-                <Text style={[docStyles.emptySubtext, { color: colors.mutedForeground }]}>
-                  Upload photos, receipts, or invoices using the upload button above.
-                </Text>
-              </View>
+              <EmptyState icon="folder" title="No documents yet" subtitle="Upload photos, receipts, or invoices using the upload button above." />
             ) : (
               <View style={{ gap: 10 }}>
                 {[...docs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(doc => {
@@ -972,7 +967,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                   const canAnalyze = !isAnalyzing && doc.status !== "processing" && doc.status !== "ready";
 
                   return (
-                    <View key={doc.id} style={[docStyles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Card key={doc.id} elevated={false} padding="sm">
                       <View style={docStyles.docCardMain}>
                         <View style={[docStyles.docIcon, { backgroundColor: `${colors.primary}15` }]}>
                           <Feather name={iconName as any} size={20} color={colors.primary} />
@@ -1035,7 +1030,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                         </View>
                       </View>
                       <ExtractedPanel doc={doc} projectId={projectId} />
-                    </View>
+                    </Card>
                   );
                 })}
               </View>
@@ -1055,10 +1050,12 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                   const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes((upload.fileType ?? "").toLowerCase());
                   const iconName = isImage ? "image" : "file-text";
                   return (
-                    <Pressable
+                    <Card
                       key={upload.id}
                       onPress={() => openStorageFile(upload.objectPath, upload.filename, upload.fileType)}
-                      style={({ pressed }) => [docStyles.docCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", opacity: pressed ? 0.85 : 1 }]}
+                      elevated={false}
+                      padding="sm"
+                      style={{ backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }}
                     >
                       <View style={docStyles.docCardMain}>
                         <View style={[docStyles.docIcon, { backgroundColor: "#3B82F618" }]}>
@@ -1078,7 +1075,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                         </View>
                         <Feather name="external-link" size={14} color="#94A3B8" />
                       </View>
-                    </Pressable>
+                    </Card>
                   );
                 })}
               </View>
@@ -1110,11 +1107,7 @@ const docStyles = StyleSheet.create({
   aiBadgeText: { fontSize: 10, fontFamily: "NunitoSans_700Bold" },
   tipBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 16, padding: 10 },
   tipText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", lineHeight: 17, flex: 1 },
-  emptyBox: { alignItems: "center", paddingVertical: 36, gap: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: "NunitoSans_600SemiBold" },
-  emptySubtext: { fontSize: 13, fontFamily: "NunitoSans_400Regular", textAlign: "center", maxWidth: 260 },
   emptyText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingVertical: 8 },
-  docCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 0 },
   docCardMain: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   docIcon: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   docFilename: { fontSize: 14, fontFamily: "NunitoSans_600SemiBold", flexShrink: 1 },

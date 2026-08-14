@@ -50,13 +50,15 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+import {
+  GOLD,
+  GOLD_BORDER,
+  BLACK,
+  SIDEBAR_SURFACE as SURFACE,
+  SIDEBAR_SURFACE_HOVER as SURFACE2,
+} from "@/lib/theme";
 
-const GOLD = "#D4AF37";
-const BLACK = "#0A0A0A";
-const SURFACE = "#141414";
-const SURFACE2 = "#1C1C1C";
-const GOLD_BORDER = "#2A2200";
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const SECTION_ORDER = ["operations", "financials", "compliance"] as const;
 const SECTION_LABELS: Record<(typeof SECTION_ORDER)[number], string> = {
@@ -254,7 +256,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
 
   return (
-    <div className="flex min-h-screen w-full" style={{ background: "#F8F8F8" }}>
+    <div className="flex min-h-screen w-full" style={{ background: "hsl(var(--background))" }}>
       {/* Black & Gold Sidebar */}
       <div
         className="hidden md:flex flex-col h-screen sticky top-0 overflow-hidden flex-shrink-0 gap-[0px] ml-[0px] mr-[0px] mt-[0px] mb-[0px] pl-[0px] pr-[0px] pt-[0px] pb-[0px]"
@@ -501,7 +503,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </span>
                   )}
                 </div>
-                <span className="flex-1 text-sm text-[#d4af37]" style={{ color: unreadCount > 0 ? GOLD : "#666" }}>Notifications</span>
+                <span className="flex-1 text-sm" style={{ color: unreadCount > 0 ? GOLD : "#666" }}>Notifications</span>
                 {unreadCount > 0 && (
                   <span
                     className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
@@ -861,7 +863,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SheetContent>
         </Sheet>
-        <main className="flex-1 overflow-y-auto p-3 md:p-5 rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] text-[#d0a539]">
+        <main className="flex-1 overflow-y-auto p-3 md:p-5 rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px]">
           <div className="mx-auto max-w-full">
             {children}
           </div>

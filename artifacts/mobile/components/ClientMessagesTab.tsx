@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { customFetch } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { EmptyState } from "@/components/ui";
 
 const GOLD = "#C9A84C";
 
@@ -109,13 +110,11 @@ export function ClientMessagesTab({ projectId }: Props) {
   if (noPortal) {
     return (
       <View style={s.section}>
-        <View style={[s.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="message-circle" size={28} color={colors.mutedForeground} />
-          <Text style={[s.emptyTitle, { color: colors.foreground }]}>No portal active</Text>
-          <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-            Generate a client portal link from the web dashboard to enable messaging.
-          </Text>
-        </View>
+        <EmptyState
+          icon="message-circle"
+          title="No portal active"
+          subtitle="Generate a client portal link from the web dashboard to enable messaging."
+        />
       </View>
     );
   }
@@ -123,14 +122,11 @@ export function ClientMessagesTab({ projectId }: Props) {
   if (isError) {
     return (
       <View style={s.section}>
-        <View style={[s.emptyBox, { borderColor: colors.border }]}>
-          <Feather name="alert-circle" size={28} color={colors.mutedForeground} />
-          <Text style={[s.emptyTitle, { color: colors.foreground }]}>Failed to load messages</Text>
-          <Pressable style={[s.retryBtn, { borderColor: colors.border }]} onPress={() => refetch()}>
-            <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
-            <Text style={[s.retryText, { color: colors.mutedForeground }]}>Retry</Text>
-          </Pressable>
-        </View>
+        <EmptyState icon="alert-circle" title="Failed to load messages" />
+        <Pressable style={[s.retryBtn, { borderColor: colors.border, alignSelf: "center" }]} onPress={() => refetch()}>
+          <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
+          <Text style={[s.retryText, { color: colors.mutedForeground }]}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -160,13 +156,7 @@ export function ClientMessagesTab({ projectId }: Props) {
             showsVerticalScrollIndicator={false}
           >
             {msgs.length === 0 ? (
-              <View style={s.noMessages}>
-                <Feather name="message-circle" size={28} color={colors.mutedForeground} />
-                <Text style={[s.emptyTitle, { color: colors.mutedForeground }]}>No messages yet</Text>
-                <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                  Once the client sends a message, it will appear here.
-                </Text>
-              </View>
+              <EmptyState icon="message-circle" title="No messages yet" subtitle="Once the client sends a message, it will appear here." />
             ) : (
               msgs.map((msg) => {
                 const isContractor = msg.senderRole === "contractor";
@@ -231,15 +221,11 @@ const s = StyleSheet.create({
   section: { paddingHorizontal: 20, marginBottom: 16 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   sectionTitle: { fontSize: 12, fontFamily: "NunitoSans_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
-  emptyBox: { alignItems: "center", paddingVertical: 32, gap: 8, borderWidth: 1, borderRadius: 16, borderStyle: "dashed" },
-  emptyTitle: { fontSize: 13, fontFamily: "NunitoSans_600SemiBold" },
-  emptySubText: { fontSize: 12, fontFamily: "NunitoSans_400Regular", textAlign: "center", paddingHorizontal: 20 },
   retryBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, marginTop: 4 },
   retryText: { fontSize: 13, fontFamily: "NunitoSans_500Medium" },
   threadContainer: { borderWidth: 1, borderRadius: 16, marginBottom: 8, overflow: "hidden" },
   thread: { maxHeight: 340 },
   threadContent: { padding: 12, gap: 4 },
-  noMessages: { alignItems: "center", paddingVertical: 32, gap: 8 },
   msgWrapper: { marginBottom: 8 },
   msgLeft: { alignItems: "flex-start" },
   msgRight: { alignItems: "flex-end" },
