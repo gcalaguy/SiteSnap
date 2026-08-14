@@ -519,7 +519,9 @@ export default function ProjectDetail() {
           <TabNavButton value="overview" label="Overview" isActive={activeTab === "overview"} onSelect={setActiveTab} />
           <TabNavButton value="tasks" label="Tasks" isActive={activeTab === "tasks"} onSelect={setActiveTab} />
           <TabNavButton value="reports" label="Daily Reports" isActive={activeTab === "reports"} onSelect={setActiveTab} />
-          <TabNavDropdown label="Financials" items={financialsTabs} activeTab={activeTab} onSelect={setActiveTab} />
+          {financialsTabs.map(({ value, label, icon }) => (
+            <TabNavButton key={value} value={value} label={label} icon={icon} isActive={activeTab === value} onSelect={setActiveTab} />
+          ))}
           <TabNavDropdown label="Docs & Communication" items={docsCommunicationTabs} activeTab={activeTab} onSelect={setActiveTab} />
           <TabNavDropdown label="Safety & Team" items={safetyTeamTabs} activeTab={activeTab} onSelect={setActiveTab} />
         </div>
