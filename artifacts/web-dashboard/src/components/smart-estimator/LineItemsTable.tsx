@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type LineItem, fmtCurrency as fmt } from "@/lib/estimator";
 
@@ -15,7 +16,7 @@ export function LineItemsTable({
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
 }) {
-  const updateItem = (id: string, field: keyof LineItem, value: number) => {
+  const updateItem = (id: string, field: "quantity" | "unitCost" | "total", value: number) => {
     const clamped = Math.max(0, value);
     onChange(
       items.map((item) => {
@@ -31,6 +32,14 @@ export function LineItemsTable({
     );
   };
 
+  const updateText = (id: string, field: "description" | "unit", value: string) => {
+    onChange(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  };
+
+  const removeItem = (id: string) => {
+    onChange(items.filter((item) => item.id !== id));
+  };
+
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <table className="w-full text-sm">
@@ -41,17 +50,35 @@ export function LineItemsTable({
             <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-16">Unit</th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-28">Unit Cost</th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-28">Total</th>
+            <th className="w-8" />
           </tr>
         </thead>
         <tbody className="divide-y divide-border/40">
+          {items.length === 0 && (
+            <tr>
+              <td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                No line items yet.
+              </td>
+            </tr>
+          )}
           {items.map((item) => (
             <tr key={item.id} className="hover:bg-muted/20 group">
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className={cn("text-[10px] font-bold uppercase tracking-wider", CATEGORY_COLORS[item.category])}>
+                  <span className={cn("text-[10px] font-bold uppercase tracking-wider shrink-0", CATEGORY_COLORS[item.category])}>
                     {item.category}
                   </span>
-                  <span className="text-sm font-medium">{item.description}</span>
+                  {item.editable ? (
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => updateText(item.id, "description", e.target.value)}
+                      placeholder="Item description"
+                      className="w-full bg-transparent border-0 border-b border-transparent group-hover:border-border focus:border-primary outline-none text-sm font-medium py-0.5 transition-colors"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">{item.description}</span>
+                  )}
                 </div>
               </td>
               <td className="px-3 py-2 text-right">
@@ -67,7 +94,19 @@ export function LineItemsTable({
                   <span className="text-muted-foreground">{item.quantity.toLocaleString()}</span>
                 )}
               </td>
-              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{item.unit}</td>
+              <td className="px-3 py-2 text-right">
+                {item.editable ? (
+                  <input
+                    type="text"
+                    value={item.unit}
+                    onChange={(e) => updateText(item.id, "unit", e.target.value)}
+                    placeholder="ea"
+                    className="w-14 text-right bg-transparent border-0 border-b border-transparent group-hover:border-border focus:border-primary outline-none text-xs text-muted-foreground py-0.5 transition-colors"
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">{item.unit}</span>
+                )}
+              </td>
               <td className="px-3 py-2 text-right">
                 {item.editable ? (
                   <input
@@ -94,6 +133,18 @@ export function LineItemsTable({
                   <span className="font-semibold">{fmt(item.total)}</span>
                 )}
               </td>
+              <td className="px-1 py-2 text-right">
+                {item.editable && (
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                    aria-label="Remove line item"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -105,6 +156,7 @@ export function LineItemsTable({
             <td className="px-3 py-2 text-right font-bold">
               {fmt(items.reduce((s, i) => s + i.total, 0))}
             </td>
+            <td />
           </tr>
         </tfoot>
       </table>

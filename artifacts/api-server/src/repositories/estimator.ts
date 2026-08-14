@@ -288,9 +288,9 @@ export interface InsertQuoteInput {
   title: string;
   clientName: string;
   clientEmail: string | null;
-  clientCompanyName: null;
-  clientAddress: null;
-  clientPhone: null;
+  clientCompanyName: string | null;
+  clientAddress: string | null;
+  clientPhone: string | null;
   voiceInput: string | null;
   notes: string;
   lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
@@ -298,7 +298,7 @@ export interface InsertQuoteInput {
   taxRate: string;
   taxAmount: string;
   total: string;
-  validUntil: null;
+  validUntil: string | null;
   createdByUserId: number;
   status: "draft";
   publicToken: string;

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   customFetch,
@@ -6,10 +7,13 @@ import {
   useCreateCostModel,
   useUpdateCostModel,
   useDeleteCostModel,
+  useGetMe,
   getListCostModelsQueryKey,
   getListAllQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -82,8 +86,24 @@ type ParsedParams = {
 type EstimateResult = {
   lineItems: LineItem[];
   summary: EstimateSummary;
-  costModelUsed: { id: number; name: string; projectType: string; finishLevel: string; notes: string | null };
+  costModelUsed: { id: number; name: string; projectType: string; finishLevel: string; notes: string | null } | null;
   params: { projectType: string; squareFeet: number; finishLevel: string; addons: string[] };
+};
+
+const BLANK_SUMMARY: EstimateSummary = {
+  laborTotal: 0,
+  materialsTotal: 0,
+  addonsTotal: 0,
+  overhead: 0,
+  overheadPct: 0,
+  subtotal: 0,
+  contingency: 0,
+  contingencyPct: 0,
+  totalLow: 0,
+  totalHigh: 0,
+  suggestedMarginPct: 0,
+  suggestedMarginAmount: 0,
+  priceToClient: 0,
 };
 
 type SavedEstimate = {
@@ -123,14 +143,46 @@ const BLANK_MODEL_FORM = {
 
 const PROMPT_MAX = 5000;
 const HINT_MAX = 2000;
+const NOTES_MAX = 5000;
 
-export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwnerOrForeman?: boolean }) {
+export default function SmartEstimatorPage({ initialMode = "text" }: { initialMode?: "text" | "blank" }) {
   const { toast } = useToast();
   const handleError = useApiError();
+  const [, setLocation] = useLocation();
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  // Step: 1=setup (AI input + editable params), 2=results
+  // Step: 1=setup (blank form, or AI input + editable params), 2=results / line-item editing
   const [step, setStep] = useState<1 | 2>(1);
-  const [inputMode, setInputMode] = useState<"text" | "file">("text");
+  const [inputMode, setInputMode] = useState<"text" | "file" | "blank">(initialMode);
+
+  // Blank/manual mode — quote details collected up front, mirrors the old standalone "New Quote" form
+  const [blankTitle, setBlankTitle] = useState("");
+  const [blankClientName, setBlankClientName] = useState("");
+  const [blankClientEmail, setBlankClientEmail] = useState("");
+  const [blankClientCompanyName, setBlankClientCompanyName] = useState("");
+  const [blankClientAddress, setBlankClientAddress] = useState("");
+  const [blankClientPhone, setBlankClientPhone] = useState("");
+  const [blankNotes, setBlankNotes] = useState("");
+  const [blankValidUntil, setBlankValidUntil] = useState("");
+
+  const blankDraft = useDraftRecovery(
+    "new-quote",
+    () => ({
+      blankTitle, blankClientName, blankClientEmail, blankClientCompanyName,
+      blankClientAddress, blankClientPhone, blankNotes, blankValidUntil,
+    }),
+    (state) => {
+      setBlankTitle((state.blankTitle as string) || "");
+      setBlankClientName((state.blankClientName as string) || "");
+      setBlankClientEmail((state.blankClientEmail as string) || "");
+      setBlankClientCompanyName((state.blankClientCompanyName as string) || "");
+      setBlankClientAddress((state.blankClientAddress as string) || "");
+      setBlankClientPhone((state.blankClientPhone as string) || "");
+      setBlankNotes((state.blankNotes as string) || "");
+      setBlankValidUntil((state.blankValidUntil as string) || "");
+    }
+  );
 
   // Step 1 — AI input + structured params, in one window
   const [freeText, setFreeText] = useState("");
@@ -341,8 +393,13 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       title: string;
       clientName: string;
       clientEmail?: string;
+      clientCompanyName?: string;
+      clientAddress?: string;
+      clientPhone?: string;
       notes?: string;
       sourcePrompt?: string;
+      source?: "ai" | "manual";
+      validUntil?: string;
       lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
     }) =>
       customFetch<{ id: number; quoteNumber: string }>("/api/estimator/to-quote", {
@@ -357,6 +414,10 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         title: "Quote created!",
         description: `${data.quoteNumber} has been added to your Quotes section as a draft.`,
       });
+      if (inputMode === "blank") {
+        blankDraft.clearDraft();
+        setLocation(`/quotes/${data.id}`);
+      }
     },
     onError: (err) => handleError(err, "Failed to create quote"),
   });
@@ -400,6 +461,43 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
   const handleCalculate = () => {
     calculateMutation.mutate({ ...params, margin_pct: marginPct });
+  };
+
+  const handleContinueBlank = () => {
+    if (!blankTitle.trim() || !blankClientName.trim()) {
+      toast({ title: "Title and client name are required", variant: "destructive" });
+      return;
+    }
+    setEstimateResult({
+      lineItems: [],
+      summary: BLANK_SUMMARY,
+      costModelUsed: null,
+      params: { projectType: "", squareFeet: 0, finishLevel: "", addons: [] },
+    });
+    setLineItems([]);
+    setMarginPct(0);
+    setStep(2);
+  };
+
+  const handleCreateBlankQuote = () => {
+    toQuoteMutation.mutate({
+      title: blankTitle.trim(),
+      clientName: blankClientName.trim(),
+      clientEmail: blankClientEmail.trim() || undefined,
+      clientCompanyName: blankClientCompanyName.trim() || undefined,
+      clientAddress: blankClientAddress.trim() || undefined,
+      clientPhone: blankClientPhone.trim() || undefined,
+      notes: blankNotes.trim() || undefined,
+      source: "manual",
+      validUntil: blankValidUntil || undefined,
+      lineItems: lineItems.map((li) => ({
+        description: li.description,
+        quantity: li.quantity,
+        unit: li.unit,
+        unitPrice: li.unitCost,
+        total: li.total,
+      })),
+    });
   };
 
   const handleSave = () => {
@@ -447,6 +545,16 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     setLineItems([]);
     setSavedEstimateId(null);
     setParams({ project_type: "renovation_residential", square_feet: 1000, finish_level: "standard", addons: [], confidence: 100, notes: "" });
+    if (inputMode === "blank") {
+      setBlankTitle("");
+      setBlankClientName("");
+      setBlankClientEmail("");
+      setBlankClientCompanyName("");
+      setBlankClientAddress("");
+      setBlankClientPhone("");
+      setBlankNotes("");
+      setBlankValidUntil("");
+    }
   };
 
   const addons = modelsData?.addons ?? [];
@@ -837,20 +945,23 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         )}
       </div>
 
-      {/* Step 1 — Project Setup: AI input + editable form, in one window */}
+      {/* Step 1 — Project Setup: blank form, or AI input + editable params */}
       {step === 1 && (
         <div className="space-y-4">
         <Card>
           <CardHeader className="flex flex-col space-y-1.5 p-6 text-primary bg-surface-inverted">
-            <CardTitle className="text-base">Describe your project</CardTitle>
+            <CardTitle className="text-base">{inputMode === "blank" ? "Quote details" : "Describe your project"}</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-5 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]">
             <p className="text-xs text-muted-foreground -mt-2">
-              Describe the project with AI, or upload plans — then adjust the details below, which you can edit any time.
+              {inputMode === "blank"
+                ? "Fill in the quote details yourself, then add line items on the next step."
+                : "Describe the project with AI, or upload plans — then adjust the details below, which you can edit any time."}
             </p>
             {/* Mode toggle */}
             <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit flex-wrap">
               {([
+                { key: "blank", label: "Start Blank" },
                 { key: "text", label: "Free Text" },
                 { key: "file", label: "Upload Plans" },
               ] as const).map(({ key, label }) => (
@@ -867,114 +978,220 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
               ))}
             </div>
 
-            {inputMode === "text" ? (
-              <div className="space-y-2">
-                <Label>Project description</Label>
-                <Textarea
-                  placeholder="e.g. I need to finish a 1,200 sqft basement with a bedroom, bathroom, and small bar area. Mid-range finishes — LVP flooring, standard tile in the bathroom. Include a permit and I want spray foam insulation."
-                  value={freeText}
-                  onChange={(e) => setFreeText(e.target.value)}
-                  className="min-h-[120px] resize-none"
-                  maxLength={PROMPT_MAX}
-                />
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    Describe the project scope, size, finish quality, and any specific requirements.
-                    The AI will extract the parameters — pricing comes from our database.
-                  </p>
-                  <p className={`text-xs shrink-0 tabular-nums ${freeText.length >= PROMPT_MAX ? "text-destructive font-medium" : freeText.length >= PROMPT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
-                    {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+            {inputMode === "blank" ? (
+              <div className="space-y-4">
+                <DraftBanner show={blankDraft.showBanner} onRestore={blankDraft.restoreDraft} onDiscard={blankDraft.discardDraft} />
+                <div>
+                  <Label htmlFor="blankTitle">Quote Title *</Label>
+                  <Input
+                    id="blankTitle"
+                    value={blankTitle}
+                    onChange={(e) => setBlankTitle(e.target.value)}
+                    placeholder="e.g. Foundation Concrete Work — Phase 1"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="blankClientName">Contact Name *</Label>
+                    <Input
+                      id="blankClientName"
+                      value={blankClientName}
+                      onChange={(e) => setBlankClientName(e.target.value)}
+                      placeholder="Primary contact name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="blankClientCompanyName">Client Company Name</Label>
+                    <Input
+                      id="blankClientCompanyName"
+                      value={blankClientCompanyName}
+                      onChange={(e) => setBlankClientCompanyName(e.target.value)}
+                      placeholder="Company or organization"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="blankClientEmail">Client Email</Label>
+                    <Input
+                      id="blankClientEmail"
+                      type="email"
+                      value={blankClientEmail}
+                      onChange={(e) => setBlankClientEmail(e.target.value)}
+                      placeholder="client@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="blankClientPhone">Client Phone</Label>
+                    <Input
+                      id="blankClientPhone"
+                      type="tel"
+                      value={blankClientPhone}
+                      onChange={(e) => setBlankClientPhone(e.target.value)}
+                      placeholder="(555) 000-0000"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="blankClientAddress">Client Address</Label>
+                  <Input
+                    id="blankClientAddress"
+                    value={blankClientAddress}
+                    onChange={(e) => setBlankClientAddress(e.target.value)}
+                    placeholder="123 Main St, City, Province, Postal Code"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="blankValidUntil">Valid Until</Label>
+                  <Input
+                    id="blankValidUntil"
+                    type="date"
+                    value={blankValidUntil}
+                    onChange={(e) => setBlankValidUntil(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="blankNotes">Notes / Scope</Label>
+                  <Textarea
+                    id="blankNotes"
+                    value={blankNotes}
+                    onChange={(e) => setBlankNotes(e.target.value.slice(0, NOTES_MAX))}
+                    placeholder="Initial scope or any notes..."
+                    rows={3}
+                    maxLength={NOTES_MAX}
+                    className="resize-none mt-1"
+                  />
+                  <p className={`text-xs mt-1 text-right tabular-nums ${blankNotes.length >= NOTES_MAX ? "text-destructive font-medium" : blankNotes.length >= NOTES_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    {blankNotes.length.toLocaleString()}/{NOTES_MAX.toLocaleString()}
                   </p>
                 </div>
+                <Button onClick={handleContinueBlank} className="w-full gap-2" size="lg">
+                  <FileText className="h-4 w-4" />
+                  Continue to Line Items
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div
-                  className={cn(
-                    "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-                    uploadDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
-                  )}
-                  onClick={() => uploadFileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
-                  onDragLeave={() => setUploadDragActive(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setUploadDragActive(false);
-                    const f = e.dataTransfer.files[0];
-                    if (f) setUploadFile(f);
-                  }}
-                >
-                  <input
-                    ref={uploadFileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.heic"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }}
-                  />
-                  {uploadFile ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <FileText className="h-8 w-8 text-primary" />
-                      <div className="text-left">
-                        <p className="text-sm font-semibold">{uploadFile.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(uploadFile.size / 1024 / 1024).toFixed(2)} MB · Click to change
-                        </p>
-                      </div>
-                      <button
-                        className="ml-2 p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); setUploadFile(null); }}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Upload className="h-10 w-10 text-slate-300" />
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Drop plans here or <span className="text-primary">browse</span>
+              <>
+                {inputMode === "text" ? (
+                  <div className="space-y-2">
+                    <Label>Project description</Label>
+                    <Textarea
+                      placeholder="e.g. I need to finish a 1,200 sqft basement with a bedroom, bathroom, and small bar area. Mid-range finishes — LVP flooring, standard tile in the bathroom. Include a permit and I want spray foam insulation."
+                      value={freeText}
+                      onChange={(e) => setFreeText(e.target.value)}
+                      className="min-h-[120px] resize-none"
+                      maxLength={PROMPT_MAX}
+                    />
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Describe the project scope, size, finish quality, and any specific requirements.
+                        The AI will extract the parameters — pricing comes from our database.
                       </p>
-                      <p className="text-xs text-muted-foreground/70">PDF, Word, images (PNG/JPG/HEIC), or text — max 20 MB</p>
+                      <p className={`text-xs shrink-0 tabular-nums ${freeText.length >= PROMPT_MAX ? "text-destructive font-medium" : freeText.length >= PROMPT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+                      </p>
                     </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Additional context (optional)</Label>
-                  <Textarea
-                    placeholder="e.g. This is for a Toronto property, mid-range finishes preferred"
-                    value={uploadHint}
-                    onChange={(e) => setUploadHint(e.target.value)}
-                    className="min-h-[72px] resize-none text-sm"
-                    maxLength={HINT_MAX}
-                  />
-                  <p className={`text-xs text-right tabular-nums ${uploadHint.length >= HINT_MAX ? "text-destructive font-medium" : uploadHint.length >= HINT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
-                    {uploadHint.length.toLocaleString()}/{HINT_MAX.toLocaleString()}
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  AI reads the file and extracts the project scope — pricing always comes from our database.
-                </p>
-              </div>
-            )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div
+                      className={cn(
+                        "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                        uploadDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+                      )}
+                      onClick={() => uploadFileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
+                      onDragLeave={() => setUploadDragActive(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setUploadDragActive(false);
+                        const f = e.dataTransfer.files[0];
+                        if (f) setUploadFile(f);
+                      }}
+                    >
+                      <input
+                        ref={uploadFileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.heic"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }}
+                      />
+                      {uploadFile ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <FileText className="h-8 w-8 text-primary" />
+                          <div className="text-left">
+                            <p className="text-sm font-semibold">{uploadFile.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(uploadFile.size / 1024 / 1024).toFixed(2)} MB · Click to change
+                            </p>
+                          </div>
+                          <button
+                            className="ml-2 p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setUploadFile(null); }}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="h-10 w-10 text-slate-300" />
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Drop plans here or <span className="text-primary">browse</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground/70">PDF, Word, images (PNG/JPG/HEIC), or text — max 20 MB</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Additional context (optional)</Label>
+                      <Textarea
+                        placeholder="e.g. This is for a Toronto property, mid-range finishes preferred"
+                        value={uploadHint}
+                        onChange={(e) => setUploadHint(e.target.value)}
+                        className="min-h-[72px] resize-none text-sm"
+                        maxLength={HINT_MAX}
+                      />
+                      <p className={`text-xs text-right tabular-nums ${uploadHint.length >= HINT_MAX ? "text-destructive font-medium" : uploadHint.length >= HINT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        {uploadHint.length.toLocaleString()}/{HINT_MAX.toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      AI reads the file and extracts the project scope — pricing always comes from our database.
+                    </p>
+                  </div>
+                )}
 
-            <Button
-              onClick={handleExtractParams}
-              disabled={parseMutation.isPending || parseFromFileMutation.isPending}
-              className="w-full gap-2 bg-primary"
-              size="lg"
-            >
-              {(parseMutation.isPending || parseFromFileMutation.isPending) ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />
-                  {parseFromFileMutation.isPending ? "Reading file with AI…" : "Parsing with AI…"}
-                </>
-              ) : (
-                <><Sparkles className="h-4 w-4" />
-                  {inputMode === "text" ? "Extract Parameters with AI" : "Extract Parameters from File"}
-                </>
-              )}
-            </Button>
+                <Button
+                  onClick={handleExtractParams}
+                  disabled={parseMutation.isPending || parseFromFileMutation.isPending}
+                  className="w-full gap-2 bg-primary"
+                  size="lg"
+                >
+                  {(parseMutation.isPending || parseFromFileMutation.isPending) ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />
+                      {parseFromFileMutation.isPending ? "Reading file with AI…" : "Parsing with AI…"}
+                    </>
+                  ) : (
+                    <><Sparkles className="h-4 w-4" />
+                      {inputMode === "text" ? "Extract Parameters with AI" : "Extract Parameters from File"}
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
+          {inputMode !== "blank" && (
+            <>
           {params.confidence < 70 && (
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -1103,26 +1320,30 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
               </Button>
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
       )}
 
-      {/* Step 2 — Results */}
+      {/* Step 2 — Results / Line Items */}
       {step === 2 && estimateResult && (
         <div className="space-y-5">
-          {/* Model info banner */}
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-3">
-            <Database className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <span className="font-semibold">Pricing model: </span>
-              <span>{estimateResult.costModelUsed.name}</span>
-              {estimateResult.costModelUsed.notes && (
-                <p className="text-xs text-muted-foreground mt-0.5">{estimateResult.costModelUsed.notes}</p>
-              )}
+          {/* Model info banner (AI modes only — manual quotes have no cost model) */}
+          {estimateResult.costModelUsed && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-3">
+              <Database className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <span className="font-semibold">Pricing model: </span>
+                <span>{estimateResult.costModelUsed.name}</span>
+                {estimateResult.costModelUsed.notes && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{estimateResult.costModelUsed.notes}</p>
+                )}
+              </div>
+              <Badge variant="outline" className="ml-auto text-xs shrink-0">
+                {params.square_feet.toLocaleString()} sqft
+              </Badge>
             </div>
-            <Badge variant="outline" className="ml-auto text-xs shrink-0">
-              {params.square_feet.toLocaleString()} sqft
-            </Badge>
-          </div>
+          )}
 
           {/* Main content */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -1134,7 +1355,27 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                   Line Items
                   <Badge variant="outline" className="text-[10px]">click cells to edit</Badge>
                 </h3>
-                <AddFromCatalogButton onAdd={(item) => setLineItems(prev => [...prev, item])} />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs border-dashed"
+                    onClick={() => setLineItems(prev => [...prev, {
+                      id: crypto.randomUUID(),
+                      description: "",
+                      category: "materials",
+                      quantity: 1,
+                      unit: "ea",
+                      unitCost: 0,
+                      total: 0,
+                      editable: true,
+                    }])}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Item
+                  </Button>
+                  <AddFromCatalogButton onAdd={(item) => setLineItems(prev => [...prev, item])} />
+                </div>
               </div>
               <LineItemsTable items={lineItems} onChange={setLineItems} />
             </div>
@@ -1156,27 +1397,40 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            <Button
-              className="gap-2"
-              onClick={() => {
-                setSaveTitle(`${PROJECT_TYPE_LABELS[params.project_type] ?? params.project_type} — ${params.square_feet} sqft`);
-                setShowSaveDialog(true);
-              }}
-              disabled={saveMutation.isPending}
-            >
-              <Save className="h-4 w-4" />
-              Save Estimate
-            </Button>
+            {inputMode !== "blank" && (
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setSaveTitle(`${PROJECT_TYPE_LABELS[params.project_type] ?? params.project_type} — ${params.square_feet} sqft`);
+                  setShowSaveDialog(true);
+                }}
+                disabled={saveMutation.isPending}
+              >
+                <Save className="h-4 w-4" />
+                Save Estimate
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              className="gap-2 border-primary/40 text-primary hover:bg-primary/5"
-              onClick={() => setShowToQuoteDialog(true)}
-              disabled={toQuoteMutation.isPending}
-            >
-              <FileText className="h-4 w-4" />
-              Send to Quotes
-            </Button>
+            {inputMode === "blank" ? (
+              <Button
+                className="gap-2"
+                onClick={handleCreateBlankQuote}
+                disabled={toQuoteMutation.isPending || !!createdQuoteNumber}
+              >
+                {toQuoteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                Create Quote
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/5"
+                onClick={() => setShowToQuoteDialog(true)}
+                disabled={toQuoteMutation.isPending}
+              >
+                <FileText className="h-4 w-4" />
+                Send to Quotes
+              </Button>
+            )}
 
             {savedEstimateId && (
               <Button
@@ -1191,7 +1445,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
             <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
               <Edit3 className="h-4 w-4" />
-              Adjust Inputs
+              {inputMode === "blank" ? "Back" : "Adjust Inputs"}
             </Button>
           </div>
 

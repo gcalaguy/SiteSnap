@@ -21,7 +21,7 @@ import Team from "@/pages/team";
 import Settings from "@/pages/settings";
 import AIChat from "@/pages/ai-chat";
 import OnboardingPage from "@/pages/onboarding";
-import NewQuote from "@/pages/new-quote";
+import SmartEstimatorPage from "@/pages/smart-estimator";
 import QuoteDetail from "@/pages/quote-detail";
 import NewInvoice from "@/pages/new-invoice";
 import InvoiceDetail from "@/pages/invoice-detail";
@@ -306,7 +306,7 @@ function AuthApp() {
           <Route path="/projects/:id/reports/new" component={NewReport} />
           <Route path="/projects/:id/cost/new" component={NewCost} />
           <Route path="/projects/:id/rfis/new" component={NewRFI} />
-          <Route path="/quotes/new"><PermissionGuard permissionKey="viewQuotes"><NewQuote /></PermissionGuard></Route>
+          <Route path="/quotes/new"><PermissionGuard permissionKey="viewQuotes"><SmartEstimatorPage initialMode="blank" /></PermissionGuard></Route>
           <Route path="/quotes/:id"><PermissionGuard permissionKey="viewQuotes"><QuoteDetail /></PermissionGuard></Route>
           <Route path="/quotes">
             <Redirect to="/financials" />
