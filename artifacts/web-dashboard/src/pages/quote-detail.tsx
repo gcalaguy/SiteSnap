@@ -24,17 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
 import { useToast } from "@/hooks/use-toast";
 import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
@@ -740,72 +730,48 @@ export default function QuoteDetail() {
 
           {/* Submit (draft or needs revision) */}
           {isEditable && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={submitQuote.isPending}>
                   {submitQuote.isPending
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Send className="h-4 w-4 mr-2" />}
                   Submit
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    The quote will be sent to the foreman and owner for review. They'll receive an email notification. Make sure all line items and totals are correct before submitting.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSubmit}>Submit</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Submit this quote?"
+              description="The quote will be sent to the foreman and owner for review. They'll receive an email notification. Make sure all line items and totals are correct before submitting."
+              actionLabel="Submit"
+              onConfirm={handleSubmit}
+            />
           )}
 
           {/* Submitted: owners/foremen can approve or reject */}
           {quote.status === "pending_approval" && me?.role !== "worker" && (
             <>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              <ConfirmActionDialog
+                trigger={
                   <Button className="gap-2 bg-severity-low text-white" disabled={approveQuote.isPending}>
                     <CheckCircle className="h-4 w-4" />
                     {approveQuote.isPending ? "Approving…" : "Approve"}
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Approve this quote?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The quote will be marked as approved and ready to convert to an invoice.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleApprove}>Approve</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+                }
+                title="Approve this quote?"
+                description="The quote will be marked as approved and ready to convert to an invoice."
+                actionLabel="Approve"
+                onConfirm={handleApprove}
+              />
+              <ConfirmActionDialog
+                trigger={
                   <Button variant="outline" className="gap-2 border-red-200 text-red-600 hover:bg-red-50" disabled={rejectQuote.isPending}>
                     {rejectQuote.isPending ? "Sending back…" : "Request Revision"}
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Request revision?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The quote will be sent back to the submitter to make changes.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReject}>Send Back</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                }
+                title="Request revision?"
+                description="The quote will be sent back to the submitter to make changes."
+                actionLabel="Send Back"
+                onConfirm={handleReject}
+              />
             </>
           )}
           {quote.status === "pending_approval" && me?.role === "worker" && (
@@ -817,26 +783,18 @@ export default function QuoteDetail() {
 
           {/* Revert to Draft */}
           {(quote.status === "pending_approval" || quote.status === "approved" || quote.status === "rejected") && me?.role !== "worker" && !quote.signedAt && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button variant="outline" className="gap-2" disabled={unsubmitQuote.isPending}>
                   {unsubmitQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
                   Revert to Draft
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Revert quote to draft?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    The quote will be moved back to draft status so it can be edited and resubmitted.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleRevertToDraft}>Revert to Draft</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Revert quote to draft?"
+              description="The quote will be moved back to draft status so it can be edited and resubmitted."
+              actionLabel="Revert to Draft"
+              onConfirm={handleRevertToDraft}
+            />
           )}
 
           {/* Share signing link (clients can view + sign) — only when actually signable */}
@@ -865,26 +823,18 @@ export default function QuoteDetail() {
 
           {/* Approved: convert to invoice */}
           {quote.status === "approved" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={convertQuote.isPending}>
                   <Receipt className="h-4 w-4 mr-2" />
                   {convertQuote.isPending ? "Converting..." : "Convert to Invoice"}
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Convert to invoice?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    A new invoice will be created from this quote with the same line items and totals. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleConvert}>Convert</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Convert to invoice?"
+              description="A new invoice will be created from this quote with the same line items and totals. This action cannot be undone."
+              actionLabel="Convert"
+              onConfirm={handleConvert}
+            />
           )}
 
           {/* Converted */}
@@ -897,28 +847,19 @@ export default function QuoteDetail() {
 
           {/* Delete (draft/rejected only; workers only see if they created it) */}
           {canDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive" disabled={deleteQuote.isPending}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this quote?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete quote {quote.quoteNumber}. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Delete this quote?"
+              description={`This will permanently delete quote ${quote.quoteNumber}. This action cannot be undone.`}
+              actionLabel="Delete"
+              actionVariant="bg-destructive hover:bg-destructive/90"
+              onConfirm={handleDelete}
+            />
           )}
         </div>
       </div>
@@ -1214,37 +1155,13 @@ export default function QuoteDetail() {
         </CardContent>
       </Card>
 
-      {/* Bottom save / submit bar for editable quotes */}
-      {isEditable && (
+      {/* Bottom save bar for editable quotes with unsaved changes */}
+      {isEditable && hasUnsavedChanges && (
         <div className="flex justify-end gap-3 pt-2 border-t border-border">
-          {hasUnsavedChanges && (
-            <Button variant="outline" onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Save Changes
-            </Button>
-          )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={submitQuote.isPending}>
-                {submitQuote.isPending
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <Send className="h-4 w-4 mr-2" />}
-                Submit to Foreman & Owner
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  The quote will be sent to the foreman and owner for review. They'll receive an email notification.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleSubmit}>Submit</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button variant="outline" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Save Changes
+          </Button>
         </div>
       )}
 

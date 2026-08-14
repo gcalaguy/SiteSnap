@@ -27,17 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
 import {
   Sparkles,
   Plus,
@@ -275,8 +265,8 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
                     {/* Draft: submit */}
                     {q.status === "draft" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <ConfirmActionDialog
+                        trigger={
                           <Button
                             size="sm"
                             className="text-xs gap-1.5 h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -285,26 +275,18 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                             {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                             Submit
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              The quote will be sent to the foreman and owner for review. Make sure all line items and totals are correct.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleSubmit(q)}>Submit</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                        title="Submit this quote?"
+                        description="The quote will be sent to the foreman and owner for review. Make sure all line items and totals are correct."
+                        actionLabel="Submit"
+                        onConfirm={() => handleSubmit(q)}
+                      />
                     )}
 
                     {/* Needs revision: re-submit after edits */}
                     {q.status === "rejected" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <ConfirmActionDialog
+                        trigger={
                           <Button
                             size="sm"
                             variant="outline"
@@ -314,20 +296,12 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                             {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                             Re-submit
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Re-submit this quote?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              The updated quote will be sent to the foreman and owner for review.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleSubmit(q)}>Re-submit</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                        title="Re-submit this quote?"
+                        description="The updated quote will be sent to the foreman and owner for review."
+                        actionLabel="Re-submit"
+                        onConfirm={() => handleSubmit(q)}
+                      />
                     )}
 
                     {/* Submitted: waiting */}
@@ -339,8 +313,8 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
                     {/* Approved: one-click convert to invoice */}
                     {q.status === "approved" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <ConfirmActionDialog
+                        trigger={
                           <Button
                             size="sm"
                             className="text-xs gap-1.5 h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -349,22 +323,13 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                             {busy === "convert" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Receipt className="h-3 w-3" />}
                             Convert to Invoice
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Convert to Invoice?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will create an invoice from the approved quote. The quote will be marked as invoiced.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleConvert(q)} className="bg-primary hover:bg-primary/90">
-                              Create Invoice
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                        title="Convert to Invoice?"
+                        description="This will create an invoice from the approved quote. The quote will be marked as invoiced."
+                        actionLabel="Create Invoice"
+                        actionVariant="bg-primary hover:bg-primary/90"
+                        onConfirm={() => handleConvert(q)}
+                      />
                     )}
 
                     {/* Converted: link to invoice */}

@@ -9,17 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save, Database, Undo2 } from "lucide-react";
 import { format } from "date-fns";
@@ -699,76 +689,51 @@ export default function InvoiceDetail() {
 
           {/* Mark Sent */}
           {invoice.status === "draft" && !isWorker && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button variant="outline" disabled={markSent.isPending}>
                   <SendHorizonal className="h-4 w-4 mr-2" />
                   Mark Sent
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Mark invoice as sent?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This confirms you have sent {invoice.invoiceNumber} to {invoice.clientName}. You can still mark it as paid afterward.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleMarkSent}>Mark Sent</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Mark invoice as sent?"
+              description={`This confirms you have sent ${invoice.invoiceNumber} to ${invoice.clientName}. You can still mark it as paid afterward.`}
+              actionLabel="Mark Sent"
+              onConfirm={handleMarkSent}
+            />
           )}
 
           {/* Mark Paid */}
           {(invoice.status === "sent" || invoice.status === "overdue") && !isWorker && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={markPaid.isPending}>
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Mark Paid
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Mark invoice as paid?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This confirms payment of {fmtCAD(invoice.total)} CAD has been received from {invoice.clientName}.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleMarkPaid}>
-                    Confirm Payment
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Mark invoice as paid?"
+              description={`This confirms payment of ${fmtCAD(invoice.total)} CAD has been received from ${invoice.clientName}.`}
+              actionLabel="Confirm Payment"
+              actionVariant="bg-green-600 hover:bg-green-700"
+              onConfirm={handleMarkPaid}
+            />
           )}
 
           {/* Revert to Draft */}
           {(invoice.status === "sent" || invoice.status === "overdue") && !invoice.signedAt && !isWorker && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button variant="outline" disabled={revertToDraft.isPending}>
                   <Undo2 className="h-4 w-4 mr-2" />
                   Revert to Draft
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Revert invoice to draft?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will move {invoice.invoiceNumber} back to draft status so it can be edited. Any previously sent copy will no longer be shown as current.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleRevertToDraft}>Revert to Draft</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Revert invoice to draft?"
+              description={`This will move ${invoice.invoiceNumber} back to draft status so it can be edited. Any previously sent copy will no longer be shown as current.`}
+              actionLabel="Revert to Draft"
+              onConfirm={handleRevertToDraft}
+            />
           )}
 
           {/* Share signing link — only when actually signable */}
@@ -805,28 +770,19 @@ export default function InvoiceDetail() {
 
           {/* Delete */}
           {canDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmActionDialog
+              trigger={
                 <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this invoice?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete invoice {invoice.invoiceNumber}. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              title="Delete this invoice?"
+              description={`This will permanently delete invoice ${invoice.invoiceNumber}. This action cannot be undone.`}
+              actionLabel="Delete"
+              actionVariant="bg-destructive hover:bg-destructive/90"
+              onConfirm={handleDelete}
+            />
           )}
         </div>
       </div>
