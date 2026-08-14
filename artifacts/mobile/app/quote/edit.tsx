@@ -27,6 +27,7 @@ import {
   getListAllQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_TAX_RATE, computeTax } from "@/constants/tax";
 
 const CYAN = "#06b6d4";
 
@@ -38,9 +39,13 @@ function calcItemTotal(qty: number, price: number): number {
   return Math.round(qty * price * 100) / 100;
 }
 
-function calcTotals(items: LineItem[]): { subtotal: number; taxAmount: number; total: number } {
+// taxRate defaults to DEFAULT_TAX_RATE only for a quote that hasn't loaded
+// yet — once `quote` is available callers must pass its persisted taxRate,
+// or this preview will silently disagree with what the server actually
+// saves (quotes.ts recalculates totals from the quote's own taxRate).
+function calcTotals(items: LineItem[], taxRate: number = DEFAULT_TAX_RATE): { subtotal: number; taxAmount: number; total: number } {
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-  const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
+  const taxAmount = computeTax(subtotal, taxRate);
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
   return { subtotal, taxAmount, total };
 }
@@ -58,6 +63,8 @@ export default function QuoteEditScreen() {
 
   const { data: quote, isLoading } = useGetQuote(projectId, quoteId);
   const updateQuote = useUpdateQuote();
+  const quoteTaxRate = quote?.taxRate ? parseFloat(quote.taxRate) : DEFAULT_TAX_RATE;
+  const quoteTaxPct = Math.round(quoteTaxRate * 100);
 
   const [voiceTarget, setVoiceTarget] = useState<string | null>(null);
 
@@ -160,7 +167,7 @@ export default function QuoteEditScreen() {
       return;
     }
 
-    const { subtotal, taxAmount, total } = calcTotals(lineItems);
+    const { subtotal, taxAmount, total } = calcTotals(lineItems, quoteTaxRate);
 
     updateQuote.mutate(
       {
@@ -452,16 +459,16 @@ export default function QuoteEditScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.totalRow}>
               <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
-              <Text style={[styles.totalValue, { color: colors.foreground }]}>{fmtCAD(calcTotals(lineItems).subtotal)}</Text>
+              <Text style={[styles.totalValue, { color: colors.foreground }]}>{fmtCAD(calcTotals(lineItems, quoteTaxRate).subtotal)}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>HST (13%)</Text>
-              <Text style={[styles.totalValue, { color: colors.foreground }]}>{fmtCAD(calcTotals(lineItems).taxAmount)}</Text>
+              <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>HST ({quoteTaxPct}%)</Text>
+              <Text style={[styles.totalValue, { color: colors.foreground }]}>{fmtCAD(calcTotals(lineItems, quoteTaxRate).taxAmount)}</Text>
             </View>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.totalRow}>
               <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "NunitoSans_700Bold" }]}>Total</Text>
-              <Text style={[styles.totalValue, { color: CYAN, fontFamily: "NunitoSans_700Bold" }]}>{fmtCAD(calcTotals(lineItems).total)}</Text>
+              <Text style={[styles.totalValue, { color: CYAN, fontFamily: "NunitoSans_700Bold" }]}>{fmtCAD(calcTotals(lineItems, quoteTaxRate).total)}</Text>
             </View>
           </View>
         )}

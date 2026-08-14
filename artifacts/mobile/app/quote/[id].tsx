@@ -34,6 +34,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Share as RNShare } from "react-native";
+import { DEFAULT_TAX_RATE } from "@/constants/tax";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -65,7 +66,7 @@ function buildQuoteHTML(quote: any, lineItems: LineItem[]): string {
       <td style="text-align:right">${fmtCAD(item.unitPrice)}</td>
       <td style="text-align:right">${fmtCAD(item.total)}</td>
     </tr>`).join("");
-  const hstPct = (parseFloat(quote.taxRate ?? "0.13") * 100).toFixed(0);
+  const hstPct = (parseFloat(quote.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0);
   const validUntil = quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—";
   const createdAt = new Date(quote.createdAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
   const statusLabel = STATUS_LABELS[quote.status] ?? quote.status;
@@ -207,7 +208,7 @@ export default function QuoteDetailScreen() {
         ...lineItems.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
         [],
         ["Subtotal", "", "", "", Number(quote.subtotal)],
-        [`HST (${(parseFloat(quote.taxRate ?? "0.13") * 100).toFixed(0)}%)`, "", "", "", Number(quote.taxAmount)],
+        [`HST (${(parseFloat(quote.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0)}%)`, "", "", "", Number(quote.taxAmount)],
         ["TOTAL", "", "", "", Number(quote.total)],
       ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -519,7 +520,7 @@ export default function QuoteDetailScreen() {
         {/* Totals */}
         <Section title="TOTALS">
           <InfoRow label="Subtotal" value={fmtCAD(quote.subtotal)} />
-          <InfoRow label={`HST (${(parseFloat(quote.taxRate ?? "0.13") * 100).toFixed(0)}%)`} value={fmtCAD(quote.taxAmount)} />
+          <InfoRow label={`HST (${(parseFloat(quote.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0)}%)`} value={fmtCAD(quote.taxAmount)} />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <InfoRow label="Total" value={fmtCAD(quote.total)} highlight />
         </Section>

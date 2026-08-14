@@ -14,6 +14,7 @@ import { getListAllInvoicesQueryKey } from "@workspace/api-client-react";
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
 import { formatCurrency as fmtCAD } from "@/lib/format";
+import { DEFAULT_TAX_RATE, computeTax } from "@/lib/tax";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -26,11 +27,9 @@ interface LineItem {
   total: number;
 }
 
-const TAX_RATE = 0.13;
-
 function calcTotals(items: LineItem[]) {
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const taxAmount = computeTax(subtotal, DEFAULT_TAX_RATE);
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
   return { subtotal, taxAmount, total };
 }

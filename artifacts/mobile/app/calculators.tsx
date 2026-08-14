@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
+import { DEFAULT_TAX_RATE } from "@/constants/tax";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface CalcField {
@@ -576,19 +577,20 @@ const CALCS: CalcDef[] = [
       const subtotal = mat + lab;
       const markupAmt = subtotal * (mkp / 100);
       const total = subtotal + markupAmt;
-      const hst = total * 0.13;
+      const hst = total * DEFAULT_TAX_RATE;
+      const hstPct = Math.round(DEFAULT_TAX_RATE * 100);
       return {
         results: [
           { label: "Subtotal", value: `$${subtotal.toFixed(2)}` },
           { label: `Markup (${mkp}%)`, value: `$${markupAmt.toFixed(2)}` },
           { label: "Job price (pre-tax)", value: `$${total.toFixed(2)}`, highlight: true },
-          { label: "HST (13%)", value: `$${hst.toFixed(2)}` },
+          { label: `HST (${hstPct}%)`, value: `$${hst.toFixed(2)}` },
           { label: "Total with HST", value: `$${(total + hst).toFixed(2)}`, highlight: true },
         ],
         steps: [
           { label: "Subtotal", formula: `$${mat} + $${lab}`, result: `$${subtotal.toFixed(2)}` },
           { label: `Markup (${mkp}%)`, formula: `× ${mkp / 100}`, result: `$${markupAmt.toFixed(2)}` },
-          { label: "HST 13%", formula: `$${total.toFixed(2)} × 0.13`, result: `$${hst.toFixed(2)}` },
+          { label: `HST ${hstPct}%`, formula: `$${total.toFixed(2)} × ${DEFAULT_TAX_RATE}`, result: `$${hst.toFixed(2)}` },
         ],
         summary: `Materials $${mat} + Labour $${lab} with ${mkp}% markup = $${total.toFixed(2)} pre-tax ($${(total + hst).toFixed(2)} with HST).`,
       };

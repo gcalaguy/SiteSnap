@@ -23,14 +23,17 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { DEFAULT_TAX_RATE, computeTax } from "@/constants/tax";
 
 function calcItemTotal(qty: number, price: number): number {
   return Math.round(qty * price * 100) / 100;
 }
 
-function calcTotals(items: LineItem[]): { subtotal: number; taxAmount: number; total: number } {
+// taxRate defaults to DEFAULT_TAX_RATE only before the invoice has loaded —
+// once `invoice` is available callers must pass its persisted taxRate.
+function calcTotals(items: LineItem[], taxRate: number = DEFAULT_TAX_RATE): { subtotal: number; taxAmount: number; total: number } {
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-  const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
+  const taxAmount = computeTax(subtotal, taxRate);
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
   return { subtotal, taxAmount, total };
 }
@@ -105,6 +108,7 @@ export default function InvoiceEditScreen() {
   const qc = useQueryClient();
 
   const { data: invoice, isLoading } = useGetInvoice(invoiceId);
+  const invoiceTaxRate = invoice?.taxRate ? parseFloat(invoice.taxRate) : DEFAULT_TAX_RATE;
 
   const updateInvoice = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
@@ -209,7 +213,7 @@ export default function InvoiceEditScreen() {
       Alert.alert("Description required", `Line item ${emptyDesc + 1} is missing a description.`);
       return;
     }
-    const { subtotal, taxAmount, total } = calcTotals(lineItems);
+    const { subtotal, taxAmount, total } = calcTotals(lineItems, invoiceTaxRate);
     updateInvoice.mutate(
       {
         title: trimmedTitle,
@@ -217,7 +221,7 @@ export default function InvoiceEditScreen() {
         clientEmail: clientEmail.trim() || null,
         lineItems,
         subtotal,
-        taxRate: 0.13,
+        taxRate: invoiceTaxRate,
         taxAmount,
         total,
         notes: notes.trim() || null,
@@ -233,7 +237,7 @@ export default function InvoiceEditScreen() {
   }
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
-  const { subtotal, taxAmount, total } = calcTotals(lineItems);
+  const { subtotal, taxAmount, total } = calcTotals(lineItems, invoiceTaxRate);
 
   if (isLoading) {
     return (
@@ -407,7 +411,7 @@ export default function InvoiceEditScreen() {
             <Text style={[styles.totalVal, { color: colors.foreground }]}>{fmtCAD(subtotal)}</Text>
           </View>
           <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>HST (13%)</Text>
+            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>HST ({Math.round(invoiceTaxRate * 100)}%)</Text>
             <Text style={[styles.totalVal, { color: colors.foreground }]}>{fmtCAD(taxAmount)}</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />

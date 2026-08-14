@@ -30,6 +30,7 @@ import {
   getListAllInvoicesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_TAX_RATE } from "@/constants/tax";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft", sent: "Sent", paid: "Paid", overdue: "Overdue", cancelled: "Cancelled",
@@ -53,7 +54,7 @@ function buildInvoiceHTML(invoice: any, lineItems: LineItem[], companyName: stri
       <td style="text-align:right">${fmtCAD(item.unitPrice)}</td>
       <td style="text-align:right">${fmtCAD(item.total)}</td>
     </tr>`).join("");
-  const hstPct = (parseFloat(invoice.taxRate ?? "0.13") * 100).toFixed(0);
+  const hstPct = (parseFloat(invoice.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0);
   const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—";
   const createdAt = new Date(invoice.createdAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -191,7 +192,7 @@ export default function InvoiceDetailScreen() {
         ...lineItems.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
         [],
         ["Subtotal", "", "", "", Number(invoice.subtotal)],
-        [`HST (${(parseFloat(invoice.taxRate ?? "0.13") * 100).toFixed(0)}%)`, "", "", "", Number(invoice.taxAmount)],
+        [`HST (${(parseFloat(invoice.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0)}%)`, "", "", "", Number(invoice.taxAmount)],
         ["TOTAL", "", "", "", Number(invoice.total)],
       ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -441,7 +442,7 @@ export default function InvoiceDetailScreen() {
         {/* Totals */}
         <Section title="TOTALS">
           <InfoRow label="Subtotal" value={fmtCAD(invoice.subtotal)} />
-          <InfoRow label={`HST (${(parseFloat(invoice.taxRate ?? "0.13") * 100).toFixed(0)}%)`} value={fmtCAD(invoice.taxAmount)} />
+          <InfoRow label={`HST (${(parseFloat(invoice.taxRate ?? String(DEFAULT_TAX_RATE)) * 100).toFixed(0)}%)`} value={fmtCAD(invoice.taxAmount)} />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <InfoRow label="Total" value={fmtCAD(invoice.total)} highlight />
         </Section>

@@ -62,6 +62,7 @@ import { renderSignatureBlock } from "@/lib/signaturePdf";
 import { SignatureBadge } from "@/components/SignatureBadge";
 import { Share2 } from "lucide-react";
 import autoTable from "jspdf-autotable";
+import { DEFAULT_TAX_RATE } from "@/lib/tax";
 
 function imgFmt(dataUrl: string): string {
   if (dataUrl.startsWith("data:image/png")) return "PNG";
@@ -122,7 +123,7 @@ function buildQuotePdfDoc(
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 18;
   const fmtC = fmtCAD;
-  const taxRate = parseFloat(quote.taxRate ?? "0.13");
+  const taxRate = parseFloat(quote.taxRate ?? String(DEFAULT_TAX_RATE));
   const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = subtotal + taxAmount;
@@ -362,7 +363,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 
-function calcTotals(items: LineItem[], taxRate = 0.13) {
+function calcTotals(items: LineItem[], taxRate = DEFAULT_TAX_RATE) {
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   return { subtotal, taxAmount, total: subtotal + taxAmount };
@@ -372,7 +373,7 @@ type QuoteForExport = { quoteNumber: string; title: string; clientName: string; 
 
 async function downloadQuoteXLSX(quote: QuoteForExport) {
   const items = (quote.lineItems ?? []) as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
-  const taxRate = parseFloat(quote.taxRate ?? "0.13");
+  const taxRate = parseFloat(quote.taxRate ?? String(DEFAULT_TAX_RATE));
   const wsData = [
     ["Quote Number", quote.quoteNumber],
     ["Title", quote.title],
@@ -454,7 +455,7 @@ export default function QuoteDetail() {
   const effectiveClientAddress = clientAddress ?? quote?.clientAddress ?? "";
   const effectiveClientPhone = clientPhone ?? quote?.clientPhone ?? "";
   const effectiveClientEmail = clientEmail ?? quote?.clientEmail ?? "";
-  const taxRate = parseFloat(quote?.taxRate ?? "0.13");
+  const taxRate = parseFloat(quote?.taxRate ?? String(DEFAULT_TAX_RATE));
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
 
   const isEditable = quote?.status === "draft" || quote?.status === "rejected";

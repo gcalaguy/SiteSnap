@@ -28,6 +28,7 @@ import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/ap
 import ImportCostModelDialog from "@/components/ImportCostModelDialog";
 import jsPDF from "jspdf";
 import { renderSignatureBlock } from "@/lib/signaturePdf";
+import { DEFAULT_TAX_RATE } from "@/lib/tax";
 import { SignatureBadge } from "@/components/SignatureBadge";
 import { Share2 } from "lucide-react";
 import autoTable from "jspdf-autotable";
@@ -118,7 +119,7 @@ interface Invoice {
   publicToken?: string | null;
 }
 
-function calcTotals(items: LineItem[], taxRate = 0.13) {
+function calcTotals(items: LineItem[], taxRate = DEFAULT_TAX_RATE) {
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   return { subtotal, taxAmount, total: subtotal + taxAmount };
@@ -416,7 +417,7 @@ export default function InvoiceDetail() {
   const effectiveNotes = editedNotes ?? invoice?.notes ?? "";
   const effectiveDueDate = editedDueDate ?? invoice?.dueDate ?? "";
   const effectiveClientEmail = editedClientEmail ?? invoice?.clientEmail ?? "";
-  const taxRate = parseFloat(invoice?.taxRate ?? "0.13");
+  const taxRate = parseFloat(invoice?.taxRate ?? String(DEFAULT_TAX_RATE));
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
   const hasUnsavedChanges = editedItems !== null || editedTitle !== null || editedNotes !== null || editedDueDate !== null || editedClientEmail !== null;
 

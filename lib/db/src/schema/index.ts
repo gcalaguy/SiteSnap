@@ -168,6 +168,7 @@ export const memberPermissionsSchema = z.object({
   manageEmailIntegrations: z.boolean().optional(),
   viewProjectCommunications: z.boolean().optional(),
   manageFilingRules: z.boolean().optional(),
+  managePricing: z.boolean().optional(),
 });
 export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
 

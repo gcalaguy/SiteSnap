@@ -18,6 +18,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { allocateInvoiceNumber } from "./invoices";
+import { DEFAULT_TAX_RATE } from "../lib/tax";
 import { parsePagination } from "../lib/pagination";
 import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
 import { buildChangeOrderMergeData } from "../lib/documentTemplateLiveData";
@@ -563,7 +564,7 @@ router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, 
   });
 
   const subtotal = lineItems.reduce((s, i) => s + i.total, 0);
-  const taxRate = 0.13;
+  const taxRate = DEFAULT_TAX_RATE;
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
 

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { DEFAULT_TAX_RATE } from "@/lib/tax";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 export const BLACK = "#111111";
-export const HST_RATE = 0.13;
+/** @deprecated import DEFAULT_TAX_RATE from "@/lib/tax" instead */
+export const HST_RATE = DEFAULT_TAX_RATE;
 
 /** Hardcoded fallback defaults — merged with server-returned custom labels at runtime. */
 export const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {

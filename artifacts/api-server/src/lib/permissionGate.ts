@@ -26,6 +26,7 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   manageEmailIntegrations: false,
   viewProjectCommunications: true,
   manageFilingRules: false,
+  managePricing: false,
 };
 
 /**

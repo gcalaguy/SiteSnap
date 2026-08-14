@@ -23,6 +23,7 @@ import { sendPushNotification } from "../lib/push.js";
 import { buildQuotePdfBuffer } from "../lib/quotePdf.js";
 import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer.js";
 import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
+import { DEFAULT_TAX_RATE } from "../lib/tax";
 import { buildQuoteMergeData } from "../lib/documentTemplateLiveData";
 
 const LineItemSchema = z.object({
@@ -165,7 +166,7 @@ async function allocateQuoteNumber(
   return `${company.prefix ?? "QUO"}-${String(num).padStart(4, "0")}`;
 }
 
-function calcTotals(lineItems: { quantity: number; unitPrice: number; total?: number }[], taxRate = 0.13) {
+function calcTotals(lineItems: { quantity: number; unitPrice: number; total?: number }[], taxRate = DEFAULT_TAX_RATE) {
   const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
@@ -208,7 +209,7 @@ router.post("/", requirePermission("manageQuotes"), asyncHandler(async (req, res
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems = [], notes, validUntil } = parsed.data;
-  const taxRate = 0.13;
+  const taxRate = DEFAULT_TAX_RATE;
   const { subtotal, taxAmount, total } = calcTotals(lineItems as { quantity: number; unitPrice: number }[], taxRate);
 
   const [quote] = await db.transaction(async (tx) => {

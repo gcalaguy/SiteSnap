@@ -13,6 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getAiErrorMessage } from "@/hooks/useApiError";
+import { DEFAULT_TAX_RATE, computeTax } from "@/lib/tax";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -135,7 +136,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
     try {
       const items = (aiResult.lineItems ?? []) as LineItem[];
       const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-      const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
+      const taxAmount = computeTax(subtotal);
       const total = subtotal + taxAmount;
       const created = await createQuote.mutateAsync({
         projectId,
@@ -144,7 +145,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
           clientName: clientName || "Client",
           lineItems: items,
           subtotal,
-          taxRate: 0.13,
+          taxRate: DEFAULT_TAX_RATE,
           taxAmount,
           total,
           voiceInput: description || undefined,
@@ -193,7 +194,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
   const lineItems = (aiResult?.lineItems ?? []) as LineItem[];
   const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
+  const taxAmount = computeTax(subtotal);
 
   return (
     <div className="space-y-4">

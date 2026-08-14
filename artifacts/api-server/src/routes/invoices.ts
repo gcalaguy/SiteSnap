@@ -15,6 +15,7 @@ import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
 import { buildInvoiceMergeData } from "../lib/documentTemplateLiveData";
 import { format, parseISO } from "date-fns";
 import { z } from "zod";
+import { DEFAULT_TAX_RATE } from "../lib/tax";
 
 const InvoiceLineItemSchema = z.object({
   description: z.string().max(500),
@@ -91,7 +92,7 @@ router.post("/invoices", requirePermission("manageFinancials"), asyncHandler(asy
 
   const { title, clientName, clientEmail, lineItems = [], notes, dueDate } = parsed.data;
 
-  const taxRate = 0.13;
+  const taxRate = DEFAULT_TAX_RATE;
   const items = lineItems;
   const subtotal = items.reduce((s, i) => s + Number(i.quantity ?? 1) * Number(i.unitPrice ?? 0), 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
