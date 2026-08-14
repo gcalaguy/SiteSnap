@@ -488,6 +488,11 @@ export default function QuoteDetailScreen() {
                   IP: {(quote as any).signerIp}
                 </Text>
               )}
+              {(quote as any).signerUserAgent && (
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                  UA: {(quote as any).signerUserAgent}
+                </Text>
+              )}
             </View>
           </Section>
         )}
