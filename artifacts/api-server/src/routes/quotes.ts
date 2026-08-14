@@ -149,7 +149,7 @@ router.use(requireAuth, requireCompany, requireTenantCtx);
 /** Atomically increment the company's quote counter and return the formatted number.
  *  Must be called inside a db.transaction() so the counter increment and the
  *  quote insert are a single atomic unit — eliminates the SELECT count() race. */
-async function allocateQuoteNumber(
+export async function allocateQuoteNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   companyId: number,
 ): Promise<string> {

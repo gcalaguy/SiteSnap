@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import type { toast as toastFn } from "@/hooks/use-toast";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -7,6 +8,7 @@ import {
   useListEstimateTemplates,
   getListBuilderEstimatesQueryKey,
   getListProposalsQueryKey,
+  getListAllQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +60,7 @@ import {
   Filter,
   Users,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format";
@@ -163,6 +166,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function Proposals() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"estimates" | "proposals">("estimates");
 
   // Data via React Query (cached, resilient)
@@ -191,6 +195,8 @@ export default function Proposals() {
   const [deleteProposalId, setDeleteProposalId] = useState<number | null>(null);
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertForm, setConvertForm] = useState({ clientName: "", clientEmail: "", notes: "" });
+  const [convertToQuoteOpen, setConvertToQuoteOpen] = useState(false);
+  const [convertToQuoteForm, setConvertToQuoteForm] = useState({ clientName: "", clientEmail: "", notes: "" });
   const [approveOpen, setApproveOpen] = useState(false);
   const [approveSignature, setApproveSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -264,6 +270,29 @@ export default function Proposals() {
       setTab("proposals");
       toast({ title: "Proposal created!" });
     } catch { toast({ title: "Failed to create proposal", variant: "destructive" }); }
+    finally { setIsSubmitting(false); }
+  }
+
+  // Convert estimate → quote
+  async function handleConvertToQuote() {
+    if (!selectedEstimate || !convertToQuoteForm.clientName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const quote = await apiFetch(`/builder-estimates/${selectedEstimate.id}/convert-to-quote`, {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: convertToQuoteForm.clientName.trim(),
+          clientEmail: convertToQuoteForm.clientEmail.trim() || null,
+          notes: convertToQuoteForm.notes.trim() || null,
+        }),
+      }) as { id: number };
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey() });
+      setConvertToQuoteOpen(false);
+      setConvertToQuoteForm({ clientName: "", clientEmail: "", notes: "" });
+      setSelectedEstimate(null);
+      toast({ title: "Quote created!" });
+      setLocation(`/quotes/${quote.id}`);
+    } catch { toast({ title: "Failed to create quote", variant: "destructive" }); }
     finally { setIsSubmitting(false); }
   }
 
@@ -554,6 +583,7 @@ export default function Proposals() {
               }}
               onDelete={() => setDeleteEstimateId(selectedEstimate.id)}
               onConvert={() => setConvertOpen(true)}
+              onConvertToQuote={() => setConvertToQuoteOpen(true)}
               onSaveTemplate={() => setSaveTemplateOpen(true)}
               onLoadTemplate={() => setTemplateOpen(true)}
               toast={toast}
@@ -626,6 +656,35 @@ export default function Proposals() {
             <Button onClick={handleConvert} disabled={isSubmitting} style={{ background: GOLD, color: BLACK }} className="font-semibold">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <ArrowRight className="mr-2 h-4 w-4" /> Create Proposal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to quote dialog */}
+      <Dialog open={convertToQuoteOpen} onOpenChange={setConvertToQuoteOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Create Quote from Estimate</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">This creates a draft quote in the Quotes section using the current line items and pricing.</p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Client Name *</label>
+              <Input placeholder="Jane Smith" value={convertToQuoteForm.clientName} onChange={(e) => setConvertToQuoteForm((f) => ({ ...f, clientName: e.target.value }))} autoFocus />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Client Email</label>
+              <Input type="email" placeholder="jane@example.com" value={convertToQuoteForm.clientEmail} onChange={(e) => setConvertToQuoteForm((f) => ({ ...f, clientEmail: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea placeholder="Any additional notes for this quote…" rows={3} value={convertToQuoteForm.notes} onChange={(e) => setConvertToQuoteForm((f) => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertToQuoteOpen(false)}>Cancel</Button>
+            <Button onClick={handleConvertToQuote} disabled={isSubmitting || !convertToQuoteForm.clientName.trim()} style={{ background: GOLD, color: BLACK }} className="font-semibold">
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <FileText className="mr-2 h-4 w-4" /> Create Quote
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -738,6 +797,7 @@ function EstimateBuilder({
   onUpdate,
   onDelete,
   onConvert,
+  onConvertToQuote,
   onSaveTemplate,
   onLoadTemplate,
   toast,
@@ -746,6 +806,7 @@ function EstimateBuilder({
   onUpdate: (e: BuilderEstimate) => void;
   onDelete: () => void;
   onConvert: () => void;
+  onConvertToQuote: () => void;
   onSaveTemplate: () => void;
   onLoadTemplate: () => void;
   toast: ToastFn;
@@ -863,6 +924,9 @@ function EstimateBuilder({
           </Button>
           <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={onDelete}>
             <Trash2 size={14} />
+          </Button>
+          <Button size="sm" variant="outline" onClick={onConvertToQuote} className="font-semibold">
+            <FileText size={14} className="mr-1" /> Quote
           </Button>
           <Button size="sm" onClick={onConvert} style={{ background: GOLD, color: BLACK }} className="font-semibold">
             <ArrowRight size={14} className="mr-1" /> Proposal

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { eq, and, asc, desc } from "drizzle-orm";
 import {
   db,
@@ -8,6 +9,7 @@ import {
   estimateTemplateItemsTable,
   proposalsTable,
   companiesTable,
+  quotesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -17,6 +19,9 @@ import { BadRequestError } from "../lib/errors";
 import { renderDocumentWithTemplate } from "../lib/documentTemplateService";
 import { buildProposalMergeData } from "../lib/documentTemplateLiveData";
 import { buildGenericDocumentPdfBuffer } from "../lib/documentTemplateDefaultPdf";
+import { calcQuoteTotals } from "../services/estimator/quoteService";
+import { allocateQuoteNumber } from "./quotes";
+import { DEFAULT_TAX_RATE } from "../lib/tax";
 
 import { z } from "zod";
 
@@ -262,6 +267,69 @@ router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, requi
     .returning();
 
   res.status(201).json(proposal);
+}))
+
+// POST /builder-estimates/:id/convert-to-quote — create quote from estimate
+router.post("/builder-estimates/:id/convert-to-quote", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+  const estimateId = parseInt(req.params.id as string);
+  if (isNaN(estimateId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const estimate = await getEstimateWithItems(estimateId, req.companyId!);
+  if (!estimate) { res.status(404).json({ error: "Estimate not found" }); return; }
+
+  const Body = z.object({
+    clientName: z.string().min(1),
+    clientEmail: z.string().email().optional().nullable(),
+    clientCompanyName: z.string().max(300).optional().nullable(),
+    clientAddress: z.string().max(1000).optional().nullable(),
+    clientPhone: z.string().max(50).optional().nullable(),
+    notes: z.string().max(5000).optional().nullable(),
+    validUntil: z.string().optional().nullable(),
+  });
+  const parsed = Body.safeParse(req.body);
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
+
+  const lineItems = estimate.items.map((item) => {
+    const quantity = Number(item.quantity);
+    const unitPrice = Number(item.unitCost) * (1 + Number(item.margin) / 100);
+    return {
+      description: item.description ? `${item.name} — ${item.description}` : item.name,
+      quantity,
+      unit: "ea",
+      unitPrice,
+      total: Math.round(quantity * unitPrice * 100) / 100,
+    };
+  });
+
+  const { subtotal, taxAmount, total } = calcQuoteTotals(lineItems);
+
+  const quote = await db.transaction(async (tx) => {
+    const quoteNumber = await allocateQuoteNumber(tx, req.companyId!);
+    const [created] = await tx.insert(quotesTable).values({
+      companyId: req.companyId!,
+      projectId: estimate.projectId ?? null,
+      quoteNumber,
+      title: estimate.title,
+      clientName: parsed.data.clientName,
+      clientEmail: parsed.data.clientEmail ?? null,
+      clientCompanyName: parsed.data.clientCompanyName ?? null,
+      clientAddress: parsed.data.clientAddress ?? null,
+      clientPhone: parsed.data.clientPhone ?? null,
+      lineItems,
+      subtotal,
+      taxRate: String(DEFAULT_TAX_RATE),
+      taxAmount,
+      total,
+      notes: parsed.data.notes ?? null,
+      validUntil: parsed.data.validUntil ?? null,
+      createdByUserId: req.userId!,
+      status: "draft",
+      publicToken: randomUUID(),
+    }).returning();
+    return created;
+  });
+
+  res.status(201).json(quote);
 }))
 
 // ─── Estimate Templates ───────────────────────────────────────────────────────
