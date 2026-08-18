@@ -126,8 +126,16 @@ function ClassicTabLayout() {
   );
 }
 
+// TEMPORARY diagnostic override — TestFlight crash-on-open audit, 2026-08-18.
+// Forces ClassicTabLayout on every device (including Liquid Glass-capable
+// ones) to isolate whether expo-glass-effect / expo-router's
+// unstable-native-tabs is the crash trigger. Ship one production build with
+// this forced off; if the crash disappears, NativeTabLayout is implicated.
+// Revert by restoring `if (isLiquidGlassAvailable())` below once confirmed.
+const FORCE_CLASSIC_TABS_DIAGNOSTIC = true;
+
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
+  if (!FORCE_CLASSIC_TABS_DIAGNOSTIC && isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;

@@ -432,26 +432,32 @@ function AppRoot() {
   }, [queryClient]);
 
   return (
-    <ThemeProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ClerkProvider
-          publishableKey={CLERK_KEY}
-          tokenCache={tokenCache as any}
-        >
-          <QueryClientProvider client={queryClient}>
-            <I18nextProvider i18n={i18n}>
-              <OfflineQueueProvider>
-                <MediaQueueProvider>
-                  <NoteQueueProvider>
-                    <RootLayoutNav />
-                  </NoteQueueProvider>
-                </MediaQueueProvider>
-              </OfflineQueueProvider>
-            </I18nextProvider>
-          </QueryClientProvider>
-        </ClerkProvider>
-      </GestureHandlerRootView>
-    </ThemeProvider>
+    // Wraps the entire provider tree (not just the routed screens below
+    // RootLayoutNav) so a synchronous throw during Clerk/React Query/queue
+    // provider init renders a recoverable fallback instead of taking down
+    // the whole app with no UI at all.
+    <ErrorBoundary>
+      <ThemeProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ClerkProvider
+            publishableKey={CLERK_KEY}
+            tokenCache={tokenCache as any}
+          >
+            <QueryClientProvider client={queryClient}>
+              <I18nextProvider i18n={i18n}>
+                <OfflineQueueProvider>
+                  <MediaQueueProvider>
+                    <NoteQueueProvider>
+                      <RootLayoutNav />
+                    </NoteQueueProvider>
+                  </MediaQueueProvider>
+                </OfflineQueueProvider>
+              </I18nextProvider>
+            </QueryClientProvider>
+          </ClerkProvider>
+        </GestureHandlerRootView>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

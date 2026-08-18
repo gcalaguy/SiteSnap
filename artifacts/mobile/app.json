@@ -18,7 +18,6 @@
       "bundleIdentifier": "com.sitesnap.buildcore",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
         "NSMicrophoneUsageDescription": "Site Snap uses your microphone for voice commands so you can log hours, daily notes, and project updates hands-free.",
@@ -44,11 +43,7 @@
       [
         "expo-router",
         {
-          "origin": "https://sitesnap.replit.app/",
-          "asyncRoutes": {
-            "web": "production",
-            "default": "development"
-          }
+          "origin": "https://sitesnapdemo.replit.app/"
         }
       ],
       "expo-font",
