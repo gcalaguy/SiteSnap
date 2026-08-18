@@ -5,10 +5,11 @@ import {
   getListAllRFIsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useMemo, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
+import { useRefetchOnStaleFocus } from "@/hooks/useRefetchOnStaleFocus";
 import {
   ActivityIndicator,
   Alert,
@@ -433,7 +434,7 @@ export default function AllRFIsScreen() {
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useRefetchOnStaleFocus(dataUpdatedAt, refetch);
 
   // Load projects independently so the picker stays populated when a filter is active
   const { data: projectsData } = useListProjects();
@@ -705,7 +706,7 @@ export default function AllRFIsScreen() {
           <View style={styles.listItemWrap}>
             <RFIRow
               rfi={r}
-              onPressProject={() => router.push(`/project/${r.projectId}` as any)}
+              onPressProject={() => router.push(`/project/${r.projectId}`)}
             />
           </View>
         )}

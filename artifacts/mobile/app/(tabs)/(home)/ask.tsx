@@ -33,7 +33,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { usePermissions, type PermissionKey } from "@/hooks/usePermissions";
 import { safeNavigate } from "@/utils/safeNavigate";
 
@@ -55,7 +55,7 @@ type QuickAction = {
   key: string;
   label: string;
   icon: keyof typeof Feather.glyphMap;
-  path: string;
+  path: Href;
   perm?: PermissionKey;
 };
 

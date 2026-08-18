@@ -171,16 +171,17 @@ export default function SafetyScanDetailPage() {
         )}
       </div>
 
-      {scan.reportObjectPath && (
-        <Button
-          variant="outline"
-          className="w-full"
-          style={{ borderColor: "#2a2a2a", color: GOLD }}
-          onClick={() => window.open(`/api/safety/scans/${scan.id}/report`, "_blank")}
-        >
-          <FileDown className="h-4 w-4 mr-2" />Download PDF Report
-        </Button>
-      )}
+      {/* The report is generated in the background after scan creation, or on
+          demand by the /report endpoint if it isn't ready yet — always safe
+          to offer, no need to gate on reportObjectPath being set. */}
+      <Button
+        variant="outline"
+        className="w-full"
+        style={{ borderColor: "#2a2a2a", color: GOLD }}
+        onClick={() => window.open(`/api/safety/scans/${scan.id}/report`, "_blank")}
+      >
+        <FileDown className="h-4 w-4 mr-2" />Download PDF Report
+      </Button>
 
       <ActionItemDrawer scanId={scan.id} hazard={actionHazard} onClose={() => setActionHazard(null)} />
 

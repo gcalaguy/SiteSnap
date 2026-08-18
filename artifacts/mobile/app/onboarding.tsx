@@ -73,7 +73,7 @@ export default function OnboardingScreen() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          router.replace("/(tabs)" as any);
+          router.replace("/");
         },
         onError: (err: any) => {
           Alert.alert("Error", err?.message || "Failed to create company. Please try again.");
@@ -93,7 +93,7 @@ export default function OnboardingScreen() {
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-            router.replace("/(tabs)" as any);
+            router.replace("/");
           },
           onError: (err: any) => {
             Alert.alert("Invalid token", err?.message || "The token is invalid or has expired.");

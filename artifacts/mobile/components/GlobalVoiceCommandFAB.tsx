@@ -34,7 +34,7 @@ import {
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams, useNavigationContainerRef } from "expo-router";
+import { useRouter, useLocalSearchParams, useNavigationContainerRef, type Href } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -670,7 +670,7 @@ export function GlobalVoiceCommandFAB() {
     onSafetyLog: handleSafetyLog,
     onCreateQuote: handleCreateQuote,
     onNavigate: (target) => {
-      const pathMap: Record<string, string> = {
+      const pathMap: Record<string, Href> = {
         Dashboard: "/(tabs)/(home)",
         Risk: "/risk",
         Calculator: "/calculators",

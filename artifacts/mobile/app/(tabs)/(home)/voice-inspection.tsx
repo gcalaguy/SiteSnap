@@ -27,6 +27,7 @@ import { useColors } from "@/hooks/useColors";
 import { GpsLockedBanner } from "@/components/GpsLockedBanner";
 import { useVoiceInspectionRecorder } from "@/hooks/useVoiceInspectionRecorder";
 import { ProjectFormSheet, type ProjectFormValues } from "@/components/sheets/ProjectFormSheet";
+import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 
 interface GpsState {
   lat: number;
@@ -38,6 +39,14 @@ interface GpsState {
 }
 
 export default function VoiceInspectionCaptureScreen() {
+  return (
+    <ScreenErrorBoundary>
+      <VoiceInspectionCaptureScreenInner />
+    </ScreenErrorBoundary>
+  );
+}
+
+function VoiceInspectionCaptureScreenInner() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -166,7 +175,11 @@ export default function VoiceInspectionCaptureScreen() {
   }
 
   const recording = recorderState === "recording";
-  const uploading = recorderState === "uploading" || submitting;
+  const uploading =
+    recorderState === "uploading" ||
+    recorderState === "retrying" ||
+    recorderState === "waiting" ||
+    submitting;
   const canStart = !!projectId && !gpsLoading && !recording && !uploading;
 
   return (
@@ -235,13 +248,17 @@ export default function VoiceInspectionCaptureScreen() {
               )}
             </TouchableOpacity>
             <Text style={[styles.recordLabel, { color: colors.mutedForeground }]}>
-              {uploading
-                ? "Analyzing…"
-                : recording
-                  ? "Tap to stop"
-                  : !projectId
-                    ? "Select a project to begin"
-                    : "Tap to start recording"}
+              {recorderState === "waiting"
+                ? "Waiting for connection…"
+                : recorderState === "retrying"
+                  ? "Retrying upload…"
+                  : uploading
+                    ? "Analyzing…"
+                    : recording
+                      ? "Tap to stop"
+                      : !projectId
+                        ? "Select a project to begin"
+                        : "Tap to start recording"}
             </Text>
             {recorderError ? (
               <Text style={[styles.errorText, { color: colors.destructive }]}>{recorderError}</Text>

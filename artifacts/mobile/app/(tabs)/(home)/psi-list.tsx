@@ -41,11 +41,10 @@ export default function PsiListScreen() {
           return (
             <TouchableOpacity
               onPress={() =>
-                router.push(
-                  isDraft
-                    ? `/(tabs)/(home)/psi-checklist?id=${row.psi.id}`
-                    : `/(tabs)/(home)/psi-detail?id=${row.psi.id}`,
-                )
+                router.push({
+                  pathname: isDraft ? "/(tabs)/(home)/psi-checklist" : "/(tabs)/(home)/psi-detail",
+                  params: { id: String(row.psi.id) },
+                })
               }
               style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}
             >

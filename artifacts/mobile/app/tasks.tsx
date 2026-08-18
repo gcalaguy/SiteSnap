@@ -1,9 +1,10 @@
 import { useListProjects, useListTasks, useUpdateTask, useCreateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import { TaskFormSheet, type TaskFormValues } from "@/components/sheets/TaskFormSheet";
 import * as Haptics from "expo-haptics";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
+import { useRefetchOnStaleFocus } from "@/hooks/useRefetchOnStaleFocus";
 import {
   ActivityIndicator,
   Alert,
@@ -200,6 +201,7 @@ type TaskSectionData = { title: string; data: Task[]; labelColor: string };
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: layout.gutter, paddingBottom: spacing.lg },
+  backBtn: { alignSelf: "flex-start", marginBottom: spacing.sm },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xl },
   title: { ...typography.hero },
   filterRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
@@ -298,6 +300,7 @@ function fuzzyTaskMatch(query: string, tasks: Task[]): Task | null {
 function WorkerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const qc = useQueryClient();
   // The Home dashboard's "Overdue Tasks" tile deep-links here with ?filter=overdue
   // so the list it navigates to matches the count it showed.
@@ -331,7 +334,7 @@ function WorkerTasksScreen() {
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useRefetchOnStaleFocus(dataUpdatedAt, refetch);
 
   const updateTask = useUpdateTask();
 
@@ -394,6 +397,9 @@ function WorkerTasksScreen() {
   const listHeader = (
     <>
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </TouchableOpacity>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -490,6 +496,7 @@ function WorkerTasksScreen() {
 function OwnerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { data: me } = useGetMe();
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -512,26 +519,23 @@ function OwnerTasksScreen() {
 
   const allProjects = projects ?? [];
   const resolvedProjectId = selectedProjectId;
-  const projectIds = allProjects.map((p) => p.id);
   // "overdue" isn't a status the backend understands — fetch unfiltered and
   // apply the same overdue definition the Home tile uses, client-side below.
   const backendStatusFilter = statusFilter === "overdue" ? "all" : statusFilter;
 
+  // Single aggregate request across every accessible project instead of one
+  // request per project — /dashboard/my-tasks returns all company tasks for
+  // owner/foreman roles (mirrors what getAccessibleProjectIds resolves to).
   const { data: tasks, isLoading: tasksLoading, refetch, dataUpdatedAt: tasksUpdatedAt } = useQuery<Task[]>({
     queryKey: ["tasks", "accessible", backendStatusFilter],
-    queryFn: async () => {
-      const results = await Promise.all(
-        projectIds.map((projectId) => {
-          const url =
-            backendStatusFilter !== "all"
-              ? `/api/projects/${projectId}/tasks?status=${backendStatusFilter}`
-              : `/api/projects/${projectId}/tasks`;
-          return customFetch<Task[]>(url);
-        }),
-      );
-      return results.flat();
+    queryFn: () => {
+      const url =
+        backendStatusFilter !== "all"
+          ? `/api/dashboard/my-tasks?status=${backendStatusFilter}&limit=500`
+          : `/api/dashboard/my-tasks?limit=500`;
+      return customFetch<Task[]>(url);
     },
-    enabled: projectIds.length > 0,
+    enabled: allProjects.length > 0,
   });
   const [taskRefreshing, setTaskRefreshing] = useState(false);
   const handleTaskRefresh = useCallback(async () => {
@@ -541,7 +545,7 @@ function OwnerTasksScreen() {
   const tasksRelTime = useRelativeTime(tasksUpdatedAt || null);
   const tasksUpdatedLabel = taskRefreshing ? "Refreshing…" : tasksRelTime;
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useRefetchOnStaleFocus(tasksUpdatedAt, refetch);
 
   const updateTask = useUpdateTask();
 
@@ -633,6 +637,9 @@ function OwnerTasksScreen() {
   const ownerListHeader = (
     <>
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </TouchableOpacity>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
           {/* Voice "mark done" mic button — same as worker view */}

@@ -226,7 +226,7 @@ export default function PsiDetailScreen() {
 
         {psi.status === "draft" && (
           <TouchableOpacity
-            onPress={() => router.push(`/(tabs)/(home)/psi-checklist?id=${psi.id}`)}
+            onPress={() => router.push({ pathname: "/(tabs)/(home)/psi-checklist", params: { id: String(psi.id) } })}
             style={[s.secondaryBtn, { borderColor: colors.border, marginTop: 12 }]}
           >
             <Text style={[s.secondaryBtnText, { color: colors.foreground }]}>Edit Draft</Text>

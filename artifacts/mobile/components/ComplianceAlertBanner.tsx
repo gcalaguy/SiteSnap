@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 // Maps targetFormId → safety tab category key
 const FORM_CATEGORY_MAP: Record<string, string> = {
@@ -109,10 +110,11 @@ export function ComplianceAlertBanner({ projectId, compact = false }: Props) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     const category = FORM_CATEGORY_MAP[directive.targetFormId] ?? "safety";
-    router.push({
-      pathname: "/safety",
-      params: { initCategory: category, initTab: "new" },
-    } as any);
+    safeNavigate(
+      router,
+      { pathname: "/safety", params: { initCategory: category, initTab: "new" } },
+      "compliance-alert-banner:action",
+    );
   }
 
   function handleDismiss(id: number) {
@@ -204,7 +206,7 @@ export function ComplianceAlertBanner({ projectId, compact = false }: Props) {
       {compact && directives.length > 1 && (
         <TouchableOpacity
           style={styles.viewAllBtn}
-          onPress={() => router.push("/safety" as any)}
+          onPress={() => safeNavigate(router, "/safety", "compliance-alert-banner:view-all")}
         >
           <Text style={styles.viewAllText}>
             +{directives.length - 1} more alert

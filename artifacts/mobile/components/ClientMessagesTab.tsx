@@ -55,7 +55,10 @@ export function ClientMessagesTab({ projectId }: Props) {
   const { data: messages, isLoading, isError, error, refetch } = useQuery<PortalMessage[]>({
     queryKey: ["portal-messages", projectId],
     queryFn: () => customFetch<PortalMessage[]>(`/api/projects/${projectId}/portal/messages`),
-    refetchInterval: 15_000,
+    // This tab only mounts while "Messages" is the active project sub-tab, so
+    // polling already stops on tab switch — 30s matches the cadence used for
+    // similar non-realtime feeds elsewhere in the app (was 15s, an outlier).
+    refetchInterval: 30_000,
     retry: false,
   });
 

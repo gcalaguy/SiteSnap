@@ -907,11 +907,11 @@ export default function ProjectDetailScreen() {
   })).filter((cat) => cat.tabs.length > 0);
   const openCategoryData = visibleCategories.find((cat) => cat.key === openCategory) ?? null;
 
-  const { data: project, isLoading, refetch: refetchProject } = useGetProject(projectId);
-  const { data: summary, refetch: refetchSummary } = useGetProjectSummary(projectId);
-  const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
-  const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
-  const { data: rfis, refetch: refetchRfis } = useListRFIs(
+  const { data: project, isLoading, refetch: refetchProject, dataUpdatedAt: projectUpdatedAt } = useGetProject(projectId);
+  const { data: summary, refetch: refetchSummary, dataUpdatedAt: summaryUpdatedAt } = useGetProjectSummary(projectId);
+  const { data: reports, refetch: refetchReports, dataUpdatedAt: reportsUpdatedAt } = useListDailyReports(projectId);
+  const { data: tasks, refetch: refetchTasks, dataUpdatedAt: tasksUpdatedAt } = useListTasks(projectId);
+  const { data: rfis, refetch: refetchRfis, dataUpdatedAt: rfisUpdatedAt } = useListRFIs(
     projectId,
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
     { query: { enabled: perms.viewRFIs } as any },
@@ -920,11 +920,11 @@ export default function ProjectDetailScreen() {
     isOwnerOrForeman ? { projectId } : undefined,
     { query: { enabled: isOwnerOrForeman } as any },
   );
-  const { data: safetySubmissions, refetch: refetchSafety } = useListFormSubmissions(
+  const { data: safetySubmissions, refetch: refetchSafety, dataUpdatedAt: safetyUpdatedAt } = useListFormSubmissions(
     { projectId },
     { query: { enabled: perms.viewSafetyTab } as any },
   );
-  const { data: psiChecklists, refetch: refetchPsi } = useQuery<PsiListRow[]>({
+  const { data: psiChecklists, refetch: refetchPsi, dataUpdatedAt: psiUpdatedAt } = useQuery<PsiListRow[]>({
     queryKey: ["psi-checklists", projectId],
     queryFn: () => customFetch(`/api/psi?projectId=${projectId}`),
     enabled: perms.viewSafetyTab,
@@ -1023,15 +1023,25 @@ export default function ProjectDetailScreen() {
     });
   }
 
+  // Only refetch on focus if that query's data is older than 60s — respects
+  // staleTime instead of firing all 7 endpoints every time the tab regains focus.
   useFocusEffect(
     useCallback(() => {
-      refetchProject();
-      refetchSummary();
-      refetchReports();
-      refetchTasks();
-      if (perms.viewRFIs) refetchRfis();
-      if (perms.viewSafetyTab) { refetchSafety(); refetchPsi(); }
-    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, refetchPsi, perms.viewRFIs, perms.viewSafetyTab]),
+      const isStale = (updatedAt: number) => !updatedAt || Date.now() - updatedAt > 60_000;
+      if (isStale(projectUpdatedAt)) refetchProject();
+      if (isStale(summaryUpdatedAt)) refetchSummary();
+      if (isStale(reportsUpdatedAt)) refetchReports();
+      if (isStale(tasksUpdatedAt)) refetchTasks();
+      if (perms.viewRFIs && isStale(rfisUpdatedAt)) refetchRfis();
+      if (perms.viewSafetyTab) {
+        if (isStale(safetyUpdatedAt)) refetchSafety();
+        if (isStale(psiUpdatedAt)) refetchPsi();
+      }
+    }, [
+      projectUpdatedAt, summaryUpdatedAt, reportsUpdatedAt, tasksUpdatedAt, rfisUpdatedAt, safetyUpdatedAt, psiUpdatedAt,
+      refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, refetchPsi,
+      perms.viewRFIs, perms.viewSafetyTab,
+    ]),
   );
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
@@ -1597,7 +1607,7 @@ export default function ProjectDetailScreen() {
               Pre-Inspection Checklists
             </Text>
             <Pressable
-              onPress={() => router.push(`/(tabs)/(home)/psi-checklist?projectId=${projectId}`)}
+              onPress={() => router.push({ pathname: "/(tabs)/(home)/psi-checklist", params: { projectId: String(projectId) } })}
               style={[styles.addBtn, { borderColor: colors.primary }]}
             >
               <Feather name="plus" size={14} color={colors.primary} />
@@ -1617,11 +1627,10 @@ export default function ProjectDetailScreen() {
                   <Card
                     key={row.psi.id}
                     onPress={() =>
-                      router.push(
-                        isDraft
-                          ? `/(tabs)/(home)/psi-checklist?id=${row.psi.id}`
-                          : `/(tabs)/(home)/psi-detail?id=${row.psi.id}`,
-                      )
+                      router.push({
+                        pathname: isDraft ? "/(tabs)/(home)/psi-checklist" : "/(tabs)/(home)/psi-detail",
+                        params: { id: String(row.psi.id) },
+                      })
                     }
                     elevated={false}
                     style={[styles.rowCard, { flexDirection: "row", alignItems: "center", gap: spacing.md }]}

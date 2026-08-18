@@ -64,19 +64,19 @@ export function ScanHistoryTab({ projectId }: { projectId?: number }) {
                 </p>
                 <p className="text-lg font-bold text-zinc-100">{scan.complianceScore ?? 0}%</p>
               </div>
-              {scan.reportObjectPath && (
-                <a
-                  href={`/api/safety/scans/${scan.id}/report`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 p-2 rounded hover:bg-white/5"
-                  style={{ color: "#C9A84C" }}
-                  title="Download PDF report"
-                >
-                  <FileDown className="h-4 w-4" />
-                </a>
-              )}
+              {/* Generated in the background, or on demand by /report if not
+                  ready yet — always safe to offer. */}
+              <a
+                href={`/api/safety/scans/${scan.id}/report`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 p-2 rounded hover:bg-white/5"
+                style={{ color: "#C9A84C" }}
+                title="Download PDF report"
+              >
+                <FileDown className="h-4 w-4" />
+              </a>
               {isOwnerOrForeman && (
                 <button
                   onClick={(e) => {

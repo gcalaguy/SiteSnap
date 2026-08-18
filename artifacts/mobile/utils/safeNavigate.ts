@@ -1,4 +1,4 @@
-import type { Router } from "expo-router";
+import type { Href, Router } from "expo-router";
 import { reportClientError } from "./errorReporting";
 
 /**
@@ -10,16 +10,21 @@ import { reportClientError } from "./errorReporting";
  * mounted, etc.) and reports them instead of failing silently, and gives
  * every dashboard nav handler the same safety net instead of each screen
  * reimplementing its own try/catch.
+ *
+ * `path` is typed as `Href` (not a bare string) so a call site with a stale
+ * or typo'd route fails at compile time — callers building a route from a
+ * data table should type that field as `Href` too (see admin-hub.tsx,
+ * capture.tsx, GlobalVoiceCommandFAB.tsx for the pattern).
  */
-export function safeNavigate(router: Router, path: string, context: string): void {
+export function safeNavigate(router: Router, path: Href, context: string): void {
   try {
-    router.push(path as Parameters<Router["push"]>[0]);
+    router.push(path);
   } catch (err) {
     reportClientError({
       logType: "NAVIGATION_ERROR",
       message: err instanceof Error ? err.message : String(err),
       stackTrace: err instanceof Error ? err.stack : undefined,
-      metadata: { path, context },
+      metadata: { path: typeof path === "string" ? path : JSON.stringify(path), context },
     });
   }
 }

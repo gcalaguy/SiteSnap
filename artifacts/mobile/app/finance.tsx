@@ -304,14 +304,16 @@ export default function FinanceScreen() {
     }
   }, [refetchQ]);
 
-  // Silently refetch all data sources whenever the screen comes into focus
+  // Only refetch on focus if that source's data is older than 60s — respects
+  // staleTime instead of firing all 4 endpoints every time the tab regains focus.
   useFocusEffect(
     useCallback(() => {
-      refetchInv();
-      refetchQ();
-      refetchCO();
-      refetchExp();
-    }, [refetchInv, refetchQ, refetchCO, refetchExp]),
+      const isStale = (updatedAt: number) => !updatedAt || Date.now() - updatedAt > 60_000;
+      if (isStale(invUpdatedAt)) refetchInv();
+      if (isStale(qUpdatedAt)) refetchQ();
+      if (isStale(coDataUpdatedAt)) refetchCO();
+      if (isStale(expUpdatedAt)) refetchExp();
+    }, [invUpdatedAt, qUpdatedAt, coDataUpdatedAt, expUpdatedAt, refetchInv, refetchQ, refetchCO, refetchExp]),
   );
 
   async function saveSignature(coId: number, base64: string) {

@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "./logger.js";
+import { runNativeImageTool } from "./concurrencyLimiter.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -42,22 +43,26 @@ export async function convertPDFPagesToImages(
 
   try {
     const outBase = join(tmpDir, "page");
-    await execFileAsync("pdftoppm", [
-      "-png", "-singlefile",
-      "-r", String(dpi),
-      "-f", "1",
-      "-l", String(maxPages),
-      pdfPath, outBase,
-    ]);
+    await runNativeImageTool(() =>
+      execFileAsync("pdftoppm", [
+        "-png", "-singlefile",
+        "-r", String(dpi),
+        "-f", "1",
+        "-l", String(maxPages),
+        pdfPath, outBase,
+      ]),
+    );
     return await readPngs(tmpDir);
   } catch (err) {
     logger.warn({ err }, "pdftoppm failed; trying ImageMagick fallback");
     try {
-      await execFileAsync("convert", [
-        "-density", String(dpi),
-        `${pdfPath}[0-${maxPages - 1}]`,
-        join(tmpDir, "page-%d.png"),
-      ]);
+      await runNativeImageTool(() =>
+        execFileAsync("convert", [
+          "-density", String(dpi),
+          `${pdfPath}[0-${maxPages - 1}]`,
+          join(tmpDir, "page-%d.png"),
+        ]),
+      );
       return await readPngs(tmpDir);
     } catch (err2) {
       logger.error({ err: err2 }, "ImageMagick fallback also failed");

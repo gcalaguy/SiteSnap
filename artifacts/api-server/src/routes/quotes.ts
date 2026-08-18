@@ -188,11 +188,14 @@ router.get("/", requirePermission("viewQuotes"), asyncHandler(async (req, res) =
   const baseCondition = and(eq(quotesTable.projectId, projectId), eq(quotesTable.companyId, req.companyId!))!;
   const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
 
+  // Defensive cap — a single project's quote list should never realistically
+  // exceed this, but nothing previously bounded the query as data grows.
   const quotes = await db
     .select()
     .from(quotesTable)
     .where(where)
-    .orderBy(desc(quotesTable.createdAt));
+    .orderBy(desc(quotesTable.createdAt))
+    .limit(500);
   res.json(quotes);
 }))
 

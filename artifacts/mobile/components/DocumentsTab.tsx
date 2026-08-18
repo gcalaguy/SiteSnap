@@ -14,10 +14,10 @@ import {
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { customFetch, useListDocuments, useGetMe, getListDocumentsQueryKey } from "@workspace/api-client-react";
-import { useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useRefetchOnStaleFocus } from "@/hooks/useRefetchOnStaleFocus";
 import { openStorageFile } from "@/utils/openStorageFile";
 import { withAiRetry } from "@/src/utils/aiRetry";
 import { getAiErrorMessage } from "@/src/utils/aiError";
@@ -678,13 +678,9 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
 export function DocumentsTab({ projectId, clientUploads }: { projectId: number; clientUploads: any[] }) {
   const colors = useColors();
   const queryClient = useQueryClient();
-  const { data: documents, refetch: refetchDocs } = useListDocuments(projectId);
+  const { data: documents, refetch: refetchDocs, dataUpdatedAt: docsUpdatedAt } = useListDocuments(projectId);
 
-  useFocusEffect(
-    useCallback(() => {
-      refetchDocs();
-    }, [refetchDocs]),
-  );
+  useRefetchOnStaleFocus(docsUpdatedAt, refetchDocs);
   const docs: ProjectDoc[] = (documents as unknown as ProjectDoc[]) ?? [];
 
   const { data: me } = useGetMe();

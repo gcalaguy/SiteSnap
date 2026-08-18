@@ -23,8 +23,20 @@ import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { compressPhoto } from "@/utils/compressPhoto";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { getAiErrorMessage } from "@/src/utils/aiError";
+import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 
 export default function FieldPhotoScreen() {
+  return (
+    <ScreenErrorBoundary>
+      <FieldPhotoScreenInner />
+    </ScreenErrorBoundary>
+  );
+}
+
+function FieldPhotoScreenInner() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -41,11 +53,27 @@ export default function FieldPhotoScreen() {
   });
 
   const [pickedAsset, setPickedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [compressing, setCompressing] = useState(false);
 
-  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+  async function handlePickResult(result: ImagePicker.ImagePickerResult) {
     if (result.canceled || result.assets.length === 0) return;
-    setPickedAsset(result.assets[0]);
-    setImageUri(result.assets[0].uri);
+    const asset = result.assets[0];
+    setCompressing(true);
+    try {
+      const compressed = await compressPhoto(asset.uri, {
+        mimeType: asset.mimeType,
+        fileSize: asset.fileSize,
+      });
+      setPickedAsset({
+        ...asset,
+        uri: compressed.uri,
+        mimeType: compressed.mimeType,
+        fileSize: compressed.fileSize,
+      });
+      setImageUri(compressed.uri);
+    } finally {
+      setCompressing(false);
+    }
   }
 
   async function takePhoto() {
@@ -84,13 +112,13 @@ export default function FieldPhotoScreen() {
     ]);
   }
 
-  async function uploadToStorage(uri: string): Promise<string | null> {
-    try {
-      // M-S6 fix: use actual MIME type from picker, not hardcoded "image/jpeg"
-      const mimeType = pickedAsset?.mimeType ?? "image/jpeg";
-      const fileName = pickedAsset?.fileName ?? `site-photo-${Date.now()}.jpg`;
-      const fileSize = pickedAsset?.fileSize ?? 0;
+  async function uploadToStorage(uri: string): Promise<string> {
+    // M-S6 fix: use actual MIME type from picker, not hardcoded "image/jpeg"
+    const mimeType = pickedAsset?.mimeType ?? "image/jpeg";
+    const fileName = pickedAsset?.fileName ?? `site-photo-${Date.now()}.jpg`;
+    const fileSize = pickedAsset?.fileSize ?? 0;
 
+    return withAiRetry(async () => {
       // Get presigned URL with real content type
       const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
         "/api/storage/uploads/request-url",
@@ -113,28 +141,27 @@ export default function FieldPhotoScreen() {
       if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
 
       return objectPath;
-    } catch {
-      return null;
-    }
+    });
   }
 
   async function submit() {
     if (!projectId || !imageUri) return;
     setUploading(true);
-    const objectPath = await uploadToStorage(imageUri);
-    setUploading(false);
-    if (!objectPath) {
-      Alert.alert("Upload Failed", "Could not upload the photo. Please check your connection and try again.");
-      return;
+    try {
+      const objectPath = await uploadToStorage(imageUri);
+      createPhoto.mutate({
+        data: {
+          projectId,
+          imageUrl: objectPath,
+          markupData: null,
+          roomLocation: roomLocation || null,
+        },
+      });
+    } catch (err) {
+      Alert.alert("Upload Failed", getAiErrorMessage(err, "Could not upload the photo. Please check your connection and try again."));
+    } finally {
+      setUploading(false);
     }
-    createPhoto.mutate({
-      data: {
-        projectId,
-        imageUrl: objectPath,
-        markupData: null,
-        roomLocation: roomLocation || null,
-      },
-    });
   }
 
   return (
@@ -224,7 +251,14 @@ export default function FieldPhotoScreen() {
             { borderColor: colors.border },
           ]}
         >
-          {imageUri ? (
+          {compressing ? (
+            <View style={styles.photoPlaceholder}>
+              <ActivityIndicator color={colors.mutedForeground} />
+              <Text style={[styles.photoPlaceholderText, { color: colors.mutedForeground }]}>
+                Preparing photo…
+              </Text>
+            </View>
+          ) : imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.photo} contentFit="cover" />
           ) : (
             <View style={styles.photoPlaceholder}>

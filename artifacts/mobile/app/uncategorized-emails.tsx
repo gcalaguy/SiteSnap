@@ -362,7 +362,7 @@ export default function UncategorizedEmailsScreen() {
 
   const canView = permissions.viewProjectCommunications;
 
-  const { data, isLoading, isError, refetch } = useListUncategorizedEmails(
+  const { data, isLoading, isError, refetch, dataUpdatedAt } = useListUncategorizedEmails(
     filter === "all" ? undefined : { status: filter },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { query: { enabled: canView } } as any,
@@ -379,9 +379,9 @@ export default function UncategorizedEmailsScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      refetchInbox();
+      if (!dataUpdatedAt || Date.now() - dataUpdatedAt > 60_000) refetchInbox();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filter]),
+    }, [filter, dataUpdatedAt]),
   );
 
   async function handleRefresh() {

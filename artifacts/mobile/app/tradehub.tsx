@@ -142,7 +142,7 @@ export default function TradeHubScreen() {
     return (
       <TouchableOpacity
         style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
+        onPress={() => router.push(`/tradehub-post/${item.id}`)}
         activeOpacity={0.9}
       >
         {/* Post anatomy: avatar, name, trade/role badge, timestamp */}
@@ -202,7 +202,7 @@ export default function TradeHubScreen() {
           </Pressable>
           <Pressable
             style={styles.actionBtn}
-            onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
+            onPress={() => router.push(`/tradehub-post/${item.id}`)}
             hitSlop={8}
           >
             <Feather name="message-square" size={14} color={colors.mutedForeground} />
@@ -237,14 +237,14 @@ export default function TradeHubScreen() {
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
-            onPress={() => router.push("/tradehub-jobs" as any)}
+            onPress={() => router.push("/tradehub-jobs")}
             hitSlop={8}
           >
             <Feather name="briefcase" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
-            onPress={() => router.push("/tradehub-messages" as any)}
+            onPress={() => router.push("/tradehub-messages")}
             hitSlop={8}
           >
             <Feather name="message-circle" size={18} color="#FFFFFF" />

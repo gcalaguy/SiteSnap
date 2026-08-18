@@ -510,7 +510,7 @@ export default function AllReportsScreen() {
           <View style={styles.listItemWrap}>
             <ReportRow
               report={r}
-              onPressProject={() => router.push(`/project/${r.projectId}` as any)}
+              onPressProject={() => router.push(`/project/${r.projectId}`)}
               onEdit={() => openEdit(r)}
             />
           </View>

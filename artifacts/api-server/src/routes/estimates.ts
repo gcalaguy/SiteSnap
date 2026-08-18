@@ -196,11 +196,13 @@ router.get("/estimates", requireAuth, requireCompany, requireTenantCtx, requireP
     return;
   }
 
+  // Defensive cap — this is a company-wide, unpaginated list with no prior bound.
   const estimates = await db
     .select()
     .from(estimatesTable)
     .where(eq(estimatesTable.companyId, req.companyId!))
-    .orderBy(desc(estimatesTable.createdAt));
+    .orderBy(desc(estimatesTable.createdAt))
+    .limit(500);
 
   res.json(estimates);
 }))

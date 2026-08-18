@@ -9,7 +9,7 @@ import {
   userMembershipsTable,
   projectMembersTable,
 } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, isPrivilegedRole } from "../lib/auth";
 import { assertProjectInCompany, canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -64,6 +64,31 @@ async function withUserAndProject<T extends { userId: number; projectId: number 
     .limit(1);
   const [project] = await db.select(projectSelect).from(projectsTable).where(eq(projectsTable.id, row.projectId)).limit(1);
   return { ...row, user: user ?? null, project: project ?? null };
+}
+
+/**
+ * Batched variant of withUserAndProject for a set of rows that share the same
+ * project (e.g. Team Punch clock-in-all) — one project lookup and one batched
+ * user lookup instead of 2 queries per row.
+ */
+async function withUsersAndProject<T extends { userId: number; projectId: number }>(
+  companyId: number,
+  rows: T[],
+) {
+  if (rows.length === 0) return [];
+  const projectId = rows[0].projectId;
+
+  // Sequential, not Promise.all — same single-connection transaction
+  // constraint as withUserAndProject above.
+  const users = await db
+    .select(userSelect)
+    .from(usersTable)
+    .leftJoin(userMembershipsTable, and(eq(userMembershipsTable.userId, usersTable.id), eq(userMembershipsTable.companyId, companyId)))
+    .where(inArray(usersTable.id, rows.map((r) => r.userId)));
+  const [project] = await db.select(projectSelect).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  return rows.map((row) => ({ ...row, user: userById.get(row.userId) ?? null, project: project ?? null }));
 }
 
 async function findActiveSession(companyId: number, userId: number) {
@@ -293,10 +318,7 @@ router.post("/time-clock/clock-in-all", requireOwnerOrForeman, asyncHandler(asyn
     }
   }
 
-  const clockedIn = [];
-  for (const s of created) {
-    clockedIn.push(await withUserAndProject(req.companyId!, s));
-  }
+  const clockedIn = await withUsersAndProject(req.companyId!, created);
 
   res.status(201).json({
     clockedIn,

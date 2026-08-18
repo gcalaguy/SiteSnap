@@ -23,6 +23,9 @@ import { useListProjects, customFetch } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
 import { getAiErrorMessage } from "@/src/utils/aiError";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { compressPhoto } from "@/utils/compressPhoto";
+import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 
 const GOLD = "#C9A84C";
 const MAX_PHOTOS = 8;
@@ -80,6 +83,14 @@ function Section({ title, icon, items, color }: { title: string; icon: string; i
 }
 
 export default function SiteVisionScreen() {
+  return (
+    <ScreenErrorBoundary>
+      <SiteVisionScreenInner />
+    </ScreenErrorBoundary>
+  );
+}
+
+function SiteVisionScreenInner() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -89,11 +100,13 @@ export default function SiteVisionScreen() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [result, setResult] = useState<AISummaryResult | null>(null);
 
   const selectedProject = projects?.find((p) => p.id === selectedProjectId);
 
   const pickPhoto = useCallback(() => {
+    if (compressing) return;
     if (photos.length >= MAX_PHOTOS) {
       Alert.alert("Limit reached", `You can analyze up to ${MAX_PHOTOS} photos at once.`);
       return;
@@ -134,18 +147,28 @@ export default function SiteVisionScreen() {
       },
       { text: "Cancel", style: "cancel" },
     ]);
-  }, [photos.length]);
+  }, [photos.length, compressing]);
 
-  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+  async function handlePickResult(result: ImagePicker.ImagePickerResult) {
     if (result.canceled) return;
-    const incoming = result.assets.slice(0, MAX_PHOTOS - photos.length).map<PhotoItem>((a) => ({
-      uri: a.uri,
-      mimeType: a.mimeType ?? "image/jpeg",
-      fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
-    }));
-    setPhotos((prev) => [...prev, ...incoming]);
-    setResult(null);
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCompressing(true);
+    try {
+      const incoming = await Promise.all(
+        result.assets.slice(0, MAX_PHOTOS - photos.length).map<Promise<PhotoItem>>(async (a) => {
+          const compressed = await compressPhoto(a.uri, { mimeType: a.mimeType });
+          return {
+            uri: compressed.uri,
+            mimeType: compressed.mimeType,
+            fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
+          };
+        }),
+      );
+      setPhotos((prev) => [...prev, ...incoming]);
+      setResult(null);
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } finally {
+      setCompressing(false);
+    }
   }
 
   function removePhoto(index: number) {
@@ -177,11 +200,13 @@ export default function SiteVisionScreen() {
       if (selectedProject) body.projectName = selectedProject.name;
       if (context.trim()) body.context = context.trim();
 
-      const data = await customFetch<AISummaryResult>("/api/ai/photo-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const data = await withAiRetry(() =>
+        customFetch<AISummaryResult>("/api/ai/photo-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      );
 
       setResult(data);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -236,11 +261,18 @@ export default function SiteVisionScreen() {
                 return (
                   <TouchableOpacity
                     onPress={pickPhoto}
+                    disabled={compressing}
                     style={[styles.photoAdd, { borderColor: colors.border, backgroundColor: `${GOLD}10` }]}
                     activeOpacity={0.7}
                   >
-                    <Feather name="plus" size={22} color={GOLD} />
-                    <Text style={[styles.photoAddLabel, { color: GOLD }]}>Add</Text>
+                    {compressing ? (
+                      <ActivityIndicator color={GOLD} size="small" />
+                    ) : (
+                      <>
+                        <Feather name="plus" size={22} color={GOLD} />
+                        <Text style={[styles.photoAddLabel, { color: GOLD }]}>Add</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 );
               }
@@ -317,11 +349,11 @@ export default function SiteVisionScreen() {
         {/* Analyze button */}
         <TouchableOpacity
           onPress={analyze}
-          disabled={loading || photos.length === 0}
+          disabled={loading || compressing || photos.length === 0}
           activeOpacity={0.8}
           style={[
             styles.analyzeBtn,
-            { backgroundColor: photos.length === 0 || loading ? colors.muted : GOLD, opacity: loading ? 0.85 : 1 },
+            { backgroundColor: photos.length === 0 || loading || compressing ? colors.muted : GOLD, opacity: loading ? 0.85 : 1 },
           ]}
         >
           {loading ? (

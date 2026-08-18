@@ -160,7 +160,10 @@
       "Bash(gh --version)",
       "Bash(mkdir -p /tmp/claude-1000/-home-runner-workspace/2ae4c47d-07ae-4cf0-822d-6f9ff8726a96/scratchpad1)",
       "Bash(replit --help)",
-      "Bash(eas secret:list)"
+      "Bash(eas secret:list)",
+      "WebFetch(domain:claude.ai)",
+      "Bash(mkdir -p /tmp/claude-1000/-home-runner-workspace/aee6b38f-3ca8-4299-ab9e-258da8612878/scratchpad)",
+      "Bash(gh issue *)"
     ]
   }
 }

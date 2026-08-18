@@ -223,22 +223,23 @@ export default function SafetyScanResultsScreen() {
         )}
       </View>
 
-      {scan.reportObjectPath ? (
-        <TouchableOpacity
-          onPress={viewReport}
-          disabled={downloadingReport}
-          style={[styles.reportBtn, { borderColor: colors.border }]}
-        >
-          {downloadingReport ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <>
-              <Feather name="file-text" size={16} color={colors.primary} />
-              <Text style={[styles.reportBtnText, { color: colors.primary }]}>View PDF Report</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      ) : null}
+      {/* The report is generated in the background after scan creation, or
+          on demand by the /report endpoint if it isn't ready yet — always
+          safe to offer, no need to gate on reportObjectPath being set. */}
+      <TouchableOpacity
+        onPress={viewReport}
+        disabled={downloadingReport}
+        style={[styles.reportBtn, { borderColor: colors.border }]}
+      >
+        {downloadingReport ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <>
+            <Feather name="file-text" size={16} color={colors.primary} />
+            <Text style={[styles.reportBtnText, { color: colors.primary }]}>View PDF Report</Text>
+          </>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 }

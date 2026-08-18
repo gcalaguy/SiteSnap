@@ -235,7 +235,10 @@ router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, 
   });
 }))
 
-// GET /dashboard/my-tasks — all tasks assigned to the current worker across all their projects
+// GET /dashboard/my-tasks — tasks across all the caller's accessible projects
+// in one query: workers see only tasks assigned to them, owners/foremen see
+// every task in those projects. Supports optional ?status= filtering so
+// owner/foreman screens don't have to fetch-then-filter client-side.
 router.get("/dashboard/my-tasks", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
@@ -248,17 +251,21 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, requireTenantCtx,
     return;
   }
 
-  const whereClause =
-    userRole === "worker"
-      ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
-      : inArray(tasksTable.projectId, projectIds);
+  const { status } = req.query as Record<string, string | undefined>;
+  const validStatuses = ["todo", "in_progress", "done"] as const;
+  type TaskStatus = (typeof validStatuses)[number];
+  const statusFilter = validStatuses.includes(status as TaskStatus) ? (status as TaskStatus) : undefined;
 
-  const { limit, offset } = parsePagination(req.query, 100, 200);
+  const conditions = [inArray(tasksTable.projectId, projectIds)];
+  if (userRole === "worker") conditions.push(eq(tasksTable.assignedToUserId, userId));
+  if (statusFilter) conditions.push(eq(tasksTable.status, statusFilter));
+
+  const { limit, offset } = parsePagination(req.query, 100, 500);
 
   const tasks = await db
     .select()
     .from(tasksTable)
-    .where(whereClause)
+    .where(and(...conditions))
     .orderBy(tasksTable.createdAt)
     .limit(limit)
     .offset(offset);

@@ -281,17 +281,15 @@ router.post(
       })),
     );
 
-    // Instant branded PDF report — generated synchronously so it's ready the
-    // moment the scan-results screen loads, no manual export step.
-    try {
-      const reportObjectPath = await buildAndStoreScanPdf(
-        { companyId: req.companyId!, userId: req.userId!, userDisplayName: req.userDisplayName },
-        scan,
-      );
-      if (reportObjectPath) scan.reportObjectPath = reportObjectPath;
-    } catch (err) {
+    // Branded PDF report — built off the request path so the AI analysis
+    // (the part the user is actually waiting on) isn't held up by a PDF
+    // render + photo re-download on top of it. GET /safety/scans/:id/report
+    // generates on demand if this hasn't finished yet by the time it's
+    // requested, so the client never needs to know this is async.
+    const pdfReqCtx = { companyId: req.companyId!, userId: req.userId!, userDisplayName: req.userDisplayName };
+    buildAndStoreScanPdf(pdfReqCtx, scan).catch((err) => {
       req.log?.error({ err, scanId: scan.id }, "Failed to generate safety scan PDF report");
-    }
+    });
 
     // Best-effort COR audit trail entry — feeds the Shadow Auditor, auditor
     // portal, and audit packages. Never fails the request.

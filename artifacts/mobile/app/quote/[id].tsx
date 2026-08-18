@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -18,6 +18,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as XLSX from "@e965/xlsx";
 import { useColors } from "@/hooks/useColors";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
+import { useRefetchOnStaleFocus } from "@/hooks/useRefetchOnStaleFocus";
 import {
   useGetQuote,
   useSubmitQuoteForApproval,
@@ -150,7 +151,7 @@ export default function QuoteDetailScreen() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: quoteId > 0 } as any,
   });
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useRefetchOnStaleFocus(dataUpdatedAt, refetch);
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const { data: me } = useGetMe();
   const isAuthorized = me?.role === "owner" || me?.role === "foreman";

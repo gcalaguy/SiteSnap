@@ -20,6 +20,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useListProjects, customFetch } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { GpsLockedBanner, type GpsLockInfo } from "@/components/GpsLockedBanner";
+import { compressPhoto } from "@/utils/compressPhoto";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { getAiErrorMessage } from "@/src/utils/aiError";
+import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 
 const MAX_PHOTOS = 8;
 
@@ -40,6 +44,14 @@ interface GpsState {
 }
 
 export default function SafetyScanCaptureScreen() {
+  return (
+    <ScreenErrorBoundary>
+      <SafetyScanCaptureScreenInner />
+    </ScreenErrorBoundary>
+  );
+}
+
+function SafetyScanCaptureScreenInner() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -52,6 +64,7 @@ export default function SafetyScanCaptureScreen() {
   const [gpsDenied, setGpsDenied] = useState(false);
   const [siteAddress, setSiteAddress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [compressing, setCompressing] = useState(false);
 
   async function lockGps() {
     setGpsLoading(true);
@@ -101,16 +114,26 @@ export default function SafetyScanCaptureScreen() {
     }
   }
 
-  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+  async function handlePickResult(result: ImagePicker.ImagePickerResult) {
     if (result.canceled || result.assets.length === 0) return;
-    const newPhotos: PhotoItem[] = result.assets.map((a) => ({
-      uri: a.uri,
-      mimeType: a.mimeType ?? "image/jpeg",
-      fileName: a.fileName ?? `safety-scan-${Date.now()}.jpg`,
-      fileSize: a.fileSize ?? 0,
-    }));
-    setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
-    if (!gps && !gpsLoading) lockGps();
+    setCompressing(true);
+    try {
+      const newPhotos: PhotoItem[] = await Promise.all(
+        result.assets.map(async (a) => {
+          const compressed = await compressPhoto(a.uri, { mimeType: a.mimeType, fileSize: a.fileSize });
+          return {
+            uri: compressed.uri,
+            mimeType: compressed.mimeType,
+            fileName: a.fileName ?? `safety-scan-${Date.now()}.jpg`,
+            fileSize: compressed.fileSize,
+          };
+        }),
+      );
+      setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
+      if (!gps && !gpsLoading) lockGps();
+    } finally {
+      setCompressing(false);
+    }
   }
 
   async function takePhoto() {
@@ -151,23 +174,25 @@ export default function SafetyScanCaptureScreen() {
   }
 
   async function uploadOne(photo: PhotoItem): Promise<string> {
-    const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
-      "/api/storage/uploads/request-url",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: photo.fileName, size: photo.fileSize, contentType: photo.mimeType }),
-      },
-    );
-    const dest = new URL(uploadURL);
-    if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
-    const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
-      httpMethod: "PUT",
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: { "Content-Type": photo.mimeType },
+    return withAiRetry(async () => {
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: photo.fileName, size: photo.fileSize, contentType: photo.mimeType }),
+        },
+      );
+      const dest = new URL(uploadURL);
+      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+      const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": photo.mimeType },
+      });
+      if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
+      return objectPath;
     });
-    if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
-    return objectPath;
   }
 
   async function submit() {
@@ -186,14 +211,14 @@ export default function SafetyScanCaptureScreen() {
         }),
       });
       router.replace({ pathname: "/(tabs)/(home)/safety-scan-results", params: { id: String(scan.id) } });
-    } catch (err: any) {
-      Alert.alert("Scan Failed", err?.message ?? "Could not analyze the photos. Please try again.");
+    } catch (err) {
+      Alert.alert("Scan Failed", getAiErrorMessage(err, "Could not analyze the photos. Please try again."));
     } finally {
       setSubmitting(false);
     }
   }
 
-  const canSubmit = !!projectId && photos.length > 0 && !gpsLoading && !submitting;
+  const canSubmit = !!projectId && photos.length > 0 && !gpsLoading && !submitting && !compressing;
 
   return (
     <KeyboardAvoidingView
@@ -256,7 +281,11 @@ export default function SafetyScanCaptureScreen() {
               </TouchableOpacity>
             </View>
           ))}
-          {photos.length < MAX_PHOTOS ? (
+          {compressing ? (
+            <View style={[styles.addPhotoBox, { borderColor: colors.border }]}>
+              <ActivityIndicator color={colors.mutedForeground} size="small" />
+            </View>
+          ) : photos.length < MAX_PHOTOS ? (
             <TouchableOpacity onPress={pickImage} style={[styles.addPhotoBox, { borderColor: colors.border }]}>
               <Feather name="camera" size={22} color={colors.mutedForeground} />
             </TouchableOpacity>

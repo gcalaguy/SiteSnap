@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 interface AppNotification {
   id: number;
@@ -120,9 +121,9 @@ export default function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["notifications", "unread"] });
     }
     if (item.type === "message") {
-      if (perms.viewAskAI) router.push("/(tabs)/(home)/ask" as any);
+      if (perms.viewAskAI) safeNavigate(router, "/(tabs)/(home)/ask", "notifications:message");
     } else if (item.projectId) {
-      router.push(`/project/${item.projectId}` as any);
+      safeNavigate(router, `/project/${item.projectId}`, "notifications:project");
     }
   };
 

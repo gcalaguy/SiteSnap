@@ -8,8 +8,9 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { customFetch } from "@workspace/api-client-react";
+import { withAiRetry } from "@/src/utils/aiRetry";
 
-export type RecorderState = "idle" | "recording" | "uploading";
+export type RecorderState = "idle" | "recording" | "uploading" | "retrying" | "waiting";
 
 export interface VoiceInspectionUpload {
   objectPath: string;
@@ -77,24 +78,32 @@ export function useVoiceInspectionRecorder(): UseVoiceInspectionRecorderReturn {
       const info = await FileSystem.getInfoAsync(finalUri);
       const size = info.exists ? info.size : 0;
 
-      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
-        "/api/storage/uploads/request-url",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: `voice-inspection-${Date.now()}.m4a`, size, contentType: AUDIO_CONTENT_TYPE }),
+      const objectPath = await withAiRetry(
+        async () => {
+          const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+            "/api/storage/uploads/request-url",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: `voice-inspection-${Date.now()}.m4a`, size, contentType: AUDIO_CONTENT_TYPE }),
+            },
+          );
+
+          const dest = new URL(uploadURL);
+          if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+
+          const result = await FileSystem.uploadAsync(uploadURL, finalUri, {
+            httpMethod: "PUT",
+            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+            headers: { "Content-Type": AUDIO_CONTENT_TYPE },
+          });
+          if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
+
+          return objectPath;
         },
+        () => setState("retrying"),
+        () => setState("waiting"),
       );
-
-      const dest = new URL(uploadURL);
-      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
-
-      const result = await FileSystem.uploadAsync(uploadURL, finalUri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": AUDIO_CONTENT_TYPE },
-      });
-      if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
 
       return { objectPath, durationSeconds };
     } catch (err) {

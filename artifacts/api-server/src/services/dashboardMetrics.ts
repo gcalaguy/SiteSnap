@@ -42,6 +42,18 @@ function _cacheKey(tenantId: string): string {
   return `dashboard:metrics:tenant_${tenantId}`;
 }
 
+// Entries are only ever overwritten (on next access) or explicitly invalidated —
+// a tenant that stops requesting the dashboard leaves its expired entry parked
+// in memory indefinitely. Sweep expired entries on the same cadence as the TTL
+// so long-running instances don't accumulate stale entries for every tenant
+// that's ever loaded a dashboard.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _cache) {
+    if (entry.expiresAt <= now) _cache.delete(key);
+  }
+}, TTL_MS).unref();
+
 /**
  * Mechanical invalidation hook — call whenever a change order, invoice,
  * payment, quote, or project status mutation succeeds for this tenant.

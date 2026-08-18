@@ -8,19 +8,20 @@ import {
   Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useGetMe, useListProjects, useListCompanyMembers } from "@workspace/api-client-react";
 import { Card, ListRow, StatPill } from "@/components/ui";
 import { radius, spacing, typography } from "@/constants/theme";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 type HubTile = {
   label: string;
   subtitle: string;
   icon: string;
-  route: string;
+  route: Href;
   color: string;
 };
 
@@ -60,9 +61,9 @@ export default function AdminHubScreen() {
   const staffCount = members?.length ?? 0;
   const activeProjectCount = projects?.filter((p) => p.status === "active").length ?? 0;
 
-  function go(route: string) {
+  function go(route: Href) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.navigate(route as any);
+    safeNavigate(router, route, `admin-hub:${route}`);
   }
 
   return (

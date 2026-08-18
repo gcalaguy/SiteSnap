@@ -4,6 +4,10 @@ import { reportClientError } from "@/utils/errorReporting";
 
 interface Props {
   children: ReactNode;
+  /** When provided, the fallback also offers a "Go Back" action — used by
+   *  per-screen boundaries where the crashed tree took the screen's own
+   *  header/back-button down with it. */
+  onGoBack?: () => void;
 }
 
 interface State {
@@ -48,6 +52,11 @@ export class ErrorBoundary extends Component<Props, State> {
           <Pressable onPress={this.handleRetry} style={styles.button}>
             <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
+          {this.props.onGoBack && (
+            <Pressable onPress={this.props.onGoBack} style={styles.buttonSecondary}>
+              <Text style={styles.buttonText}>Go Back</Text>
+            </Pressable>
+          )}
         </View>
       );
     }
@@ -61,5 +70,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "600" },
   message: { fontSize: 14, color: "#666", textAlign: "center" },
   button: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: "#ccc" },
+  buttonSecondary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16 },
   buttonText: { fontSize: 14, fontWeight: "500" },
 });

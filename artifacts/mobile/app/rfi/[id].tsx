@@ -1,8 +1,9 @@
 import { useGetRFI, useUpdateRFI } from "@workspace/api-client-react";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useRefetchOnStaleFocus } from "@/hooks/useRefetchOnStaleFocus";
 import {
   ActivityIndicator,
   Alert,
@@ -47,10 +48,10 @@ export default function RFIDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data: rfi, isLoading, refetch } = useGetRFI(projId, rfiId);
+  const { data: rfi, isLoading, refetch, dataUpdatedAt } = useGetRFI(projId, rfiId);
   const updateRFI = useUpdateRFI();
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useRefetchOnStaleFocus(dataUpdatedAt, refetch);
 
   const [selectedStatus, setSelectedStatus] = useState<RFIStatus | null>(null);
   const [response, setResponse] = useState("");

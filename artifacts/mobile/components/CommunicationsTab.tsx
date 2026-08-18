@@ -198,6 +198,7 @@ export function CommunicationsTab({ projectId }: Props) {
     isLoading: listLoading,
     isError: listIsError,
     refetch: refetchList,
+    dataUpdatedAt: listUpdatedAt,
   } = useListProjectCommunicationThreads(projectId, undefined, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: mode === "inbox" && !search.trim() } as any,
@@ -215,8 +216,8 @@ export function CommunicationsTab({ projectId }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      if (mode === "inbox") refetchList();
-    }, [refetchList, mode]),
+      if (mode === "inbox" && (!listUpdatedAt || Date.now() - listUpdatedAt > 60_000)) refetchList();
+    }, [refetchList, mode, listUpdatedAt]),
   );
 
   // Shared by every sub-tab that links back to a specific email (AI

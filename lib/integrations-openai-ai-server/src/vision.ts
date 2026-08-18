@@ -3,6 +3,15 @@ import { openai } from "./client";
 
 export type VisionImage = { mimeType: string; base64: string };
 
+const DEFAULT_VISION_TIMEOUT_MS = 30_000;
+
+/** Returns an AbortSignal that fires after `ms` milliseconds. */
+function aiSignal(ms: number): AbortSignal {
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new Error(`OpenAI vision request timed out after ${ms}ms`)), ms).unref();
+  return ctrl.signal;
+}
+
 function toImageContent(images: VisionImage[]): OpenAI.Chat.Completions.ChatCompletionContentPart[] {
   return images.map((img) => ({
     type: "image_url" as const,
@@ -24,6 +33,7 @@ export async function extractJson<T>(params: {
   maxTokens?: number;
   systemPrompt?: string;
   jsonMode?: boolean;
+  timeoutMs?: number;
   fallback: T;
 }): Promise<T> {
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
@@ -36,12 +46,15 @@ export async function extractJson<T>(params: {
     { role: "user", content },
   ];
 
-  const response = await openai.chat.completions.create({
-    model: params.model ?? "gpt-5.4",
-    max_completion_tokens: params.maxTokens ?? 2048,
-    messages,
-    ...(params.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
-  });
+  const response = await openai.chat.completions.create(
+    {
+      model: params.model ?? "gpt-5.4",
+      max_completion_tokens: params.maxTokens ?? 2048,
+      messages,
+      ...(params.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
+    },
+    { signal: aiSignal(params.timeoutMs ?? DEFAULT_VISION_TIMEOUT_MS) },
+  );
 
   const text = response.choices[0]?.message?.content ?? "{}";
   try {
@@ -61,11 +74,15 @@ export async function extractText(params: {
   images: VisionImage[];
   model?: string;
   maxTokens?: number;
+  timeoutMs?: number;
 }): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: params.model ?? "gpt-5.4",
-    max_completion_tokens: params.maxTokens ?? 2048,
-    messages: [{ role: "user", content: [{ type: "text", text: params.prompt }, ...toImageContent(params.images)] }],
-  });
+  const response = await openai.chat.completions.create(
+    {
+      model: params.model ?? "gpt-5.4",
+      max_completion_tokens: params.maxTokens ?? 2048,
+      messages: [{ role: "user", content: [{ type: "text", text: params.prompt }, ...toImageContent(params.images)] }],
+    },
+    { signal: aiSignal(params.timeoutMs ?? DEFAULT_VISION_TIMEOUT_MS) },
+  );
   return response.choices[0]?.message?.content ?? "";
 }

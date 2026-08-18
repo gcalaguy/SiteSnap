@@ -75,7 +75,11 @@ export function ClockWidget() {
     if (done) {
       clockIn.mutate({ projectId });
     } else {
-      safeNavigate(router, `/(tabs)/(home)/psi-checklist?projectId=${projectId}&returnTo=clock-in`, "clock-widget:psi-gate");
+      safeNavigate(
+        router,
+        { pathname: "/(tabs)/(home)/psi-checklist", params: { projectId: String(projectId), returnTo: "clock-in" } },
+        "clock-widget:psi-gate",
+      );
     }
   }
 

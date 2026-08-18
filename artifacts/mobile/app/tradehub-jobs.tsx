@@ -94,7 +94,7 @@ export default function TradehubJobsScreen() {
     return (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
+        onPress={() => router.push(`/tradehub-post/${item.id}`)}
         activeOpacity={0.9}
       >
         <View style={styles.cardTop}>

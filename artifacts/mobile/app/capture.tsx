@@ -1,6 +1,6 @@
 import React from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -12,6 +12,7 @@ import { triggerVoiceFab } from "@/utils/voiceFabBus";
 import { safeNavigate } from "@/utils/safeNavigate";
 import { Card, ListRow } from "@/components/ui";
 import { radius, spacing, typography } from "@/constants/theme";
+import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 
 type CaptureTile = {
   key: string;
@@ -24,13 +25,21 @@ type CaptureTile = {
 };
 
 export default function CaptureScreen() {
+  return (
+    <ScreenErrorBoundary>
+      <CaptureScreenInner />
+    </ScreenErrorBoundary>
+  );
+}
+
+function CaptureScreenInner() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const perms = usePermissions();
   const { pendingCount } = useOfflineQueue();
 
-  function go(path: string, context: string) {
+  function go(path: Href, context: string) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     safeNavigate(router, path, context);
   }
@@ -149,6 +158,9 @@ export default function CaptureScreen() {
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 90 }}
     >
       <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[typography.display, { color: colors.foreground }]}>Capture</Text>
         <Text style={[typography.body, { color: colors.mutedForeground, marginTop: 2 }]}>
           Log what's happening on site
@@ -234,6 +246,7 @@ export default function CaptureScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: spacing.xl, marginBottom: spacing.lg },
+  backBtn: { alignSelf: "flex-start", marginBottom: spacing.sm },
   pendingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   grid: {
     paddingHorizontal: spacing.xl,

@@ -797,6 +797,7 @@ export const quotesTable = pgTable("quotes", {
   index("idx_quotes_company_id").on(t.companyId),
   index("idx_quotes_status").on(t.status),
   index("idx_quotes_company_id_status").on(t.companyId, t.status),
+  index("idx_quotes_project_id").on(t.projectId),
 ]);
 
 export const insertQuoteSchema = createInsertSchema(quotesTable).omit({
@@ -1273,6 +1274,7 @@ export const builderEstimatesTable = pgTable("builder_estimates", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_builder_estimates_company_id").on(t.companyId),
+  index("idx_builder_estimates_project_id").on(t.projectId),
 ]);
 export type BuilderEstimate = typeof builderEstimatesTable.$inferSelect;
 
@@ -1287,7 +1289,9 @@ export const builderEstimateItemsTable = pgTable("builder_estimate_items", {
   unitCost: numeric("unit_cost", { precision: 12, scale: 2 }).notNull().default("0"),
   margin: numeric("margin", { precision: 5, scale: 2 }).notNull().default("0"),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+}, (t) => [
+  index("idx_builder_estimate_items_estimate_id").on(t.estimateId),
+]);
 export type BuilderEstimateItem = typeof builderEstimateItemsTable.$inferSelect;
 
 export const estimateTemplatesTable = pgTable("estimate_templates", {

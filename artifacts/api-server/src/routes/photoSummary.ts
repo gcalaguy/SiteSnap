@@ -7,11 +7,20 @@ import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 
 const router = Router();
 
+/** Returns an AbortSignal that fires after `ms` milliseconds. */
+function aiSignal(ms: number): AbortSignal {
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new Error(`OpenAI request timed out after ${ms}ms`)), ms).unref();
+  return ctrl.signal;
+}
+
+// 8,000,000 base64 chars ≈ 6MB raw — generous for a compressed (max 1920px) JPEG
+// but bounded, so a single oversized image can't hog the request body.
 const PhotoSummaryInput = z.object({
   images: z
     .array(
       z.object({
-        base64: z.string(),
+        base64: z.string().min(1).max(8_000_000),
         mimeType: z.string().default("image/jpeg"),
       }),
     )
@@ -73,17 +82,20 @@ Return this exact JSON shape (no markdown, no extra text):
       },
     }));
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_completion_tokens: 2048,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [{ type: "text", text: userPrompt }, ...imageContent],
-        },
-      ],
-    });
+    const response = await openai.chat.completions.create(
+      {
+        model: "gpt-4o",
+        max_completion_tokens: 2048,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [{ type: "text", text: userPrompt }, ...imageContent],
+          },
+        ],
+      },
+      { signal: aiSignal(30_000) },
+    );
 
     const raw = response.choices[0]?.message?.content ?? "{}";
 

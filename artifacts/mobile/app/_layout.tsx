@@ -17,6 +17,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@workspace/api-client-react";
@@ -28,6 +29,9 @@ import { setTokenGetter, setSignOut } from "@/utils/auth";
 import { reportClientError } from "@/utils/errorReporting";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider, useThemePreference } from "@/context/ThemeContext";
+import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
+import { MediaQueueProvider } from "@/context/MediaQueueContext";
+import { NoteQueueProvider } from "@/context/NoteQueueContext";
 
 // ---------------------------------------------------------------------------
 // Build-time config validation
@@ -213,6 +217,11 @@ function RootLayoutNav() {
     if (lang) setAppLanguage(lang);
   }, [me?.preferredLanguage]);
 
+  // Registers the push token (backend endpoint already existed, unused) and
+  // routes to the relevant screen on notification tap. Same readiness gate
+  // as GlobalVoiceCommandFAB below.
+  usePushNotifications(!!isSignedIn && synced);
+
   const router = useRouter();
   const segments = useSegments();
   const { scheme } = useThemePreference();
@@ -346,6 +355,7 @@ function RootLayoutNav() {
         <Stack.Screen name="invoice/edit" options={{ headerShown: false }} />
         <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="quote/edit" options={{ headerShown: false }} />
+        <Stack.Screen name="change-order/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="calculators" options={{ headerShown: false }} />
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
@@ -430,7 +440,13 @@ function AppRoot() {
         >
           <QueryClientProvider client={queryClient}>
             <I18nextProvider i18n={i18n}>
-              <RootLayoutNav />
+              <OfflineQueueProvider>
+                <MediaQueueProvider>
+                  <NoteQueueProvider>
+                    <RootLayoutNav />
+                  </NoteQueueProvider>
+                </MediaQueueProvider>
+              </OfflineQueueProvider>
             </I18nextProvider>
           </QueryClientProvider>
         </ClerkProvider>

@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { runNativeImageTool } from "./concurrencyLimiter.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,7 +21,7 @@ export async function convertHeicToJpeg(buffer: Buffer): Promise<Buffer> {
   const outPath = join(tmpDir, "output.jpg");
   try {
     await writeFile(inPath, buffer);
-    await execFileAsync("convert", [inPath, outPath]);
+    await runNativeImageTool(() => execFileAsync("convert", [inPath, outPath]));
     return await readFile(outPath);
   } finally {
     await rm(tmpDir, { recursive: true, force: true });
