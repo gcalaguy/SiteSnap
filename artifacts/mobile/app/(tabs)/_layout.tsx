@@ -12,6 +12,14 @@ import { useThemePreference } from "@/context/ThemeContext";
 import { fontFamily } from "@/constants/theme";
 
 function NativeTabLayout() {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <View style={{ flex: 1 }}>
       <NativeTabs>
