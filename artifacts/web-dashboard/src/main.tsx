@@ -24,14 +24,18 @@ if ("serviceWorker" in navigator) {
         reg.active?.scriptURL ??
         reg.waiting?.scriptURL ??
         reg.installing?.scriptURL;
-      if (scriptURL?.endsWith("/service-worker.js")) reg.unregister();
+      if (import.meta.env.DEV || scriptURL?.endsWith("/service-worker.js")) {
+        reg.unregister();
+      }
     }
   });
 }
 if ("caches" in window) {
   caches.keys().then((keys) => {
     for (const key of keys) {
-      if (key.startsWith("sitesnap-v")) caches.delete(key);
+      if (import.meta.env.DEV || key.startsWith("sitesnap-v")) {
+        caches.delete(key);
+      }
     }
   });
 }
@@ -39,22 +43,24 @@ if ("caches" in window) {
 // registerType: "prompt" (vite.config.ts) means a new service worker installs
 // and waits — it never takes over silently. updateSW(true) is what tells it
 // to skip waiting and reload, only once the user clicks "Reload" below.
-const updateSW = registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    toast({
-      title: "Update available",
-      description: "A new version of Site Snap is ready.",
-      action: (
-        <ToastAction altText="Reload" onClick={() => updateSW(true)}>
-          Reload
-        </ToastAction>
-      ),
-    });
-  },
-  onOfflineReady() {
-    toast({ title: "Site Snap is ready to work offline" });
-  },
-});
+const updateSW = import.meta.env.PROD
+  ? registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        toast({
+          title: "Update available",
+          description: "A new version of Site Snap is ready.",
+          action: (
+            <ToastAction altText="Reload" onClick={() => updateSW(true)}>
+              Reload
+            </ToastAction>
+          ),
+        });
+      },
+      onOfflineReady() {
+        toast({ title: "Site Snap is ready to work offline" });
+      },
+    })
+  : () => {};
 
 createRoot(document.getElementById("root")!).render(<App />);
