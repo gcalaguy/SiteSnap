@@ -50,6 +50,12 @@ const missingClerkKey = IS_NATIVE && !CLERK_KEY;
 const missingDomain = IS_NATIVE && !API_DOMAIN;
 const hasMissingConfig = missingClerkKey || missingDomain;
 
+// Configure the API base URL here rather than in an effect: components issue
+// their first queries during the initial render, before any effect runs, and a
+// request sent without a base URL resolves as a relative path against whatever
+// server delivered the bundle instead of the API.
+if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
+
 function MissingConfigScreen() {
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
@@ -155,14 +161,6 @@ function RootLayoutNav() {
   useEffect(() => { queryClientRef.current = queryClient; }, [queryClient]);
   const clerkSignOutRef = useRef(clerkSignOut);
   useEffect(() => { clerkSignOutRef.current = clerkSignOut; }, [clerkSignOut]);
-
-  // Configure base URL once on mount — it never changes between renders.
-  // API_DOMAIN is resolved at module scope from EXPO_PUBLIC_DOMAIN; on native
-  // it was baked in by `eas build`, on web it is injected by the dev server.
-  useEffect(() => {
-    if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
-    return () => setBaseUrl(null);
-  }, []);
 
   // Register auth getter once — uses ref to always call the latest getToken.
   // Mirroring the web dashboard's ClerkAuthTokenSetter pattern (useLayoutEffect +
