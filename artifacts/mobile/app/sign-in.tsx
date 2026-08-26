@@ -45,7 +45,7 @@ export default function SignInScreen() {
   const [error, setError] = useState("");
 
   const handleContinue = async () => {
-    if (!signInLoaded || !signUpLoaded || !email.trim()) return;
+    if (!signInLoaded || !signUpLoaded || !email.trim() || loading) return;
     Keyboard.dismiss();
     setLoading(true);
     setError("");
@@ -85,7 +85,7 @@ export default function SignInScreen() {
   };
 
   const handlePasswordSignIn = async () => {
-    if (!signInLoaded || !password) return;
+    if (!signInLoaded || !password || loading) return;
     Keyboard.dismiss();
     setLoading(true);
     setError("");
@@ -108,7 +108,7 @@ export default function SignInScreen() {
   };
 
   const handleSignUpPassword = async () => {
-    if (!signUpLoaded || !password) return;
+    if (!signUpLoaded || !password || loading) return;
     Keyboard.dismiss();
     setLoading(true);
     setError("");
@@ -125,7 +125,7 @@ export default function SignInScreen() {
   };
 
   const handleVerify = async () => {
-    if (!signInLoaded || !signUpLoaded || !code.trim()) return;
+    if (!signInLoaded || !signUpLoaded || !code.trim() || loading) return;
     Keyboard.dismiss();
     setLoading(true);
     setError("");
