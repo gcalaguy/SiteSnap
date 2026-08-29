@@ -21,6 +21,7 @@ const ALL_TRUE = {
   viewTradeHub: true,
   viewAskAI: true,
   viewProjectCommunications: true,
+  useAiSkills: true,
 };
 
 // P1 fix: deny all permissions during loading / unauthenticated state.

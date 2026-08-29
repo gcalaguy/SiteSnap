@@ -540,6 +540,60 @@ export interface AIGeneratedRFI {
   clarifyingQuestions: string[];
 }
 
+export interface AiSkillMeta {
+  key: string;
+  name: string;
+  description: string;
+  requiresApproval: boolean;
+}
+
+export interface AiSkillGenerateBody {
+  projectId: number;
+  /** @maxLength 8000 */
+  notes: string;
+  attachmentObjectPaths?: string[];
+}
+
+export type AiSkillRunInputs = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type AiSkillRunOutputJson = { [key: string]: unknown } | null;
+
+export type AiSkillRunStatus =
+  (typeof AiSkillRunStatus)[keyof typeof AiSkillRunStatus];
+
+export const AiSkillRunStatus = {
+  draft: "draft",
+  pending_approval: "pending_approval",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface AiSkillRun {
+  id: number;
+  companyId: number;
+  projectId: number;
+  /** @nullable */
+  userId?: number | null;
+  skillKey: string;
+  inputs?: AiSkillRunInputs;
+  /** @nullable */
+  outputText?: string | null;
+  /** @nullable */
+  outputJson?: AiSkillRunOutputJson;
+  status: AiSkillRunStatus;
+  /** @nullable */
+  approvedByUserId?: number | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DashboardSummary {
   totalProjects: number;
   activeProjects: number;
@@ -4009,6 +4063,23 @@ export type DeleteRFI200 = {
 
 export type TranscribeAudio200 = {
   text: string;
+};
+
+export type ListAiSkillRunsParams = {
+  projectId?: number;
+  skillKey?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListAiSkillRuns200 = {
+  data: AiSkillRun[];
+  total: number;
+};
+
+export type RejectAiSkillRunBody = {
+  /** @maxLength 1000 */
+  rejectionReason?: string;
 };
 
 export type MarkAllNotificationsRead200 = {

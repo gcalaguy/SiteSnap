@@ -46,7 +46,7 @@ export default defineConfig({
         // The supersplat 3D viewer is a large (~2.9MB), on-demand, feature-
         // specific bundle — excluded from the app-shell precache so first-load
         // footprint isn't bloated for users who never open it.
-        globIgnores: ["supersplat-viewer/**"],
+        globIgnores: ["supersplat-viewer/**", "service-worker.js"],
       },
       manifest: {
         name: "Site Snap",

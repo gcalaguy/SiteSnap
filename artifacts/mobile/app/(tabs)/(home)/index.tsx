@@ -353,7 +353,11 @@ export default function DashboardScreen() {
     me?.company?.name ??
     me?.memberships?.find((m) => m.companyId === me?.activeCompanyId)?.companyName ??
     null;
-  const allProjects = projects ?? [];
+  // Normalize with Array.isArray, not `?? []`: a non-JSON response (a hosting
+  // interstitial or error page served with a 200) reaches us as a string, and a
+  // string survives `??` only to blow up on `.filter`/`.map` at render time.
+  const allProjects = Array.isArray(projects) ? projects : [];
+  const recentActivity = Array.isArray(activity) ? activity : [];
   const activeProjects = allProjects.filter((p) => p.status === "active" || p.status === "planning");
   const spotlightProjects = isWorker ? allProjects : activeProjects;
   const spotlight = spotlightProjects[0];
@@ -492,10 +496,10 @@ export default function DashboardScreen() {
         <SectionHeader eyebrow="Latest" title="Recent Activity" />
         {activityLoading ? (
           <ActivityIndicator color={colors.primary} />
-        ) : (activity ?? []).length === 0 ? (
+        ) : recentActivity.length === 0 ? (
           <EmptyState icon="activity" title="No recent activity" />
         ) : (
-          (activity ?? []).slice(0, 6).map((item) => <ActivityRow key={item.id} item={item} />)
+          recentActivity.slice(0, 6).map((item) => <ActivityRow key={item.id} item={item} />)
         )}
       </View>
     </ScrollView>

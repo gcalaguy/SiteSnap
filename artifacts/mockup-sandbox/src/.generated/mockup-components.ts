@@ -10,10 +10,10 @@ export const modules: ModuleMap = {
   "./components/mockups/proposals/CommandCenter.tsx": () => import("../components/mockups/proposals/CommandCenter.tsx"),
   "./components/mockups/proposals/KanbanPipeline.tsx": () => import("../components/mockups/proposals/KanbanPipeline.tsx"),
   "./components/mockups/proposals/TimelineActivity.tsx": () => import("../components/mockups/proposals/TimelineActivity.tsx"),
-  "./components/mockups/schemes/SchemeA.tsx": () => import("../components/mockups/schemes/SchemeA.tsx"),
-  "./components/mockups/schemes/SchemeB.tsx": () => import("../components/mockups/schemes/SchemeB.tsx"),
-  "./components/mockups/schemes/SchemeC.tsx": () => import("../components/mockups/schemes/SchemeC.tsx"),
   "./components/mockups/themes/ThemeA.tsx": () => import("../components/mockups/themes/ThemeA.tsx"),
   "./components/mockups/themes/ThemeB.tsx": () => import("../components/mockups/themes/ThemeB.tsx"),
-  "./components/mockups/themes/ThemeC.tsx": () => import("../components/mockups/themes/ThemeC.tsx")
+  "./components/mockups/themes/ThemeC.tsx": () => import("../components/mockups/themes/ThemeC.tsx"),
+  "./components/mockups/schemes/SchemeA.tsx": () => import("../components/mockups/schemes/SchemeA.tsx"),
+  "./components/mockups/schemes/SchemeB.tsx": () => import("../components/mockups/schemes/SchemeB.tsx"),
+  "./components/mockups/schemes/SchemeC.tsx": () => import("../components/mockups/schemes/SchemeC.tsx")
 };

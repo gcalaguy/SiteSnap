@@ -1,4 +1,5 @@
-import { useSignIn, useSignUp } from "@clerk/clerk-expo";
+import { useSSO, useSignIn, useSignUp } from "@clerk/clerk-expo";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
@@ -26,7 +27,19 @@ import { Feather } from "@expo/vector-icons";
 // password is only ever asked for as a fallback when email_code genuinely
 // isn't offered for that account (instead of dead-ending on a contact-support
 // message), and up front for brand-new accounts since Clerk demands it.
+// Accounts created through a social provider on the web dashboard have neither
+// factor — their only first factor is the provider — so those hand off to
+// Clerk's SSO flow rather than dead-ending too.
 type Step = "email" | "code" | "password" | "signup-password";
+
+// @clerk/types is not a direct dependency of this app, so derive the OAuth
+// strategy union from the hook itself rather than importing it. Extracting the
+// branch without `identifier` picks the OAuth arm of startSSOFlow's parameter
+// union, leaving out the enterprise-SSO arm.
+type OAuthStrategy = Extract<
+  Parameters<ReturnType<typeof useSSO>["startSSOFlow"]>[0],
+  { identifier?: undefined }
+>["strategy"];
 
 export default function SignInScreen() {
   const colors = useColors();
@@ -35,6 +48,7 @@ export default function SignInScreen() {
 
   const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -43,6 +57,28 @@ export default function SignInScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const runSSO = async (strategy: OAuthStrategy) => {
+    // Linking.createURL, not AuthSession.makeRedirectUri: importing
+    // expo-auth-session drags expo-crypto (via its PKCE module) into the
+    // bundle, and this app ships JS updates against an already-built binary —
+    // a native module that isn't in that binary crashes on open. expo-linking
+    // is already part of the deep-link path and needs nothing new. Resolves to
+    // sitesnap://sso-callback from the scheme in app.json.
+    const { createdSessionId, setActive } = await startSSOFlow({
+      strategy,
+      redirectUrl: Linking.createURL("sso-callback"),
+    });
+
+    if (createdSessionId && setActive) {
+      await setActive({ session: createdSessionId });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      // The user dismissed the provider sheet, or the provider needs extra
+      // steps Clerk could not complete headlessly.
+      setError("Sign in was not completed. Please try again.");
+    }
+  };
 
   const handleContinue = async () => {
     if (!signInLoaded || !signUpLoaded || !email.trim()) return;
@@ -55,6 +91,9 @@ export default function SignInScreen() {
       const factors = si.supportedFirstFactors ?? [];
       const emailFactor = factors.find((f: any) => f.strategy === "email_code") as any;
       const passwordFactor = factors.find((f: any) => f.strategy === "password") as any;
+      const oauthFactor = factors.find((f: any) =>
+        typeof f?.strategy === "string" && f.strategy.startsWith("oauth_"),
+      ) as any;
 
       if (emailFactor) {
         await signIn!.prepareFirstFactor({
@@ -66,8 +105,19 @@ export default function SignInScreen() {
       } else if (passwordFactor) {
         setIsSignUp(false);
         setStep("password");
+      } else if (oauthFactor) {
+        // Accounts created through a social provider on the web dashboard have
+        // no password and no email_code factor — their only first factor is the
+        // provider itself. Hand off to that provider instead of dead-ending.
+        setIsSignUp(false);
+        await runSSO(oauthFactor.strategy as OAuthStrategy);
       } else {
-        setError("This account can't sign in yet. Please contact support.");
+        const offered = factors.map((f: any) => f?.strategy).filter(Boolean).join(", ");
+        setError(
+          offered
+            ? `This account signs in with ${offered}, which isn't supported in the app yet. Sign in on the web dashboard, or contact support.`
+            : "This account can't sign in yet. Please contact support.",
+        );
       }
     } catch (e: any) {
       const code0 = e?.errors?.[0]?.code;

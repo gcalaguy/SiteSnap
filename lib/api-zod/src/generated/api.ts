@@ -4984,6 +4984,145 @@ export const TranscribeAudioResponse = zod.object({
 });
 
 /**
+ * @summary List available AI document-drafting skills (filtered by role)
+ */
+export const ListAiSkillsResponseItem = zod.object({
+  key: zod.string(),
+  name: zod.string(),
+  description: zod.string(),
+  requiresApproval: zod.boolean(),
+});
+export const ListAiSkillsResponse = zod.array(ListAiSkillsResponseItem);
+
+/**
+ * @summary Generate a draft document using the given skill
+ */
+export const GenerateAiSkillDraftParams = zod.object({
+  skillKey: zod.coerce.string(),
+});
+
+export const generateAiSkillDraftBodyNotesMax = 8000;
+
+export const GenerateAiSkillDraftBody = zod.object({
+  projectId: zod.number(),
+  notes: zod.string().max(generateAiSkillDraftBodyNotesMax),
+  attachmentObjectPaths: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary List past AI skill runs, scoped to the caller's accessible projects
+ */
+export const ListAiSkillRunsQueryParams = zod.object({
+  projectId: zod.coerce.number().optional(),
+  skillKey: zod.coerce.string().optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListAiSkillRunsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      projectId: zod.number(),
+      userId: zod.number().nullish(),
+      skillKey: zod.string(),
+      inputs: zod.object({}).passthrough().optional(),
+      outputText: zod.string().nullish(),
+      outputJson: zod.object({}).passthrough().nullish(),
+      status: zod.enum(["draft", "pending_approval", "approved", "rejected"]),
+      approvedByUserId: zod.number().nullish(),
+      approvedAt: zod.coerce.date().nullish(),
+      rejectionReason: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get a single AI skill run
+ */
+export const GetAiSkillRunParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAiSkillRunResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  userId: zod.number().nullish(),
+  skillKey: zod.string(),
+  inputs: zod.object({}).passthrough().optional(),
+  outputText: zod.string().nullish(),
+  outputJson: zod.object({}).passthrough().nullish(),
+  status: zod.enum(["draft", "pending_approval", "approved", "rejected"]),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Approve a pending AI skill run (owner/foreman only)
+ */
+export const ApproveAiSkillRunParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveAiSkillRunResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  userId: zod.number().nullish(),
+  skillKey: zod.string(),
+  inputs: zod.object({}).passthrough().optional(),
+  outputText: zod.string().nullish(),
+  outputJson: zod.object({}).passthrough().nullish(),
+  status: zod.enum(["draft", "pending_approval", "approved", "rejected"]),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Reject a pending AI skill run (owner/foreman only)
+ */
+export const RejectAiSkillRunParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const rejectAiSkillRunBodyRejectionReasonMax = 1000;
+
+export const RejectAiSkillRunBody = zod.object({
+  rejectionReason: zod
+    .string()
+    .max(rejectAiSkillRunBodyRejectionReasonMax)
+    .optional(),
+});
+
+export const RejectAiSkillRunResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  userId: zod.number().nullish(),
+  skillKey: zod.string(),
+  inputs: zod.object({}).passthrough().optional(),
+  outputText: zod.string().nullish(),
+  outputJson: zod.object({}).passthrough().nullish(),
+  status: zod.enum(["draft", "pending_approval", "approved", "rejected"]),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Get company-wide dashboard summary (active projects, reports this week, pending RFIs, spend totals)
  */
 export const GetDashboardSummaryResponse = zod.object({

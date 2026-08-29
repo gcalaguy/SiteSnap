@@ -3248,6 +3248,151 @@ paths:
                   text:
                     type: string
 
+  # ── AI Skills (document drafting) ────────────────────────────────────────────
+  /ai/skills:
+    get:
+      operationId: listAiSkills
+      tags: [aiSkills]
+      summary: List available AI document-drafting skills (filtered by role)
+      responses:
+        "200":
+          description: Available skills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiSkillMeta"
+
+  /ai/skills/{skillKey}/generate:
+    post:
+      operationId: generateAiSkillDraft
+      tags: [aiSkills]
+      summary: Generate a draft document using the given skill
+      parameters:
+        - name: skillKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiSkillGenerateBody"
+      responses:
+        "201":
+          description: The created AI skill run (draft or pending approval)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSkillRun"
+
+  /ai/skills/runs:
+    get:
+      operationId: listAiSkillRuns
+      tags: [aiSkills]
+      summary: List past AI skill runs, scoped to the caller's accessible projects
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: integer
+        - name: skillKey
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AI skill runs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AiSkillRun"
+                  total:
+                    type: integer
+
+  /ai/skills/runs/{id}:
+    get:
+      operationId: getAiSkillRun
+      tags: [aiSkills]
+      summary: Get a single AI skill run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AI skill run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSkillRun"
+
+  /ai/skills/runs/{id}/approve:
+    post:
+      operationId: approveAiSkillRun
+      tags: [aiSkills]
+      summary: Approve a pending AI skill run (owner/foreman only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSkillRun"
+
+  /ai/skills/runs/{id}/reject:
+    post:
+      operationId: rejectAiSkillRun
+      tags: [aiSkills]
+      summary: Reject a pending AI skill run (owner/foreman only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectionReason:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Rejected run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSkillRun"
+
   # ── Dashboard ──────────────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -7078,6 +7223,71 @@ components:
           items:
             type: string
       required: [formalSubject, formalDescription, suggestedResponse, clarifyingQuestions]
+
+    # ── AI Skills (document drafting) ────────────────────────────────────────────
+    AiSkillMeta:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        requiresApproval:
+          type: boolean
+      required: [key, name, description, requiresApproval]
+
+    AiSkillGenerateBody:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        notes:
+          type: string
+          maxLength: 8000
+        attachmentObjectPaths:
+          type: array
+          items:
+            type: string
+      required: [projectId, notes]
+
+    AiSkillRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+        userId:
+          type: ["integer", "null"]
+        skillKey:
+          type: string
+        inputs:
+          type: object
+        outputText:
+          type: ["string", "null"]
+        outputJson:
+          type: ["object", "null"]
+        status:
+          type: string
+          enum: [draft, pending_approval, approved, rejected]
+        approvedByUserId:
+          type: ["integer", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, companyId, projectId, skillKey, status, createdAt, updatedAt]
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
     DashboardSummary:

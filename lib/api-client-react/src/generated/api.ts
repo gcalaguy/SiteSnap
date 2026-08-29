@@ -33,6 +33,9 @@ import type {
   AddTradehubCommentBody,
   AddonBody,
   AddonRecord,
+  AiSkillGenerateBody,
+  AiSkillMeta,
+  AiSkillRun,
   ApplyToTradehubJobBody,
   ApproveProposalBody,
   ApproveTimesheetBody,
@@ -159,6 +162,8 @@ import type {
   InvoicePaymentSummary,
   LeadActivity,
   LeadWithContact,
+  ListAiSkillRuns200,
+  ListAiSkillRunsParams,
   ListAllDailyReportsParams,
   ListAllInvoicesParams,
   ListAllQuotesParams,
@@ -228,6 +233,7 @@ import type {
   RecordPaymentBody,
   RegisterDocumentBody,
   RegisterFileBody,
+  RejectAiSkillRunBody,
   RejectQuoteBody,
   Rfi,
   SafetySignoffRecord,
@@ -13976,6 +13982,520 @@ export const useTranscribeAudio = <
   TContext
 > => {
   return useMutation(getTranscribeAudioMutationOptions(options));
+};
+
+/**
+ * @summary List available AI document-drafting skills (filtered by role)
+ */
+export const getListAiSkillsUrl = () => {
+  return `/api/ai/skills`;
+};
+
+export const listAiSkills = async (
+  options?: RequestInit,
+): Promise<AiSkillMeta[]> => {
+  return customFetch<AiSkillMeta[]>(getListAiSkillsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiSkillsQueryKey = () => {
+  return [`/api/ai/skills`] as const;
+};
+
+export const getListAiSkillsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiSkills>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSkills>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiSkillsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiSkills>>> = ({
+    signal,
+  }) => listAiSkills({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSkills>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiSkillsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiSkills>>
+>;
+export type ListAiSkillsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List available AI document-drafting skills (filtered by role)
+ */
+
+export function useListAiSkills<
+  TData = Awaited<ReturnType<typeof listAiSkills>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSkills>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiSkillsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate a draft document using the given skill
+ */
+export const getGenerateAiSkillDraftUrl = (skillKey: string) => {
+  return `/api/ai/skills/${skillKey}/generate`;
+};
+
+export const generateAiSkillDraft = async (
+  skillKey: string,
+  aiSkillGenerateBody: AiSkillGenerateBody,
+  options?: RequestInit,
+): Promise<AiSkillRun> => {
+  return customFetch<AiSkillRun>(getGenerateAiSkillDraftUrl(skillKey), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiSkillGenerateBody),
+  });
+};
+
+export const getGenerateAiSkillDraftMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiSkillDraft>>,
+    TError,
+    { skillKey: string; data: BodyType<AiSkillGenerateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateAiSkillDraft>>,
+  TError,
+  { skillKey: string; data: BodyType<AiSkillGenerateBody> },
+  TContext
+> => {
+  const mutationKey = ["generateAiSkillDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateAiSkillDraft>>,
+    { skillKey: string; data: BodyType<AiSkillGenerateBody> }
+  > = (props) => {
+    const { skillKey, data } = props ?? {};
+
+    return generateAiSkillDraft(skillKey, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateAiSkillDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateAiSkillDraft>>
+>;
+export type GenerateAiSkillDraftMutationBody = BodyType<AiSkillGenerateBody>;
+export type GenerateAiSkillDraftMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a draft document using the given skill
+ */
+export const useGenerateAiSkillDraft = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiSkillDraft>>,
+    TError,
+    { skillKey: string; data: BodyType<AiSkillGenerateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateAiSkillDraft>>,
+  TError,
+  { skillKey: string; data: BodyType<AiSkillGenerateBody> },
+  TContext
+> => {
+  return useMutation(getGenerateAiSkillDraftMutationOptions(options));
+};
+
+/**
+ * @summary List past AI skill runs, scoped to the caller's accessible projects
+ */
+export const getListAiSkillRunsUrl = (params?: ListAiSkillRunsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/ai/skills/runs?${stringifiedParams}`
+    : `/api/ai/skills/runs`;
+};
+
+export const listAiSkillRuns = async (
+  params?: ListAiSkillRunsParams,
+  options?: RequestInit,
+): Promise<ListAiSkillRuns200> => {
+  return customFetch<ListAiSkillRuns200>(getListAiSkillRunsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiSkillRunsQueryKey = (params?: ListAiSkillRunsParams) => {
+  return [`/api/ai/skills/runs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAiSkillRunsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiSkillRuns>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAiSkillRunsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiSkillRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiSkillRunsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiSkillRuns>>> = ({
+    signal,
+  }) => listAiSkillRuns(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSkillRuns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiSkillRunsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiSkillRuns>>
+>;
+export type ListAiSkillRunsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List past AI skill runs, scoped to the caller's accessible projects
+ */
+
+export function useListAiSkillRuns<
+  TData = Awaited<ReturnType<typeof listAiSkillRuns>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAiSkillRunsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiSkillRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiSkillRunsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single AI skill run
+ */
+export const getGetAiSkillRunUrl = (id: number) => {
+  return `/api/ai/skills/runs/${id}`;
+};
+
+export const getAiSkillRun = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AiSkillRun> => {
+  return customFetch<AiSkillRun>(getGetAiSkillRunUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAiSkillRunQueryKey = (id: number) => {
+  return [`/api/ai/skills/runs/${id}`] as const;
+};
+
+export const getGetAiSkillRunQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAiSkillRun>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSkillRun>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAiSkillRunQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiSkillRun>>> = ({
+    signal,
+  }) => getAiSkillRun(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAiSkillRun>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAiSkillRunQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAiSkillRun>>
+>;
+export type GetAiSkillRunQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a single AI skill run
+ */
+
+export function useGetAiSkillRun<
+  TData = Awaited<ReturnType<typeof getAiSkillRun>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSkillRun>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAiSkillRunQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve a pending AI skill run (owner/foreman only)
+ */
+export const getApproveAiSkillRunUrl = (id: number) => {
+  return `/api/ai/skills/runs/${id}/approve`;
+};
+
+export const approveAiSkillRun = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AiSkillRun> => {
+  return customFetch<AiSkillRun>(getApproveAiSkillRunUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveAiSkillRunMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveAiSkillRun>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveAiSkillRun>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["approveAiSkillRun"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveAiSkillRun>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveAiSkillRun(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveAiSkillRunMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveAiSkillRun>>
+>;
+
+export type ApproveAiSkillRunMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve a pending AI skill run (owner/foreman only)
+ */
+export const useApproveAiSkillRun = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveAiSkillRun>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveAiSkillRun>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getApproveAiSkillRunMutationOptions(options));
+};
+
+/**
+ * @summary Reject a pending AI skill run (owner/foreman only)
+ */
+export const getRejectAiSkillRunUrl = (id: number) => {
+  return `/api/ai/skills/runs/${id}/reject`;
+};
+
+export const rejectAiSkillRun = async (
+  id: number,
+  rejectAiSkillRunBody: RejectAiSkillRunBody,
+  options?: RequestInit,
+): Promise<AiSkillRun> => {
+  return customFetch<AiSkillRun>(getRejectAiSkillRunUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rejectAiSkillRunBody),
+  });
+};
+
+export const getRejectAiSkillRunMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectAiSkillRun>>,
+    TError,
+    { id: number; data: BodyType<RejectAiSkillRunBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectAiSkillRun>>,
+  TError,
+  { id: number; data: BodyType<RejectAiSkillRunBody> },
+  TContext
+> => {
+  const mutationKey = ["rejectAiSkillRun"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectAiSkillRun>>,
+    { id: number; data: BodyType<RejectAiSkillRunBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rejectAiSkillRun(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectAiSkillRunMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectAiSkillRun>>
+>;
+export type RejectAiSkillRunMutationBody = BodyType<RejectAiSkillRunBody>;
+export type RejectAiSkillRunMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reject a pending AI skill run (owner/foreman only)
+ */
+export const useRejectAiSkillRun = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectAiSkillRun>>,
+    TError,
+    { id: number; data: BodyType<RejectAiSkillRunBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectAiSkillRun>>,
+  TError,
+  { id: number; data: BodyType<RejectAiSkillRunBody> },
+  TContext
+> => {
+  return useMutation(getRejectAiSkillRunMutationOptions(options));
 };
 
 /**

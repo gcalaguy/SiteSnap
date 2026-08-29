@@ -31,6 +31,7 @@ import {
   Download,
   DollarSign,
   Inbox,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
@@ -218,6 +219,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     // reachable from there (mirrors the mobile app's Communications grouping).
     { name: "Communications", href: "/uncategorized-emails", icon: Inbox, badge: 0, featureKey: "COMMS_HUB", permissionKey: "viewProjectCommunications", section: "operations" },
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI", section: "operations" },
+    { name: "AI Skills", href: "/ai-skills", icon: Sparkles, badge: 0, featureKey: "AI_SKILLS", permissionKey: "viewAskAI", section: "operations" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL", section: "operations" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, section: "operations" }] : []),
     // Consolidated pre-construction & billing lifecycle hub — Estimates & Proposals /

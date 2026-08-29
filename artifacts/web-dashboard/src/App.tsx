@@ -20,6 +20,8 @@ import NewRFI from "@/pages/new-rfi";
 import Team from "@/pages/team";
 import Settings from "@/pages/settings";
 import AIChat from "@/pages/ai-chat";
+import AiSkillsPage from "@/pages/ai-skills";
+import AiSkillDetailPage from "@/pages/ai-skill-detail";
 import OnboardingPage from "@/pages/onboarding";
 import SmartEstimatorPage from "@/pages/smart-estimator";
 import QuoteDetail from "@/pages/quote-detail";
@@ -73,7 +75,7 @@ import CommunicationsSearchPage from "@/pages/communications-search";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PermissionGuard, RoleGuard } from "@/components/FeatureGuard";
+import { PermissionGuard, RoleGuard, FeatureGuard } from "@/components/FeatureGuard";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -319,6 +321,8 @@ function AuthApp() {
           <Route path="/admin" component={AdminPage} />
           <Route path="/super-admin" component={SuperAdminPage} />
           <Route path="/ai-chat"><PermissionGuard permissionKey="viewAskAI"><AIChat /></PermissionGuard></Route>
+          <Route path="/ai-skills"><PermissionGuard permissionKey="viewAskAI"><FeatureGuard feature="AI_SKILLS"><AiSkillsPage /></FeatureGuard></PermissionGuard></Route>
+          <Route path="/ai-skills/:skillKey"><PermissionGuard permissionKey="viewAskAI"><FeatureGuard feature="AI_SKILLS"><AiSkillDetailPage /></FeatureGuard></PermissionGuard></Route>
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
           <Route path="/workforce" component={WorkforcePage} />

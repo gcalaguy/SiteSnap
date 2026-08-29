@@ -123,6 +123,21 @@ function isJsonMediaType(mediaType: string | null): boolean {
   return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
 }
 
+function isHtmlMediaType(mediaType: string | null): boolean {
+  return mediaType === "text/html" || mediaType === "application/xhtml+xml";
+}
+
+// No endpoint in this API ever answers a successful request with a web page.
+// When one comes back it is an infrastructure response wearing a 200 — a
+// hosting interstitial while the deployment cold-starts, a proxy error page, or
+// an SPA index.html served by a catch-all route for a path the deployed server
+// does not know. Detect it by shape too: those pages sometimes arrive with no
+// content-type at all.
+function looksLikeHtml(text: string): boolean {
+  const head = text.trimStart().slice(0, 64).toLowerCase();
+  return head.startsWith("<!doctype html") || head.startsWith("<html");
+}
+
 function isTextMediaType(mediaType: string | null): boolean {
   return Boolean(
     mediaType &&
@@ -352,6 +367,24 @@ async function parseSuccessBody(
 
     case "text": {
       const text = await response.text();
+
+      // Only guard inferred text: a caller that explicitly asked for "text"
+      // wants whatever the body is. Throwing here (rather than handing the page
+      // back as data) keeps HTML out of components that expect a parsed
+      // payload, and — because a ResponseParseError counts as retryable — lets
+      // a GET ride out a cold start instead of rendering the interstitial.
+      if (
+        responseType === "auto" &&
+        (isHtmlMediaType(getMediaType(response.headers)) || looksLikeHtml(text))
+      ) {
+        throw new ResponseParseError(
+          response,
+          text,
+          new TypeError("Expected an API response but received an HTML document"),
+          requestInfo,
+        );
+      }
+
       return text === "" ? null : text;
     }
 

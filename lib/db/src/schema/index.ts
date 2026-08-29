@@ -32,6 +32,7 @@ export * from "./backup";
 export * from "./psi";
 export * from "./documentTemplates";
 export * from "./communications";
+export * from "./aiSkills";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 // Cross-file FK target for project_documents.source_email_attachment_id
@@ -169,6 +170,7 @@ export const memberPermissionsSchema = z.object({
   viewProjectCommunications: z.boolean().optional(),
   manageFilingRules: z.boolean().optional(),
   managePricing: z.boolean().optional(),
+  useAiSkills: z.boolean().optional(),
 });
 export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
 

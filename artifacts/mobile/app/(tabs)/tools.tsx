@@ -27,6 +27,7 @@ export default function ToolsScreen() {
     perms.viewSafetyTab && { key: "scan-photo-history", icon: "clock", label: "Scan Photo History", subtitle: "Review or remove your AI Safety Scan photos", onPress: () => safeNavigate(router, "/(tabs)/(home)/scan-photo-history", "tools:scan-photo-history") },
     perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "tools:expenses") },
     perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => safeNavigate(router, "/(tabs)/(home)/ask", "tools:ask-ai") },
+    perms.viewAskAI && { key: "ai-skills", icon: "file-text", label: "AI Skills", subtitle: "Draft RFIs, reports & more", onPress: () => safeNavigate(router, "/(tabs)/(home)/ai-skills", "tools:ai-skills") },
     perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/risk", "tools:risk") },
     perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/tradehub", "tools:tradehub") },
     perms.viewProjectCommunications && { key: "uncategorized-emails", icon: "inbox", label: "Uncategorized Emails", subtitle: "Emails waiting to be filed to a project", onPress: () => safeNavigate(router, "/uncategorized-emails", "tools:uncategorized-emails") },
