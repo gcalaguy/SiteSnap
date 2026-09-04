@@ -142,11 +142,12 @@ function getExpoPublicReplId() {
 }
 
 // The Clerk publishable key is inlined into the JS bundle by babel-preset-expo
-// at bundle time — it is not read at runtime. A published *.replit.app domain
-// is served by a Clerk *production* instance whose API server rejects tokens
-// from any other instance, so a bundle built with a pk_test_ key produces an
-// app that signs in against the wrong user directory and then 401s on every
-// API call. Surface that here rather than shipping a bundle that can only fail.
+// at bundle time — it is not read at runtime. The key's instance (pk_test_ vs
+// pk_live_) must match the Clerk instance the API server validates against
+// (its sk_ secret); the deployed sitesnapdemo server currently runs the
+// development instance, so pk_test_ is the correct key for it. Key class
+// alone says nothing about correctness — only the pairing does — so the only
+// warning kept here is for the key being absent entirely.
 function getClerkPublishableKey(domain) {
   const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
 
@@ -154,14 +155,6 @@ function getClerkPublishableKey(domain) {
     console.warn(
       "WARNING: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. The bundle will " +
         "boot straight into the 'App Not Configured' screen.",
-    );
-  } else if (key.startsWith("pk_test_") && /\.replit\.app$/i.test(domain)) {
-    console.warn(
-      `WARNING: building against the published domain ${domain} with a Clerk ` +
-        "development key (pk_test_…). That deployment runs a Clerk production " +
-        "instance, which is a separate user directory and will reject every " +
-        "token this bundle mints — the app will load, spin, and log itself out. " +
-        "Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to the matching pk_live_… key.",
     );
   }
 

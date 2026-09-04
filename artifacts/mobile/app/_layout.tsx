@@ -49,59 +49,15 @@ const IS_NATIVE = Platform.OS !== "web";
 const missingClerkKey = IS_NATIVE && !CLERK_KEY;
 const missingDomain = IS_NATIVE && !API_DOMAIN;
 
-// A published *.replit.app deployment runs a Clerk *production* instance, and
-// its API server only accepts session tokens minted by that instance. A build
-// carrying a pk_test_ key authenticates against a completely separate Clerk
-// user directory, so every /api call comes back 401 — which the QueryCache
-// error handler below turns into an automatic sign-out. The symptom is an app
-// that opens, spins on every screen, then drops back to the login screen with
-// no explanation, while real accounts from the web dashboard cannot sign in at
-// all because they do not exist in the test directory. Fail loudly here
-// instead, where the cause is nameable: the fix is a rebuild, and no amount of
-// retrying in the app can work around it.
-const clerkInstanceMismatch =
-  IS_NATIVE &&
-  CLERK_KEY.startsWith("pk_test_") &&
-  /(^|\.)replit\.app$/i.test(API_DOMAIN);
-
-const hasMissingConfig = missingClerkKey || missingDomain || clerkInstanceMismatch;
-
-function ClerkInstanceMismatchScreen() {
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
-
-  return (
-    <View style={cfgStyles.root}>
-      <ScrollView contentContainerStyle={cfgStyles.content}>
-        <Text style={cfgStyles.icon}>⚠️</Text>
-        <Text style={cfgStyles.title}>Wrong Auth Environment</Text>
-        <Text style={cfgStyles.body}>
-          This build signs in against a Clerk{" "}
-          <Text style={cfgStyles.code}>development</Text> instance, but{" "}
-          <Text style={cfgStyles.code}>{API_DOMAIN}</Text> is a published
-          deployment running a Clerk <Text style={cfgStyles.code}>production</Text>{" "}
-          instance. They are separate user directories, so accounts that work on
-          the web dashboard do not exist here and every API call is rejected.
-        </Text>
-        <Text style={cfgStyles.sectionLabel}>Baked into this build:</Text>
-        <Text style={cfgStyles.varRow}>
-          • EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = {CLERK_KEY.slice(0, 8)}…
-        </Text>
-        <Text style={cfgStyles.varRow}>• EXPO_PUBLIC_DOMAIN = {API_DOMAIN}</Text>
-        <Text style={cfgStyles.body}>
-          {"\n"}To fix, set the production key in{" "}
-          <Text style={cfgStyles.code}>eas.json</Text> (it starts with{" "}
-          <Text style={cfgStyles.code}>pk_live_</Text>, and must match the
-          dashboard&apos;s VITE_CLERK_PUBLISHABLE_KEY) and rebuild:{"\n"}
-          {"   "}eas build --profile production --platform ios{"\n"}
-          {"\n"}The key is compiled into the JS bundle at build time, so a
-          redeploy of the server alone will not change it.
-        </Text>
-      </ScrollView>
-    </View>
-  );
-}
+// NOTE: a pk_test_ key against a *.replit.app API domain is a VALID pairing
+// here — the deployed API server also runs against the Clerk development
+// instance (sk_test), and all real accounts live in that directory. A
+// key-class guard was briefly added on the opposite assumption and removed
+// once the deployment was inspected: the app cannot know at build time which
+// Clerk instance the server validates against, so key class alone proves
+// nothing. The invariant that actually matters (app key and server secret
+// belong to the same instance) is only checkable server-side.
+const hasMissingConfig = missingClerkKey || missingDomain;
 
 // Configure the API base URL here rather than in an effect: components issue
 // their first queries during the initial render, before any effect runs, and a
@@ -540,7 +496,6 @@ export default function RootLayout() {
   // Guard: if EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY or EXPO_PUBLIC_DOMAIN were not
   // baked into the native bundle at EAS build time, show a diagnostic screen
   // instead of crashing silently or spinning forever.
-  if (clerkInstanceMismatch) return <ClerkInstanceMismatchScreen />;
   if (hasMissingConfig) return <MissingConfigScreen />;
   return <AppRoot />;
 }
