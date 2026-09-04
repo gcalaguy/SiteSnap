@@ -103,7 +103,10 @@ export default function SignInScreen() {
         (f: any) => f.strategy === "reset_password_email_code",
       ) as any;
 
-      if (emailFactor) {
+      if (si.status === "complete" && si.createdSessionId) {
+        await setSignInActive!({ session: si.createdSessionId });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (emailFactor) {
         await signIn!.prepareFirstFactor({
           strategy: "email_code",
           emailAddressId: emailFactor.emailAddressId,
@@ -127,12 +130,12 @@ export default function SignInScreen() {
         setIsSignUp(false);
         await startReset();
       } else {
-        const offered = factors.map((f: any) => f?.strategy).filter(Boolean).join(", ");
-        setError(
-          offered
-            ? `This account signs in with ${offered}, which isn't supported in the app yet. Sign in on the web dashboard, or contact support.`
-            : "This account can't sign in yet. Please contact support.",
-        );
+        // Clerk can return an empty supportedFirstFactors list for an existing,
+        // verified password account during identifier-first sign-in. Do not
+        // strand that user: the active attempt can still accept a password,
+        // and the password screen also provides the reset-code escape hatch.
+        setIsSignUp(false);
+        setStep("password");
       }
     } catch (e: any) {
       const code0 = e?.errors?.[0]?.code;
