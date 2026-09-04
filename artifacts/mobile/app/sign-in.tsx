@@ -35,7 +35,15 @@ import { Feather } from "@expo/vector-icons";
 // password (the password step had no way out before) and the last resort when
 // no other first factor is usable, so it is wired up rather than left to a
 // "contact support" dead end.
-type Step = "email" | "code" | "password" | "signup-password" | "reset";
+type Step =
+  | "email"
+  | "code"
+  | "password"
+  | "signup-password"
+  | "reset"
+  | "second-code"
+  | "new-password";
+type SecondFactorStrategy = "email_code" | "totp" | "backup_code";
 
 // @clerk/types is not a direct dependency of this app, so derive the OAuth
 // strategy union from the hook itself rather than importing it. Extracting the
@@ -60,6 +68,8 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<Step>("email");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [secondFactorStrategy, setSecondFactorStrategy] =
+    useState<SecondFactorStrategy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -85,6 +95,62 @@ export default function SignInScreen() {
     }
   };
 
+  const continueSignIn = async (result: any): Promise<boolean> => {
+    if (result.status === "complete" && result.createdSessionId) {
+      await setSignInActive!({ session: result.createdSessionId });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return true;
+    }
+
+    if (result.status === "needs_new_password") {
+      setPassword("");
+      setStep("new-password");
+      return true;
+    }
+
+    if (result.status === "needs_second_factor") {
+      const factors = result.supportedSecondFactors ?? [];
+      const emailCodeFactor = factors.find(
+        (factor: any) => factor.strategy === "email_code",
+      ) as any;
+      const totpFactor = factors.find((factor: any) => factor.strategy === "totp");
+      const backupCodeFactor = factors.find(
+        (factor: any) => factor.strategy === "backup_code",
+      );
+
+      setCode("");
+      if (emailCodeFactor) {
+        await signIn!.prepareSecondFactor({
+          strategy: "email_code",
+          emailAddressId: emailCodeFactor.emailAddressId,
+        });
+        setSecondFactorStrategy("email_code");
+        setStep("second-code");
+        return true;
+      }
+      if (totpFactor) {
+        setSecondFactorStrategy("totp");
+        setStep("second-code");
+        return true;
+      }
+      if (backupCodeFactor) {
+        setSecondFactorStrategy("backup_code");
+        setStep("second-code");
+        return true;
+      }
+
+      setError("This account requires an additional verification method that the app does not support yet.");
+      return false;
+    }
+
+    setError(
+      `Sign in could not continue${
+        result.status ? ` (${String(result.status).replaceAll("_", " ")})` : ""
+      }. Please go back and try again.`,
+    );
+    return false;
+  };
+
   const handleContinue = async () => {
     if (!signInLoaded || !signUpLoaded || !email.trim() || loading) return;
     Keyboard.dismiss();
@@ -104,8 +170,7 @@ export default function SignInScreen() {
       ) as any;
 
       if (si.status === "complete" && si.createdSessionId) {
-        await setSignInActive!({ session: si.createdSessionId });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await continueSignIn(si);
       } else if (emailFactor) {
         await signIn!.prepareFirstFactor({
           strategy: "email_code",
@@ -201,16 +266,7 @@ export default function SignInScreen() {
         code: code.trim(),
         password,
       });
-      if (result.status === "complete") {
-        await setSignInActive!({ session: result.createdSessionId });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else if (result.status === "needs_second_factor") {
-        setError(
-          "This account has two-factor authentication turned on, which isn't supported in the app yet. Sign in on the web dashboard.",
-        );
-      } else {
-        setError("Password reset incomplete. Please try again.");
-      }
+      await continueSignIn(result);
     } catch (e: any) {
       const errMsg =
         e?.errors?.[0]?.longMessage ??
@@ -231,15 +287,58 @@ export default function SignInScreen() {
 
     try {
       const result = await signIn!.attemptFirstFactor({ strategy: "password", password });
-      if (result.status === "complete") {
-        await setSignInActive!({ session: result.createdSessionId });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        setError("Sign in incomplete. Please try again.");
-      }
+      await continueSignIn(result);
     } catch (e: any) {
       const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Incorrect password. Please try again.";
       setError(errMsg);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewPassword = async () => {
+    if (!signInLoaded || !password || loading) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signIn!.resetPassword({
+        password,
+        signOutOfOtherSessions: false,
+      });
+      await continueSignIn(result);
+    } catch (e: any) {
+      setError(
+        e?.errors?.[0]?.longMessage ??
+          e?.errors?.[0]?.message ??
+          "Could not set your new password. Please try again.",
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSecondFactor = async () => {
+    if (!signInLoaded || !secondFactorStrategy || !code.trim() || loading) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signIn!.attemptSecondFactor({
+        strategy: secondFactorStrategy,
+        code: code.trim(),
+      });
+      await continueSignIn(result);
+    } catch (e: any) {
+      setError(
+        e?.errors?.[0]?.longMessage ??
+          e?.errors?.[0]?.message ??
+          "Invalid verification code. Please try again.",
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -283,12 +382,7 @@ export default function SignInScreen() {
           strategy: "email_code",
           code: code.trim(),
         });
-        if (result.status === "complete") {
-          await setSignInActive!({ session: result.createdSessionId });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          setError("Sign in incomplete. Please try again.");
-        }
+        await continueSignIn(result);
       }
     } catch (e: any) {
       const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code. Please try again.";
@@ -306,7 +400,15 @@ export default function SignInScreen() {
     setCode("");
 
     try {
-      if (step === "reset") {
+      if (step === "second-code" && secondFactorStrategy === "email_code") {
+        const emailFactor = signIn!.supportedSecondFactors?.find(
+          (factor: any) => factor.strategy === "email_code",
+        ) as any;
+        await signIn!.prepareSecondFactor({
+          strategy: "email_code",
+          emailAddressId: emailFactor?.emailAddressId,
+        });
+      } else if (step === "reset") {
         // Clerk needs the email address id even on a re-prepare; it is on the
         // factor entry that signIn.create populated.
         const resetFactor = signIn!.supportedFirstFactors?.find(
@@ -340,6 +442,7 @@ export default function SignInScreen() {
     setStep("email");
     setCode("");
     setPassword("");
+    setSecondFactorStrategy(null);
     setError("");
   };
 
@@ -588,6 +691,58 @@ export default function SignInScreen() {
             </>
           )}
 
+          {step === "new-password" && (
+            <>
+              <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
+                <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
+                <Text style={s.backText}>Back</Text>
+              </TouchableOpacity>
+
+              <Text style={s.formTitle}>Create a new password</Text>
+              <Text style={s.formSubtitle}>
+                Your current password was accepted, but this account requires a new password
+                before sign-in can finish.
+              </Text>
+
+              {!!error && (
+                <View style={s.error}>
+                  <Text style={s.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Text style={s.label}>New password</Text>
+              <TextInput
+                style={s.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="At least 8 characters"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleNewPassword}
+                returnKeyType="done"
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={[s.button, (!password || loading) && { opacity: 0.5 }]}
+                onPress={handleNewPassword}
+                disabled={!password || loading}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Set new password and sign in"
+                accessibilityState={{ disabled: !password || loading }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.buttonText}>Set Password & Sign In</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
           {step === "reset" && (
             <>
               <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
@@ -713,15 +868,27 @@ export default function SignInScreen() {
             </>
           )}
 
-          {step === "code" && (
+          {(step === "code" || step === "second-code") && (
             <>
               <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
                 <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
                 <Text style={s.backText}>Back</Text>
               </TouchableOpacity>
 
-              <Text style={s.formTitle}>Check your email</Text>
-              <Text style={s.formSubtitle}>Enter the 6-digit code sent to {email}</Text>
+              <Text style={s.formTitle}>
+                {step === "second-code" && secondFactorStrategy === "totp"
+                  ? "Enter authenticator code"
+                  : step === "second-code" && secondFactorStrategy === "backup_code"
+                    ? "Enter a backup code"
+                    : "Check your email"}
+              </Text>
+              <Text style={s.formSubtitle}>
+                {step === "second-code" && secondFactorStrategy === "totp"
+                  ? "Enter the code from your authenticator app"
+                  : step === "second-code" && secondFactorStrategy === "backup_code"
+                    ? "Enter one of your saved backup codes"
+                    : `Enter the 6-digit code sent to ${email}`}
+              </Text>
 
               {!!error && (
                 <View style={s.error}>
@@ -736,16 +903,24 @@ export default function SignInScreen() {
                 onChangeText={setCode}
                 placeholder="000000"
                 placeholderTextColor={colors.mutedForeground}
-                keyboardType="number-pad"
-                maxLength={6}
-                onSubmitEditing={handleVerify}
+                keyboardType={
+                  step === "second-code" && secondFactorStrategy === "backup_code"
+                    ? "default"
+                    : "number-pad"
+                }
+                maxLength={
+                  step === "second-code" && secondFactorStrategy === "backup_code"
+                    ? undefined
+                    : 6
+                }
+                onSubmitEditing={step === "second-code" ? handleSecondFactor : handleVerify}
                 returnKeyType="done"
                 autoFocus
               />
 
               <TouchableOpacity
                 style={[s.button, (!code.trim() || loading) && { opacity: 0.5 }]}
-                onPress={handleVerify}
+                onPress={step === "second-code" ? handleSecondFactor : handleVerify}
                 disabled={!code.trim() || loading}
                 activeOpacity={0.8}
                 accessibilityRole="button"
@@ -760,17 +935,19 @@ export default function SignInScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleResend}
-                disabled={loading}
-                activeOpacity={0.7}
-                style={{ alignItems: "center", paddingVertical: 8 }}
-              >
-                <Text style={s.hint}>
-                  Didn't receive a code?{" "}
-                  <Text style={{ color: colors.primary, fontWeight: "600" }}>Resend</Text>
-                </Text>
-              </TouchableOpacity>
+              {(step === "code" || secondFactorStrategy === "email_code") && (
+                <TouchableOpacity
+                  onPress={handleResend}
+                  disabled={loading}
+                  activeOpacity={0.7}
+                  style={{ alignItems: "center", paddingVertical: 8 }}
+                >
+                  <Text style={s.hint}>
+                    Didn't receive a code?{" "}
+                    <Text style={{ color: colors.primary, fontWeight: "600" }}>Resend</Text>
+                  </Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>
