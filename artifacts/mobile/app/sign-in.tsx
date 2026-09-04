@@ -68,6 +68,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<Step>("email");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [useDirectPasswordSignIn, setUseDirectPasswordSignIn] = useState(false);
   const [secondFactorStrategy, setSecondFactorStrategy] =
     useState<SecondFactorStrategy | null>(null);
   const [loading, setLoading] = useState(false);
@@ -159,6 +160,7 @@ export default function SignInScreen() {
 
     try {
       const si = await signIn!.create({ identifier: email.trim() });
+      setUseDirectPasswordSignIn(false);
       const factors = si.supportedFirstFactors ?? [];
       const emailFactor = factors.find((f: any) => f.strategy === "email_code") as any;
       const passwordFactor = factors.find((f: any) => f.strategy === "password") as any;
@@ -200,6 +202,7 @@ export default function SignInScreen() {
         // strand that user: the active attempt can still accept a password,
         // and the password screen also provides the reset-code escape hatch.
         setIsSignUp(false);
+        setUseDirectPasswordSignIn(true);
         setStep("password");
       }
     } catch (e: any) {
@@ -286,7 +289,13 @@ export default function SignInScreen() {
     setError("");
 
     try {
-      const result = await signIn!.attemptFirstFactor({ strategy: "password", password });
+      const result = useDirectPasswordSignIn
+        ? await signIn!.create({
+            identifier: email.trim(),
+            strategy: "password",
+            password,
+          })
+        : await signIn!.attemptFirstFactor({ strategy: "password", password });
       await continueSignIn(result);
     } catch (e: any) {
       const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Incorrect password. Please try again.";
@@ -442,6 +451,7 @@ export default function SignInScreen() {
     setStep("email");
     setCode("");
     setPassword("");
+    setUseDirectPasswordSignIn(false);
     setSecondFactorStrategy(null);
     setError("");
   };
