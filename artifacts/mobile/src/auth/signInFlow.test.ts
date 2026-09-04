@@ -1,16 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   attemptPasswordSignIn,
+  attemptResetPassword,
+  clerkErrorMessage,
   chooseFirstFactor,
   continueSignInResult,
   resendEmailSecondFactor,
+  resendResetPasswordCode,
+  startResetPassword,
 } from "./signInFlow";
 
 function mockSignIn() {
   return {
     create: vi.fn(),
     attemptFirstFactor: vi.fn(),
+    prepareFirstFactor: vi.fn(),
     prepareSecondFactor: vi.fn(),
+    supportedFirstFactors: undefined as
+      | Array<{ strategy?: string; emailAddressId?: string }>
+      | undefined,
     supportedSecondFactors: undefined as
       | Array<{ strategy?: string; emailAddressId?: string }>
       | undefined,
@@ -133,5 +141,87 @@ describe("mobile password sign-in flow", () => {
       strategy: "email_code",
       emailAddressId: "idn_2",
     });
+  });
+
+  it("starts reset-password email-code verification", async () => {
+    const signIn = mockSignIn();
+    signIn.create.mockResolvedValue({ status: "needs_first_factor" });
+
+    await startResetPassword(signIn, " worker@example.com ");
+
+    expect(signIn.create).toHaveBeenCalledWith({
+      strategy: "reset_password_email_code",
+      identifier: "worker@example.com",
+    });
+  });
+
+  it("resends the reset code with the reset factor email address id", async () => {
+    const signIn = mockSignIn();
+    signIn.supportedFirstFactors = [
+      { strategy: "email_code", emailAddressId: "idn_wrong" },
+      { strategy: "reset_password_email_code", emailAddressId: "idn_reset" },
+    ];
+
+    await resendResetPasswordCode(signIn);
+
+    expect(signIn.prepareFirstFactor).toHaveBeenCalledWith({
+      strategy: "reset_password_email_code",
+      emailAddressId: "idn_reset",
+    });
+  });
+
+  it("submits the reset code and continues a successful sign-in", async () => {
+    const signIn = mockSignIn();
+    const setActive = vi.fn();
+    signIn.attemptFirstFactor.mockResolvedValue({
+      status: "complete",
+      createdSessionId: "sess_reset",
+    });
+
+    const result = await attemptResetPassword({
+      signIn,
+      code: " 123456 ",
+      password: "new-secret-password",
+    });
+    const outcome = await continueSignInResult({ result, signIn, setActive });
+
+    expect(signIn.attemptFirstFactor).toHaveBeenCalledWith({
+      strategy: "reset_password_email_code",
+      code: "123456",
+      password: "new-secret-password",
+    });
+    expect(setActive).toHaveBeenCalledWith({ session: "sess_reset" });
+    expect(outcome).toEqual({ kind: "complete" });
+  });
+
+  it("preserves Clerk reset errors for the screen to display", async () => {
+    const signIn = mockSignIn();
+    const clerkError = {
+      errors: [{ longMessage: "That verification code has expired." }],
+    };
+    signIn.attemptFirstFactor.mockRejectedValue(clerkError);
+
+    await expect(
+      attemptResetPassword({
+        signIn,
+        code: "123456",
+        password: "new-secret-password",
+      }),
+    ).rejects.toBe(clerkError);
+    expect(
+      clerkErrorMessage(clerkError, "Could not reset your password. Please try again."),
+    ).toBe("That verification code has expired.");
+  });
+
+  it("uses Clerk's short message or the reset fallback when needed", () => {
+    expect(
+      clerkErrorMessage(
+        { errors: [{ message: "The code is incorrect." }] },
+        "Could not reset your password. Please try again.",
+      ),
+    ).toBe("The code is incorrect.");
+    expect(
+      clerkErrorMessage({}, "Could not reset your password. Please try again."),
+    ).toBe("Could not reset your password. Please try again.");
   });
 });

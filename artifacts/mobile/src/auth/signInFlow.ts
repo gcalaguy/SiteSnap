@@ -15,7 +15,9 @@ type SignInResult = {
 type SignInAttempt = {
   create(args: Record<string, unknown>): Promise<SignInResult>;
   attemptFirstFactor(args: Record<string, unknown>): Promise<SignInResult>;
+  prepareFirstFactor(args: Record<string, unknown>): Promise<unknown>;
   prepareSecondFactor(args: Record<string, unknown>): Promise<unknown>;
+  supportedFirstFactors?: Factor[] | null;
   supportedSecondFactors?: Factor[] | null;
 };
 
@@ -23,6 +25,11 @@ export type SignInContinuation =
   | { kind: "complete" }
   | { kind: "step"; step: SignInStep; secondFactorStrategy?: SecondFactorStrategy }
   | { kind: "error"; message: string };
+
+export function clerkErrorMessage(error: unknown, fallback: string) {
+  const first = (error as any)?.errors?.[0];
+  return first?.longMessage ?? first?.message ?? fallback;
+}
 
 export function chooseFirstFactor(factors: Factor[] | null | undefined) {
   const available = factors ?? [];
@@ -61,6 +68,39 @@ export async function attemptPasswordSignIn({
     });
   }
   return signIn.attemptFirstFactor({ strategy: "password", password });
+}
+
+export async function startResetPassword(signIn: SignInAttempt, email: string) {
+  return signIn.create({
+    strategy: "reset_password_email_code",
+    identifier: email.trim(),
+  });
+}
+
+export async function resendResetPasswordCode(signIn: SignInAttempt) {
+  const reset = signIn.supportedFirstFactors?.find(
+    (factor) => factor.strategy === "reset_password_email_code",
+  );
+  return signIn.prepareFirstFactor({
+    strategy: "reset_password_email_code",
+    emailAddressId: reset?.emailAddressId,
+  });
+}
+
+export async function attemptResetPassword({
+  signIn,
+  code,
+  password,
+}: {
+  signIn: SignInAttempt;
+  code: string;
+  password: string;
+}) {
+  return signIn.attemptFirstFactor({
+    strategy: "reset_password_email_code",
+    code: code.trim(),
+    password,
+  });
 }
 
 export async function continueSignInResult({

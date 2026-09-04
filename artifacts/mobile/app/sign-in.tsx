@@ -20,9 +20,13 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import {
   attemptPasswordSignIn,
+  attemptResetPassword,
+  clerkErrorMessage,
   chooseFirstFactor,
   continueSignInResult,
   resendEmailSecondFactor,
+  resendResetPasswordCode,
+  startResetPassword,
 } from "@/src/auth/signInFlow";
 
 // This Clerk instance requires a password on every account (instance-level
@@ -201,17 +205,10 @@ export default function SignInScreen() {
     setPassword("");
 
     try {
-      await signIn!.create({
-        strategy: "reset_password_email_code",
-        identifier: email.trim(),
-      });
+      await startResetPassword(signIn!, email);
       setStep("reset");
     } catch (e: any) {
-      setError(
-        e?.errors?.[0]?.longMessage ??
-          e?.errors?.[0]?.message ??
-          "Could not send a reset code. Please try again.",
-      );
+      setError(clerkErrorMessage(e, "Could not send a reset code. Please try again."));
     }
   };
 
@@ -233,17 +230,17 @@ export default function SignInScreen() {
     setError("");
 
     try {
-      const result = await signIn!.attemptFirstFactor({
-        strategy: "reset_password_email_code",
-        code: code.trim(),
+      const result = await attemptResetPassword({
+        signIn: signIn!,
+        code,
         password,
       });
       await continueSignIn(result);
     } catch (e: any) {
-      const errMsg =
-        e?.errors?.[0]?.longMessage ??
-        e?.errors?.[0]?.message ??
-        "Could not reset your password. Please try again.";
+      const errMsg = clerkErrorMessage(
+        e,
+        "Could not reset your password. Please try again.",
+      );
       setError(errMsg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -382,13 +379,7 @@ export default function SignInScreen() {
       } else if (step === "reset") {
         // Clerk needs the email address id even on a re-prepare; it is on the
         // factor entry that signIn.create populated.
-        const resetFactor = signIn!.supportedFirstFactors?.find(
-          (f: any) => f.strategy === "reset_password_email_code",
-        ) as any;
-        await signIn!.prepareFirstFactor({
-          strategy: "reset_password_email_code",
-          emailAddressId: resetFactor?.emailAddressId,
-        });
+        await resendResetPasswordCode(signIn!);
       } else if (isSignUp) {
         await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
       } else {
