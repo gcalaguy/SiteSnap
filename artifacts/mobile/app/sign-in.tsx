@@ -18,6 +18,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import {
+  attemptPasswordSignIn,
+  chooseFirstFactor,
+  continueSignInResult,
+  resendEmailSecondFactor,
+} from "@/src/auth/signInFlow";
 
 // This Clerk instance requires a password on every account (instance-level
 // `password: "required"`), so brand-new sign-ups must collect one — the old
@@ -97,58 +103,29 @@ export default function SignInScreen() {
   };
 
   const continueSignIn = async (result: any): Promise<boolean> => {
-    if (result.status === "complete" && result.createdSessionId) {
-      await setSignInActive!({ session: result.createdSessionId });
+    const outcome = await continueSignInResult({
+      result,
+      signIn: signIn!,
+      setActive: setSignInActive!,
+    });
+    if (outcome.kind === "complete") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return true;
     }
-
-    if (result.status === "needs_new_password") {
+    if (outcome.kind === "step" && outcome.step === "new-password") {
       setPassword("");
       setStep("new-password");
       return true;
     }
-
-    if (result.status === "needs_second_factor") {
-      const factors = result.supportedSecondFactors ?? [];
-      const emailCodeFactor = factors.find(
-        (factor: any) => factor.strategy === "email_code",
-      ) as any;
-      const totpFactor = factors.find((factor: any) => factor.strategy === "totp");
-      const backupCodeFactor = factors.find(
-        (factor: any) => factor.strategy === "backup_code",
-      );
-
+    if (outcome.kind === "step" && outcome.step === "second-code") {
       setCode("");
-      if (emailCodeFactor) {
-        await signIn!.prepareSecondFactor({
-          strategy: "email_code",
-          emailAddressId: emailCodeFactor.emailAddressId,
-        });
-        setSecondFactorStrategy("email_code");
-        setStep("second-code");
-        return true;
-      }
-      if (totpFactor) {
-        setSecondFactorStrategy("totp");
-        setStep("second-code");
-        return true;
-      }
-      if (backupCodeFactor) {
-        setSecondFactorStrategy("backup_code");
-        setStep("second-code");
-        return true;
-      }
-
-      setError("This account requires an additional verification method that the app does not support yet.");
-      return false;
+      setSecondFactorStrategy(outcome.secondFactorStrategy ?? null);
+      setStep("second-code");
+      return true;
     }
-
-    setError(
-      `Sign in could not continue${
-        result.status ? ` (${String(result.status).replaceAll("_", " ")})` : ""
-      }. Please go back and try again.`,
-    );
+    if (outcome.kind === "error") {
+      setError(outcome.message);
+    }
     return false;
   };
 
@@ -161,35 +138,27 @@ export default function SignInScreen() {
     try {
       const si = await signIn!.create({ identifier: email.trim() });
       setUseDirectPasswordSignIn(false);
-      const factors = si.supportedFirstFactors ?? [];
-      const emailFactor = factors.find((f: any) => f.strategy === "email_code") as any;
-      const passwordFactor = factors.find((f: any) => f.strategy === "password") as any;
-      const oauthFactor = factors.find((f: any) =>
-        typeof f?.strategy === "string" && f.strategy.startsWith("oauth_"),
-      ) as any;
-      const resetFactor = factors.find(
-        (f: any) => f.strategy === "reset_password_email_code",
-      ) as any;
+      const factorChoice = chooseFirstFactor(si.supportedFirstFactors as any);
 
       if (si.status === "complete" && si.createdSessionId) {
         await continueSignIn(si);
-      } else if (emailFactor) {
+      } else if (factorChoice.kind === "email") {
         await signIn!.prepareFirstFactor({
           strategy: "email_code",
-          emailAddressId: emailFactor.emailAddressId,
+          emailAddressId: factorChoice.factor.emailAddressId!,
         });
         setIsSignUp(false);
         setStep("code");
-      } else if (passwordFactor) {
+      } else if (factorChoice.kind === "password" && !factorChoice.direct) {
         setIsSignUp(false);
         setStep("password");
-      } else if (oauthFactor) {
+      } else if (factorChoice.kind === "oauth") {
         // Accounts created through a social provider on the web dashboard have
         // no password and no email_code factor — their only first factor is the
         // provider itself. Hand off to that provider instead of dead-ending.
         setIsSignUp(false);
-        await runSSO(oauthFactor.strategy as OAuthStrategy);
-      } else if (resetFactor) {
+        await runSSO(factorChoice.factor.strategy as OAuthStrategy);
+      } else if (factorChoice.kind === "reset") {
         // The account has a password but Clerk isn't offering it as a usable
         // first factor (e.g. the password was never set by the user, or the
         // email is unverified). Emailing a reset code is a real way in, so
@@ -289,13 +258,12 @@ export default function SignInScreen() {
     setError("");
 
     try {
-      const result = useDirectPasswordSignIn
-        ? await signIn!.create({
-            identifier: email.trim(),
-            strategy: "password",
-            password,
-          })
-        : await signIn!.attemptFirstFactor({ strategy: "password", password });
+      const result = await attemptPasswordSignIn({
+        signIn: signIn!,
+        direct: useDirectPasswordSignIn,
+        email,
+        password,
+      });
       await continueSignIn(result);
     } catch (e: any) {
       const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Incorrect password. Please try again.";
@@ -410,13 +378,7 @@ export default function SignInScreen() {
 
     try {
       if (step === "second-code" && secondFactorStrategy === "email_code") {
-        const emailFactor = signIn!.supportedSecondFactors?.find(
-          (factor: any) => factor.strategy === "email_code",
-        ) as any;
-        await signIn!.prepareSecondFactor({
-          strategy: "email_code",
-          emailAddressId: emailFactor?.emailAddressId,
-        });
+        await resendEmailSecondFactor(signIn!);
       } else if (step === "reset") {
         // Clerk needs the email address id even on a re-prepare; it is on the
         // factor entry that signIn.create populated.

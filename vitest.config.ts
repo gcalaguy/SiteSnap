@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react() as any],
   test: {
     include: [
-      "artifacts/mobile/src/utils/**/*.test.ts",
+      "artifacts/mobile/src/**/*.test.ts",
       "artifacts/api-server/tests/**/*.test.ts",
       "artifacts/web-dashboard/tests/**/*.test.tsx",
       "artifacts/web-dashboard/tests/**/*.test.ts",
