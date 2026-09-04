@@ -30,7 +30,12 @@ import { Feather } from "@expo/vector-icons";
 // Accounts created through a social provider on the web dashboard have neither
 // factor — their only first factor is the provider — so those hand off to
 // Clerk's SSO flow rather than dead-ending too.
-type Step = "email" | "code" | "password" | "signup-password";
+// Finally, "reset_password_email_code" is offered by this instance for any
+// account that has a password. It is both the escape hatch for a forgotten
+// password (the password step had no way out before) and the last resort when
+// no other first factor is usable, so it is wired up rather than left to a
+// "contact support" dead end.
+type Step = "email" | "code" | "password" | "signup-password" | "reset";
 
 // @clerk/types is not a direct dependency of this app, so derive the OAuth
 // strategy union from the hook itself rather than importing it. Extracting the
@@ -94,6 +99,9 @@ export default function SignInScreen() {
       const oauthFactor = factors.find((f: any) =>
         typeof f?.strategy === "string" && f.strategy.startsWith("oauth_"),
       ) as any;
+      const resetFactor = factors.find(
+        (f: any) => f.strategy === "reset_password_email_code",
+      ) as any;
 
       if (emailFactor) {
         await signIn!.prepareFirstFactor({
@@ -111,6 +119,13 @@ export default function SignInScreen() {
         // provider itself. Hand off to that provider instead of dead-ending.
         setIsSignUp(false);
         await runSSO(oauthFactor.strategy as OAuthStrategy);
+      } else if (resetFactor) {
+        // The account has a password but Clerk isn't offering it as a usable
+        // first factor (e.g. the password was never set by the user, or the
+        // email is unverified). Emailing a reset code is a real way in, so
+        // take it instead of dead-ending.
+        setIsSignUp(false);
+        await startReset();
       } else {
         const offered = factors.map((f: any) => f?.strategy).filter(Boolean).join(", ");
         setError(
@@ -129,6 +144,77 @@ export default function SignInScreen() {
       } else {
         setError(e?.errors?.[0]?.message ?? "Could not sign in.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sends a reset code and moves to the "reset" step. Passing `strategy` to
+  // signIn.create both creates the sign-in attempt and prepares the factor, so
+  // no separate prepareFirstFactor call is needed. Callers that already set
+  // `loading` (handleContinue) are fine — setLoading is idempotent and the
+  // finally block there clears it.
+  const startReset = async () => {
+    if (!signInLoaded || !email.trim()) return;
+    setError("");
+    setCode("");
+    setPassword("");
+
+    try {
+      await signIn!.create({
+        strategy: "reset_password_email_code",
+        identifier: email.trim(),
+      });
+      setStep("reset");
+    } catch (e: any) {
+      setError(
+        e?.errors?.[0]?.longMessage ??
+          e?.errors?.[0]?.message ??
+          "Could not send a reset code. Please try again.",
+      );
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (loading) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    try {
+      await startReset();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!signInLoaded || !code.trim() || !password) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signIn!.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: code.trim(),
+        password,
+      });
+      if (result.status === "complete") {
+        await setSignInActive!({ session: result.createdSessionId });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (result.status === "needs_second_factor") {
+        setError(
+          "This account has two-factor authentication turned on, which isn't supported in the app yet. Sign in on the web dashboard.",
+        );
+      } else {
+        setError("Password reset incomplete. Please try again.");
+      }
+    } catch (e: any) {
+      const errMsg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        "Could not reset your password. Please try again.";
+      setError(errMsg);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
@@ -217,7 +303,17 @@ export default function SignInScreen() {
     setCode("");
 
     try {
-      if (isSignUp) {
+      if (step === "reset") {
+        // Clerk needs the email address id even on a re-prepare; it is on the
+        // factor entry that signIn.create populated.
+        const resetFactor = signIn!.supportedFirstFactors?.find(
+          (f: any) => f.strategy === "reset_password_email_code",
+        ) as any;
+        await signIn!.prepareFirstFactor({
+          strategy: "reset_password_email_code",
+          emailAddressId: resetFactor?.emailAddressId,
+        });
+      } else if (isSignUp) {
         await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
       } else {
         const emailFactor = signIn!.supportedFirstFactors?.find(
@@ -471,6 +567,95 @@ export default function SignInScreen() {
                 ) : (
                   <Text style={s.buttonText}>Sign In</Text>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                disabled={loading}
+                activeOpacity={0.7}
+                style={{ alignItems: "center", paddingVertical: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Forgot password"
+                accessibilityHint="Emails you a code to set a new password"
+              >
+                <Text style={[s.hint, { color: colors.primary, fontWeight: "600" }]}>
+                  Forgot password?
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === "reset" && (
+            <>
+              <TouchableOpacity style={s.backButton} onPress={goBackToEmail}>
+                <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
+                <Text style={s.backText}>Back</Text>
+              </TouchableOpacity>
+
+              <Text style={s.formTitle}>Set a new password</Text>
+              <Text style={s.formSubtitle}>
+                Enter the 6-digit code sent to {email} and choose a new password
+              </Text>
+
+              {!!error && (
+                <View style={s.error}>
+                  <Text style={s.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Text style={s.label}>Verification code</Text>
+              <TextInput
+                style={s.input}
+                value={code}
+                onChangeText={setCode}
+                placeholder="000000"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="number-pad"
+                maxLength={6}
+                returnKeyType="next"
+                autoFocus
+              />
+
+              <Text style={s.label}>New password</Text>
+              <TextInput
+                style={s.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="At least 8 characters"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleReset}
+                returnKeyType="done"
+              />
+
+              <TouchableOpacity
+                style={[s.button, (!code.trim() || !password || loading) && { opacity: 0.5 }]}
+                onPress={handleReset}
+                disabled={!code.trim() || !password || loading}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Set new password and sign in"
+                accessibilityState={{ disabled: !code.trim() || !password || loading }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.buttonText}>Set Password & Sign In</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={loading}
+                activeOpacity={0.7}
+                style={{ alignItems: "center", paddingVertical: 8 }}
+              >
+                <Text style={s.hint}>
+                  Didn&apos;t receive a code?{" "}
+                  <Text style={{ color: colors.primary, fontWeight: "600" }}>Resend</Text>
+                </Text>
               </TouchableOpacity>
             </>
           )}

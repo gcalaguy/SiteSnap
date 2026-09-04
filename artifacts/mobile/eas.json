@@ -17,8 +17,11 @@
         "buildConfiguration": "Release",
         "simulator": false
       },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuc2l0ZXNuYXBkZW1vLnJlcGxpdC5hcHAk",
         "EXPO_PUBLIC_DOMAIN": "sitesnapdemo.replit.app"
       }
     },
@@ -30,7 +33,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuc2l0ZXNuYXBkZW1vLnJlcGxpdC5hcHAk",
         "EXPO_PUBLIC_DOMAIN": "sitesnapdemo.replit.app"
       }
     }

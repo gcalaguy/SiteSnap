@@ -26,7 +26,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import i18n, { setAppLanguage } from "@/src/i18n";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 import { setTokenGetter, setSignOut } from "@/utils/auth";
-import { reportClientError } from "@/utils/errorReporting";
+import { reportClientError, persistCrashReport, flushPendingCrashReport } from "@/utils/errorReporting";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider, useThemePreference } from "@/context/ThemeContext";
 import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
@@ -44,11 +44,72 @@ import { NoteQueueProvider } from "@/context/NoteQueueContext";
 const CLERK_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 
+// Register the API base URL at module scope, NOT in an effect. Every crash
+// that happens before RootLayoutNav's effects run (provider init, first
+// render, font loading) fires reportClientError — and with no base URL those
+// POSTs go to a relative "/api/..." path, which on a device resolves nowhere.
+// That is precisely the window a TestFlight crash-on-open lives in, so boot
+// telemetry must be wired before any component code executes.
+if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
+
 // On native we need both values baked in. On web the dev server injects them.
 const IS_NATIVE = Platform.OS !== "web";
 const missingClerkKey = IS_NATIVE && !CLERK_KEY;
 const missingDomain = IS_NATIVE && !API_DOMAIN;
-const hasMissingConfig = missingClerkKey || missingDomain;
+
+// A published *.replit.app deployment runs a Clerk *production* instance, and
+// its API server only accepts session tokens minted by that instance. A build
+// carrying a pk_test_ key authenticates against a completely separate Clerk
+// user directory, so every /api call comes back 401 — which the QueryCache
+// error handler below turns into an automatic sign-out. The symptom is an app
+// that opens, spins on every screen, then drops back to the login screen with
+// no explanation, while real accounts from the web dashboard cannot sign in at
+// all because they do not exist in the test directory. Fail loudly here
+// instead, where the cause is nameable: the fix is a rebuild, and no amount of
+// retrying in the app can work around it.
+const clerkInstanceMismatch =
+  IS_NATIVE &&
+  CLERK_KEY.startsWith("pk_test_") &&
+  /(^|\.)replit\.app$/i.test(API_DOMAIN);
+
+const hasMissingConfig = missingClerkKey || missingDomain || clerkInstanceMismatch;
+
+function ClerkInstanceMismatchScreen() {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  return (
+    <View style={cfgStyles.root}>
+      <ScrollView contentContainerStyle={cfgStyles.content}>
+        <Text style={cfgStyles.icon}>⚠️</Text>
+        <Text style={cfgStyles.title}>Wrong Auth Environment</Text>
+        <Text style={cfgStyles.body}>
+          This build signs in against a Clerk{" "}
+          <Text style={cfgStyles.code}>development</Text> instance, but{" "}
+          <Text style={cfgStyles.code}>{API_DOMAIN}</Text> is a published
+          deployment running a Clerk <Text style={cfgStyles.code}>production</Text>{" "}
+          instance. They are separate user directories, so accounts that work on
+          the web dashboard do not exist here and every API call is rejected.
+        </Text>
+        <Text style={cfgStyles.sectionLabel}>Baked into this build:</Text>
+        <Text style={cfgStyles.varRow}>
+          • EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = {CLERK_KEY.slice(0, 8)}…
+        </Text>
+        <Text style={cfgStyles.varRow}>• EXPO_PUBLIC_DOMAIN = {API_DOMAIN}</Text>
+        <Text style={cfgStyles.body}>
+          {"\n"}To fix, set the production key in{" "}
+          <Text style={cfgStyles.code}>eas.json</Text> (it starts with{" "}
+          <Text style={cfgStyles.code}>pk_live_</Text>, and must match the
+          dashboard&apos;s VITE_CLERK_PUBLISHABLE_KEY) and rebuild:{"\n"}
+          {"   "}eas build --profile production --platform ios{"\n"}
+          {"\n"}The key is compiled into the JS bundle at build time, so a
+          redeploy of the server alone will not change it.
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
 
 function MissingConfigScreen() {
   useEffect(() => {
@@ -119,13 +180,28 @@ const cfgStyles = StyleSheet.create({
 // before any JS runs that could throw.
 const _previousErrorHandler = ErrorUtils.getGlobalHandler();
 ErrorUtils.setGlobalHandler((error, isFatal) => {
-  reportClientError({
+  const payload = {
     logType: "CLIENT_EXCEPTION",
     message: error.message,
     stackTrace: error.stack,
     metadata: { source: "ErrorUtils", isFatal },
-  });
-  _previousErrorHandler(error, isFatal);
+  };
+  reportClientError(payload);
+
+  if (isFatal) {
+    // In a Release build the previous (default) handler terminates the process
+    // via RCTFatal, which would race — and usually beat — both the POST above
+    // and any storage write. Persist a breadcrumb first (re-sent by
+    // flushPendingCrashReport on the next launch), bounded by a short timeout
+    // so a broken AsyncStorage can never hold the crash handler hostage.
+    const proceed = () => _previousErrorHandler(error, isFatal);
+    Promise.race([
+      persistCrashReport(payload),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]).then(proceed, proceed);
+  } else {
+    _previousErrorHandler(error, isFatal);
+  }
 });
 
 const tokenCache = {
@@ -156,13 +232,8 @@ function RootLayoutNav() {
   const clerkSignOutRef = useRef(clerkSignOut);
   useEffect(() => { clerkSignOutRef.current = clerkSignOut; }, [clerkSignOut]);
 
-  // Configure base URL once on mount — it never changes between renders.
-  // API_DOMAIN is resolved at module scope from EXPO_PUBLIC_DOMAIN; on native
-  // it was baked in by `eas build`, on web it is injected by the dev server.
-  useEffect(() => {
-    if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
-    return () => setBaseUrl(null);
-  }, []);
+  // Base URL is registered at module scope (top of this file) so boot-time
+  // crash reports can reach the server before any effect runs.
 
   // Register auth getter once — uses ref to always call the latest getToken.
   // Mirroring the web dashboard's ClerkAuthTokenSetter pattern (useLayoutEffect +
@@ -424,6 +495,10 @@ function AppRoot() {
   });
 
   useEffect(() => {
+    // If the previous launch died in a fatal JS crash, the breadcrumb it
+    // persisted is the only record — send it before anything else can crash.
+    flushPendingCrashReport();
+
     let stop: (() => void) | undefined;
     hydrateQueryCache(queryClient).finally(() => {
       stop = startCachePersistence(queryClient);
@@ -465,6 +540,7 @@ export default function RootLayout() {
   // Guard: if EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY or EXPO_PUBLIC_DOMAIN were not
   // baked into the native bundle at EAS build time, show a diagnostic screen
   // instead of crashing silently or spinning forever.
+  if (clerkInstanceMismatch) return <ClerkInstanceMismatchScreen />;
   if (hasMissingConfig) return <MissingConfigScreen />;
   return <AppRoot />;
 }

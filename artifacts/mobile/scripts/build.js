@@ -141,7 +141,34 @@ function getExpoPublicReplId() {
   return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
 }
 
-async function startMetro(expoPublicDomain, expoPublicReplId) {
+// The Clerk publishable key is inlined into the JS bundle by babel-preset-expo
+// at bundle time — it is not read at runtime. A published *.replit.app domain
+// is served by a Clerk *production* instance whose API server rejects tokens
+// from any other instance, so a bundle built with a pk_test_ key produces an
+// app that signs in against the wrong user directory and then 401s on every
+// API call. Surface that here rather than shipping a bundle that can only fail.
+function getClerkPublishableKey(domain) {
+  const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+
+  if (!key) {
+    console.warn(
+      "WARNING: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. The bundle will " +
+        "boot straight into the 'App Not Configured' screen.",
+    );
+  } else if (key.startsWith("pk_test_") && /\.replit\.app$/i.test(domain)) {
+    console.warn(
+      `WARNING: building against the published domain ${domain} with a Clerk ` +
+        "development key (pk_test_…). That deployment runs a Clerk production " +
+        "instance, which is a separate user directory and will reject every " +
+        "token this bundle mints — the app will load, spin, and log itself out. " +
+        "Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to the matching pk_live_… key.",
+    );
+  }
+
+  return key;
+}
+
+async function startMetro(expoPublicDomain, expoPublicReplId, clerkPublishableKey) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
     console.log("Metro already running");
@@ -154,6 +181,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkPublishableKey,
   };
 
   if (expoPublicReplId) {
@@ -531,13 +559,14 @@ async function main() {
 
   const domain = getDeploymentDomain();
   const expoPublicReplId = getExpoPublicReplId();
+  const clerkPublishableKey = getClerkPublishableKey(domain);
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
 
   prepareDirectories(timestamp);
   clearMetroCache();
 
-  await startMetro(domain, expoPublicReplId);
+  await startMetro(domain, expoPublicReplId, clerkPublishableKey);
 
   const downloadTimeout = 600000;
   const downloadPromise = downloadBundlesAndManifests(timestamp);
