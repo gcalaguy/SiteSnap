@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Alert, Linking } from "react-native";
 import {
   useAudioRecorder,
@@ -16,6 +16,7 @@ export interface UseVoiceRecorderReturn {
   state: VoiceState;
   error: string | null;
   toggle: () => Promise<void>;
+  cancel: () => Promise<void>;
 }
 
 export function useVoiceRecorder(
@@ -23,6 +24,17 @@ export function useVoiceRecorder(
 ): UseVoiceRecorderReturn {
   const [state, setState] = useState<VoiceState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const cancelledRef = useRef(false);
+  const mountedRef = useRef(true);
+  const recordingStartedRef = useRef(false);
+  const stopPromiseRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      cancelledRef.current = true;
+    };
+  }, []);
 
   // Keep a stable ref to the latest callback so stopAndTranscribe never
   // needs to be recreated just because the parent re-rendered.
@@ -35,13 +47,28 @@ export function useVoiceRecorder(
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
+  const stopRecording = useCallback(async () => {
+    if (!recordingStartedRef.current && !stopPromiseRef.current) return;
+
+    if (!stopPromiseRef.current) {
+      stopPromiseRef.current = recorder.stop().finally(() => {
+        recordingStartedRef.current = false;
+        stopPromiseRef.current = null;
+      });
+    }
+
+    await stopPromiseRef.current;
+  }, [recorder]);
+
   const startRecording = useCallback(async () => {
+    cancelledRef.current = false;
     setError(null);
     recordingUriRef.current = null;
     console.log("[voiceRecorder] startRecording called");
 
     const { granted } = await requestRecordingPermissionsAsync();
     console.log("[voiceRecorder] permission granted:", granted);
+    if (cancelledRef.current || !mountedRef.current) return;
     if (!granted) {
       setError("Microphone permission denied. Enable it in device settings.");
       Alert.alert(
@@ -57,14 +84,20 @@ export function useVoiceRecorder(
 
     try {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      if (cancelledRef.current || !mountedRef.current) return;
       await recorder.prepareToRecordAsync();
+      if (cancelledRef.current || !mountedRef.current) return;
       recorder.record();
+      recordingStartedRef.current = true;
       // Capture URI immediately after prepare — it is set here and may be
       // cleared on the native side once stop() is called.
       recordingUriRef.current = recorder.uri;
       console.log("[voiceRecorder] recording started, uri:", recordingUriRef.current);
-      setState("recording");
+      if (mountedRef.current && !cancelledRef.current) {
+        setState("recording");
+      }
     } catch (err) {
+      if (cancelledRef.current || !mountedRef.current) return;
       const msg = err instanceof Error ? err.message : "Could not start recording";
       console.error("[voiceRecorder] startRecording error:", msg);
       setError(msg);
@@ -74,7 +107,9 @@ export function useVoiceRecorder(
   // stopAndTranscribe only depends on recorder (stable) — onTranscript is
   // accessed via ref so this callback is never recreated on every parent render.
   const stopAndTranscribe = useCallback(async () => {
-    setState("transcribing");
+    if (mountedRef.current) {
+      setState("transcribing");
+    }
     console.log("[voiceRecorder] stopAndTranscribe called");
 
     try {
@@ -83,7 +118,8 @@ export function useVoiceRecorder(
       const uri = recordingUriRef.current ?? recorder.uri;
       console.log("[voiceRecorder] uri before stop:", uri);
 
-      await recorder.stop();
+      await stopRecording();
+      if (cancelledRef.current || !mountedRef.current) return;
 
       // Belt-and-suspenders: also check after stop in case the platform sets
       // it post-finalization (Android behaviour on some versions).
@@ -112,6 +148,7 @@ export function useVoiceRecorder(
         () => setState("waiting"),
       );
       console.log("[voiceRecorder] transcribe result:", result);
+      if (cancelledRef.current || !mountedRef.current) return;
 
       const transcript = result.text?.trim() ?? "";
       if (!transcript) {
@@ -121,14 +158,41 @@ export function useVoiceRecorder(
       // of leaving the sheet stuck on "Working on it…"
       onTranscriptRef.current(transcript);
     } catch (err) {
+      if (cancelledRef.current || !mountedRef.current) return;
       const msg = getAiErrorMessage(err, "Transcription failed. Please try again.");
       console.error("[voiceRecorder] transcribe error:", msg);
       setError(msg);
       onTranscriptRef.current("");
     } finally {
-      setState("idle");
+      if (mountedRef.current) {
+        setState("idle");
+      }
     }
-  }, [recorder]);
+  }, [recorder, stopRecording]);
+
+  const cancel = useCallback(async () => {
+    cancelledRef.current = true;
+    recordingUriRef.current = null;
+
+    if (recordingStartedRef.current || stopPromiseRef.current) {
+      try {
+        await stopRecording();
+      } catch (err) {
+        console.warn("[voiceRecorder] cancel stop error:", err);
+      }
+    }
+
+    try {
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    } catch (err) {
+      console.warn("[voiceRecorder] cancel audio-mode error:", err);
+    }
+
+    if (mountedRef.current) {
+      setState("idle");
+      setError(null);
+    }
+  }, [stopRecording]);
 
   const toggle = useCallback(async () => {
     if (state === "idle") {
@@ -138,5 +202,5 @@ export function useVoiceRecorder(
     }
   }, [state, startRecording, stopAndTranscribe]);
 
-  return { state, error, toggle };
+  return { state, error, toggle, cancel };
 }

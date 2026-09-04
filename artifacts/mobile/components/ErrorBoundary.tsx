@@ -1,5 +1,7 @@
 import { Component, type ReactNode } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { reloadAppAsync } from "expo";
+import * as SplashScreen from "expo-splash-screen";
 import { reportClientError } from "@/utils/errorReporting";
 
 interface Props {
@@ -30,6 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
+    void SplashScreen.hideAsync().catch(() => {});
     console.error("[ErrorBoundary]", error, info.componentStack);
     reportClientError({
       logType: "CLIENT_EXCEPTION",
@@ -40,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    void reloadAppAsync();
   };
 
   render() {

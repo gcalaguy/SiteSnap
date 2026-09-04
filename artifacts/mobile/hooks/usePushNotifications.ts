@@ -33,7 +33,7 @@ function routeForNotification(router: Router, data: PushNotificationData, viewAs
  */
 export function usePushNotifications(enabled: boolean) {
   const router = useRouter();
-  const perms = usePermissions();
+  const perms = usePermissions(enabled);
   const registeredRef = useRef(false);
 
   useEffect(() => {

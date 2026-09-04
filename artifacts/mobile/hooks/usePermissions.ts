@@ -33,11 +33,17 @@ const ALL_FALSE: Record<PermissionKey, boolean> = Object.fromEntries(
 
 export type PermissionKey = keyof typeof ALL_TRUE;
 
-export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: boolean } {
-  const { data: me, isLoading } = useGetMe();
+export function usePermissions(enabled = true): Record<PermissionKey, boolean> & { isLoading: boolean } {
+  const { data: me, isLoading } = useGetMe({
+    // The generated hook supplies queryKey internally, but its public type
+    // currently marks that field as required.
+    query: { enabled } as any,
+  });
 
   // While loading or unauthenticated, deny everything (fail-closed)
-  if (isLoading || !me) return { ...ALL_FALSE, isLoading: isLoading ?? true };
+  if (!enabled || isLoading || !me) {
+    return { ...ALL_FALSE, isLoading: enabled ? isLoading : false };
+  }
 
   // Owners always see everything
   if (me.role === "owner") return { ...ALL_TRUE, isLoading: false };

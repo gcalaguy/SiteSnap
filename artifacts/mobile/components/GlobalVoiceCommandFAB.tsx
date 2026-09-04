@@ -116,7 +116,15 @@ function fuzzyMatch(query: string, candidates: string[]): string | null {
   return bestScore >= 0.5 ? bestCandidate : null;
 }
 
-export function GlobalVoiceCommandFAB() {
+interface ActiveVoiceCommandFABProps {
+  autoStart: boolean;
+  onDeactivate: () => void;
+}
+
+function ActiveVoiceCommandFAB({
+  autoStart,
+  onDeactivate,
+}: ActiveVoiceCommandFABProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -128,7 +136,7 @@ export function GlobalVoiceCommandFAB() {
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoStart);
   const [fabState, setFabState] = useState<FabState>("idle");
   const [transcript, setTranscript] = useState<string>("");
   const [results, setResults] = useState<ResultLine[]>([]);
@@ -798,6 +806,13 @@ export function GlobalVoiceCommandFAB() {
     setResults([]);
     executor.execute(text, activeProjectName, projectList.map((p) => p.name));
   });
+  const autoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    void voice.toggle();
+  }, [autoStart, voice.toggle]);
 
   useEffect(() => {
     if (voice.error) {
@@ -838,12 +853,15 @@ export function GlobalVoiceCommandFAB() {
       if (voice.state === "recording") {
         await voice.toggle(); // stops & transcribes
       } else {
+        await voice.cancel();
         setOpen(false);
+        onDeactivate();
       }
     }
-  }, [open, voice]);
+  }, [open, voice, onDeactivate]);
 
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
+    await voice.cancel();
     setOpen(false);
     setFabState("idle");
     setTranscript("");
@@ -855,7 +873,8 @@ export function GlobalVoiceCommandFAB() {
     pickRejectRef.current = null;
     executor.reset();
     pulseAnim.setValue(1);
-  }, [executor, pulseAnim]);
+    onDeactivate();
+  }, [executor, onDeactivate, pulseAnim, voice]);
 
   // Let other screens (Capture tab, Home's voice button) open this same
   // sheet + start recording, instead of duplicating the voice pipeline.
@@ -1196,6 +1215,58 @@ export function GlobalVoiceCommandFAB() {
   );
 }
 
+/**
+ * Keep expo-audio's useAudioRecorder out of the launch path. On iOS New
+ * Architecture the hook initializes AVAudioSession when its component mounts,
+ * which can terminate a release build before React can display an error. The
+ * lightweight launcher mounts the recorder-backed implementation only after a
+ * deliberate user action.
+ */
+export function GlobalVoiceCommandFAB() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [active, setActive] = useState(false);
+
+  const activate = useCallback(() => setActive(true), []);
+
+  useEffect(() => {
+    if (active) return;
+    setVoiceFabHandler(activate);
+    return () => setVoiceFabHandler(null);
+  }, [active, activate]);
+
+  if (active) {
+    return (
+      <ActiveVoiceCommandFAB
+        autoStart
+        onDeactivate={() => setActive(false)}
+      />
+    );
+  }
+
+  return (
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 50 }]}>
+      <Pressable
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Voice command"
+        accessibilityHint="Tap to start recording a voice command"
+        onPress={activate}
+        style={[
+          styles.dormantFab,
+          {
+            right: FAB_EDGE_MARGIN,
+            bottom: (Platform.OS === "ios" ? insets.bottom + 70 : insets.bottom + 80),
+            backgroundColor: colors.primary,
+          },
+        ]}
+      >
+        <Feather name="mic" size={24} color="#FFFFFF" />
+      </Pressable>
+    </View>
+  );
+}
+
 // HINTS — quick example commands shown when the sheet is idle
 
 const HINTS = [
@@ -1216,6 +1287,19 @@ const HINTS = [
 ];
 
 const styles = StyleSheet.create({
+  dormantFab: {
+    position: "absolute",
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   fab: {
     position: "absolute",
     top: 0,

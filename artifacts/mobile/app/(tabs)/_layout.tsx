@@ -1,57 +1,12 @@
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useThemePreference } from "@/context/ThemeContext";
 import { fontFamily } from "@/constants/theme";
-
-function NativeTabLayout() {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  return (
-    <View style={{ flex: 1 }}>
-      <NativeTabs>
-        <NativeTabs.Trigger name="(home)">
-          <Icon sf={{ default: "house", selected: "house.fill" }} />
-          <Label>Home</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="projects">
-          <Icon sf={{ default: "folder", selected: "folder.fill" }} />
-          <Label>Projects</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="tools">
-          <Icon sf={{ default: "wrench.and.screwdriver", selected: "wrench.and.screwdriver.fill" }} />
-          <Label>Browse Tools</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile">
-          <Icon sf={{ default: "person", selected: "person.fill" }} />
-          <Label>Profile</Label>
-        </NativeTabs.Trigger>
-
-        {/* risk/inspect/safety/tradehub/admin-hub are NOT registered here.
-            NativeTabs excludes any Trigger marked `hidden` from its rendered
-            screen set entirely (see native-tabs/NativeBottomTabs/utils.js
-            shouldTabBeVisible), not just from the tab bar strip — so a
-            "hidden" Trigger can never be navigated to on Liquid-Glass
-            devices, it just silently no-ops. Those screens now live as
-            plain Stack.Screen routes at the app root (app/_layout.tsx)
-            instead, which has no such limitation. */}
-      </NativeTabs>
-    </View>
-  );
-}
 
 function ClassicTabLayout() {
   const colors = useColors();
@@ -126,17 +81,6 @@ function ClassicTabLayout() {
   );
 }
 
-// TEMPORARY diagnostic override — TestFlight crash-on-open audit, 2026-08-18.
-// Forces ClassicTabLayout on every device (including Liquid Glass-capable
-// ones) to isolate whether expo-glass-effect / expo-router's
-// unstable-native-tabs is the crash trigger. Ship one production build with
-// this forced off; if the crash disappears, NativeTabLayout is implicated.
-// Revert by restoring `if (isLiquidGlassAvailable())` below once confirmed.
-const FORCE_CLASSIC_TABS_DIAGNOSTIC = true;
-
 export default function TabLayout() {
-  if (!FORCE_CLASSIC_TABS_DIAGNOSTIC && isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
   return <ClassicTabLayout />;
 }

@@ -178,6 +178,7 @@ function RootLayoutNav() {
   const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useAuth();
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
+  const [authReady, setAuthReady] = useState(false);
 
   // Keep a stable ref to the latest getToken so we can register the setter
   // once (no cleanup/re-register cycle) while always calling the freshest token.
@@ -201,6 +202,7 @@ function RootLayoutNav() {
     };
     setAuthTokenGetter(getter);
     setTokenGetter(getter);
+    setAuthReady(true);
     return () => {
       setAuthTokenGetter(null);
       setTokenGetter(async () => null);
@@ -223,8 +225,9 @@ function RootLayoutNav() {
   // Always fetch once Clerk is loaded and user is signed in so the query
   // observer is active and invalidateQueries/refetchQueries can actually fire.
   const { data: me, isLoading: meLoading, isFetching: meFetching } = useGetMe({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    query: { enabled: isLoaded && !!isSignedIn } as any,
+    // The generated hook's query option incorrectly requires queryKey even
+    // though it injects its own key internally.
+    query: { enabled: authReady && isLoaded && !!isSignedIn } as any,
   });
 
   // Phase 3: Set tenant id getter for x-tenant-id header on API requests
@@ -247,7 +250,7 @@ function RootLayoutNav() {
   // Registers the push token (backend endpoint already existed, unused) and
   // routes to the relevant screen on notification tap. Same readiness gate
   // as GlobalVoiceCommandFAB below.
-  usePushNotifications(!!isSignedIn && synced);
+  usePushNotifications(authReady && !!isSignedIn && synced);
 
   const router = useRouter();
   const segments = useSegments();
@@ -275,7 +278,7 @@ function RootLayoutNav() {
 
   // Auto-sync DB user when Clerk session is available
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUser || syncedRef.current) return;
+    if (!authReady || !isLoaded || !isSignedIn || !clerkUser || syncedRef.current) return;
     syncedRef.current = true;
     syncUser.mutate(
       {
@@ -300,7 +303,7 @@ function RootLayoutNav() {
         },
       },
     );
-  }, [isLoaded, isSignedIn, clerkUser]);
+  }, [authReady, isLoaded, isSignedIn, clerkUser]);
 
   // Reset sync state when user signs out
   useEffect(() => {
@@ -314,11 +317,11 @@ function RootLayoutNav() {
   // Keep this above the routing effect so it can gate navigation.
   // TODO: Re-enable terms and conditions
   const needsTerms = false; // !!me && !me.termsAcceptedAt;
+  const inSignIn = segments[0] === "sign-in";
+  const inOnboarding = segments[0] === "onboarding";
 
   useEffect(() => {
     if (!isLoaded) return;
-    const inSignIn = segments[0] === "sign-in";
-    const inOnboarding = segments[0] === "onboarding";
 
     if (!isSignedIn) {
       if (!inSignIn) router.replace("/sign-in");
@@ -343,6 +346,13 @@ function RootLayoutNav() {
     }
   }, [isSignedIn, isLoaded, segments, me, meLoading, meFetching, synced, router, needsTerms]);
 
+  // Do not mount any routed screen until the shared API client can obtain a
+  // Clerk token. Child screens start their own queries on mount, so disabling
+  // only this layout's /me query still leaves a release-timing 401 race.
+  if (!authReady) {
+    return null;
+  }
+
   return (
     <KeyboardProvider>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
@@ -350,8 +360,8 @@ function RootLayoutNav() {
       <View style={{ flex: 1 }}>
         <ErrorBoundary>
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Protected guard={!!isSignedIn}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
@@ -364,11 +374,8 @@ function RootLayoutNav() {
         <Stack.Screen name="hours" options={{ headerShown: false }} />
         <Stack.Screen name="contacts" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-post/[id]" options={{ headerShown: false }} />
-        {/* Reachable from tiles/menus but not persistent bottom-tab items — must live
-            here, not inside (tabs), because NativeTabs (Liquid Glass devices) excludes
-            any Trigger marked `hidden` from its rendered screen set entirely, not just
-            from the tab bar strip, so router.push to a hidden NativeTabs child silently
-            no-ops. A plain Stack screen has no such limitation. */}
+        {/* Reachable from tiles/menus but not persistent bottom-tab items. Keep
+            these as root stack routes so they remain outside the four-item tab bar. */}
         <Stack.Screen name="tasks" options={{ headerShown: false }} />
         <Stack.Screen name="capture" options={{ headerShown: false }} />
         <Stack.Screen name="risk" options={{ headerShown: false }} />
@@ -395,13 +402,11 @@ function RootLayoutNav() {
         <Stack.Screen name="vault" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-jobs" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-messages" options={{ headerShown: false }} />
+        </Stack.Protected>
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       </Stack>
-        {/* Only mount the FAB after the user is authenticated and synced.
-            GlobalVoiceCommandFAB calls useAudioRecorder (expo-audio) which
-            initialises AVAudioSession on mount. On iOS with New Architecture
-            this crashes the native runtime when called before auth is ready.
-            Keeping the FAB inside ErrorBoundary means a future FAB crash
-            degrades gracefully instead of killing the whole layout. */}
+        {/* The lightweight launcher is safe after auth sync; its recorder-backed
+            child does not mount until the user deliberately starts voice input. */}
         {isSignedIn && synced && <GlobalVoiceCommandFAB />}
         </ErrorBoundary>
     </View>
