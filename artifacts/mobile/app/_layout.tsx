@@ -44,14 +44,6 @@ import { NoteQueueProvider } from "@/context/NoteQueueContext";
 const CLERK_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 
-// Register the API base URL at module scope, NOT in an effect. Every crash
-// that happens before RootLayoutNav's effects run (provider init, first
-// render, font loading) fires reportClientError — and with no base URL those
-// POSTs go to a relative "/api/..." path, which on a device resolves nowhere.
-// That is precisely the window a TestFlight crash-on-open lives in, so boot
-// telemetry must be wired before any component code executes.
-if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
-
 // On native we need both values baked in. On web the dev server injects them.
 const IS_NATIVE = Platform.OS !== "web";
 const missingClerkKey = IS_NATIVE && !CLERK_KEY;
@@ -110,6 +102,17 @@ function ClerkInstanceMismatchScreen() {
     </View>
   );
 }
+
+// Configure the API base URL here rather than in an effect: components issue
+// their first queries during the initial render, before any effect runs, and a
+// request sent without a base URL resolves as a relative path against whatever
+// server delivered the bundle instead of the API.
+//
+// The same applies to crash telemetry: reportClientError POSTs to /api/... too,
+// and every crash during provider init, first render, or font loading happens
+// before any effect has run. Without this, a TestFlight crash-on-open could
+// never report itself — which is why one went undiagnosed across three builds.
+if (API_DOMAIN) setBaseUrl(`https://${API_DOMAIN}`);
 
 function MissingConfigScreen() {
   useEffect(() => {
@@ -231,9 +234,6 @@ function RootLayoutNav() {
   useEffect(() => { queryClientRef.current = queryClient; }, [queryClient]);
   const clerkSignOutRef = useRef(clerkSignOut);
   useEffect(() => { clerkSignOutRef.current = clerkSignOut; }, [clerkSignOut]);
-
-  // Base URL is registered at module scope (top of this file) so boot-time
-  // crash reports can reach the server before any effect runs.
 
   // Register auth getter once — uses ref to always call the latest getToken.
   // Mirroring the web dashboard's ClerkAuthTokenSetter pattern (useLayoutEffect +

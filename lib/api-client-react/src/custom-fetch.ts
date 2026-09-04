@@ -358,6 +358,17 @@ async function parseSuccessBody(
     return null;
   }
 
+  // An HTML page from a JSON API is never valid data — it means the request was
+  // misrouted (a relative URL hitting the dev server, a proxy or tunnel error
+  // page, a captive portal). Without this guard the markup is returned as
+  // `data`, reaches components that expect an array, and is written to the
+  // offline cache as a "successful" result, so every later launch rehydrates it
+  // and keeps crashing long after the network problem is gone.
+  if (responseType === "auto" && getMediaType(response.headers) === "text/html") {
+    const body = await response.text().catch(() => null);
+    throw new ApiError(response, body, requestInfo);
+  }
+
   const effectiveType =
     responseType === "auto" ? inferResponseType(response) : responseType;
 

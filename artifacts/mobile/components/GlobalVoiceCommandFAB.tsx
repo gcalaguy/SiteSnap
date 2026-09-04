@@ -150,7 +150,7 @@ export function GlobalVoiceCommandFAB() {
   ).current;
 
   const projectList = useMemo(
-    () => (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
+    () => (Array.isArray(projects) ? projects : []).map((p) => ({ id: p.id, name: p.name })),
     [projects]
   );
 

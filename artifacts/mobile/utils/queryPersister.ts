@@ -1,7 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient } from "@tanstack/react-query";
 
-const CACHE_KEY = "rq_offline_cache_v2";
+// Bumped to v3: earlier builds could persist an HTML error page as a successful
+// result, and installing an update does not clear AsyncStorage — without a new
+// key those devices would rehydrate the poisoned cache and keep crashing on the
+// fixed build too. Superseded keys are deleted on first run below.
+const CACHE_KEY = "rq_offline_cache_v3";
+const LEGACY_CACHE_KEYS = ["rq_offline_cache_v2", "rq_offline_cache"];
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PERSIST_INTERVAL_MS = 15_000;
 // M-SC2 fix: cap total cache size to stay safely under AsyncStorage's ~6 MB limit
@@ -26,6 +31,7 @@ interface PersistedCache {
 
 export async function hydrateQueryCache(queryClient: QueryClient): Promise<void> {
   try {
+    await AsyncStorage.multiRemove(LEGACY_CACHE_KEYS).catch(() => {});
     const raw = await AsyncStorage.getItem(CACHE_KEY);
     if (!raw) return;
     const parsed: PersistedCache = JSON.parse(raw);
@@ -34,6 +40,11 @@ export async function hydrateQueryCache(queryClient: QueryClient): Promise<void>
       return;
     }
     for (const entry of parsed.entries) {
+      // Never restore a markup payload: it is an error page that was mistaken
+      // for data, and screens expecting an array crash on it.
+      if (typeof entry.data === "string" && entry.data.trimStart().startsWith("<")) {
+        continue;
+      }
       const existing = queryClient.getQueryState(entry.queryKey);
       if (existing?.status !== "success") {
         queryClient.setQueryData(entry.queryKey, entry.data);
